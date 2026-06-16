@@ -1619,7 +1619,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
   const qc = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [logValues, setLogValues] = useState<Record<number, string>>({});
-  const [savingAll, setSavingAll] = useState(false);
+  const [savingKpi, setSavingKpi] = useState<Record<number, boolean>>({});
 
   // Memoize today's date to prevent recreating it on every render
   const todayDateString = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -1646,29 +1646,23 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
     setLogValues(init);
   }, [dailyData]);
 
-  // حفظ كل الـ manual KPIs دفعة واحدة وقفل اليوم
-  const handleSaveAll = async (manualKpis: DailyKpiEntry[]) => {
-    for (const kpi of manualKpis) {
-      const val = parseFloat(logValues[kpi.id] ?? "");
-      if (isNaN(val)) {
-        toast({ title: "خطأ", description: `أدخل قيمة لـ "${kpi.name}"`, variant: "destructive" });
-        return;
-      }
+  // حفظ وقفل مؤشر واحد
+  const handleSaveOne = async (kpi: DailyKpiEntry) => {
+    const val = parseFloat(logValues[kpi.id] ?? "");
+    if (isNaN(val)) {
+      toast({ title: "خطأ", description: `أدخل قيمة لـ "${kpi.name}"`, variant: "destructive" });
+      return;
     }
-    setSavingAll(true);
+    setSavingKpi(s => ({ ...s, [kpi.id]: true }));
     try {
-      await Promise.all(
-        manualKpis.map(kpi =>
-          employeeApi.saveDailyLog({ profileId, kpiId: kpi.id, date: selectedDate, value: parseFloat(logValues[kpi.id]) })
-        )
-      );
+      await employeeApi.saveDailyLog({ profileId, kpiId: kpi.id, date: selectedDate, value: val });
       qc.invalidateQueries({ queryKey: ["employee-daily-logs", profileId, selectedDate] });
       qc.invalidateQueries({ queryKey: ["employee-week-logs", profileId, selectedDate] });
-      toast({ title: "✅ تم الحفظ وقفل اليوم", description: "سيُفتح التسجيل غداً تلقائياً" });
+      toast({ title: `✅ تم حفظ "${kpi.name}"`, description: "تم تسجيل وقفل المؤشر" });
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     } finally {
-      setSavingAll(false);
+      setSavingKpi(s => ({ ...s, [kpi.id]: false }));
     }
   };
 
@@ -1705,12 +1699,10 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
         </div>
       )}
 
-      {/* ─── Manual KPIs Section (grouped with one lock button) ─── */}
+      {/* ─── Manual KPIs Section (زرار لكل مؤشر) ─── */}
       {(() => {
         const manualKpis = (dailyData?.kpis ?? []).filter(k => k.metric === "manual");
         const isTodayDate = selectedDate === todayDateString;
-        const anyLocked = isTodayDate && manualKpis.some(k => (k as any).todayValue !== null && (k as any).todayValue !== undefined);
-        const allLocked = isTodayDate && manualKpis.length > 0 && manualKpis.every(k => (k as any).todayValue !== null && (k as any).todayValue !== undefined);
 
         if (manualKpis.length === 0) return null;
         return (
@@ -1718,6 +1710,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
             <p className="text-xs font-bold text-muted-foreground">المؤشرات اليدوية</p>
             {manualKpis.map(kpi => {
               const todayValue = (kpi as any).todayValue as number | null;
+              const isLocked = todayValue !== null && todayValue !== undefined;
               const dailyTargetSimple = Math.max(1, Math.round(kpi.targetValue / 30));
               const todayActual = todayValue ?? 0;
               const rawPct = dailyTargetSimple > 0 ? Math.min(100, (todayActual / dailyTargetSimple) * 100) : 0;
@@ -1751,40 +1744,39 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                       <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(dailyTargetSimple)} {kpi.unit}</span></span>
                       <span className="text-muted-foreground/50">الهدف الشهري: {fmtNum(kpi.targetValue)} {kpi.unit}</span>
                     </div>
-                    {/* input per KPI — hidden if locked */}
-                    {!allLocked && (
-                      <Input
-                        type="number"
-                        min="0"
-                        value={logValues[kpi.id] ?? ""}
-                        onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
-                        placeholder={`قيمة اليوم (${kpi.unit})`}
-                        className="h-7 text-xs"
-                      />
+                    {/* Input + زرار حفظ لكل مؤشر */}
+                    {isTodayDate && (
+                      isLocked ? (
+                        <div className="flex items-center gap-2 h-8 px-3 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span>تم تسجيل وقفل هذا المؤشر</span>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={logValues[kpi.id] ?? ""}
+                            onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
+                            placeholder={`قيمة اليوم (${kpi.unit})`}
+                            className="h-8 text-xs flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs shrink-0"
+                            disabled={savingKpi[kpi.id] || !logValues[kpi.id]}
+                            onClick={() => handleSaveOne(kpi)}
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                            {savingKpi[kpi.id] ? "حفظ..." : "حفظ وقفل"}
+                          </Button>
+                        </div>
+                      )
                     )}
                   </CardContent>
                 </Card>
               );
             })}
-
-            {/* Single Save & Lock button for today */}
-            {isTodayDate && (
-              allLocked ? (
-                <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>تم تسجيل وقفل اليوم — سيُفتح غداً تلقائياً</span>
-                </div>
-              ) : (
-                <Button
-                  className="w-full gap-2"
-                  disabled={savingAll || manualKpis.some(k => !logValues[k.id])}
-                  onClick={() => handleSaveAll(manualKpis)}
-                >
-                  <Lock className="w-4 h-4" />
-                  {savingAll ? "جاري الحفظ..." : "حفظ وقفل اليوم"}
-                </Button>
-              )
-            )}
           </div>
         );
       })()}
