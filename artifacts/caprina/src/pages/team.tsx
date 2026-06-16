@@ -1278,9 +1278,10 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
   excused:  { label: "إذن/مبرر",   color: "text-gray-500",    bg: "bg-gray-50 dark:bg-gray-900/20",       icon: AlertCircle,    deductPct: 0    },
 };
 
-function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
-  profileId: number; monthlySalary: number; isAdmin: boolean;
+function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
+  profileId: number; monthlySalary: number; isAdmin: boolean; canEdit?: boolean;
 }) {
+  const canEditAttendance = canEdit ?? isAdmin;
   const { toast } = useToast();
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -1444,7 +1445,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
                   <div key={date} className={`relative rounded-lg border text-center p-1 transition-all ${isToday ? "ring-2 ring-primary" : ""} ${cfg ? cfg.bg : "bg-card"} ${isFuture ? "opacity-40" : ""}`}>
                     <div className={`text-[10px] font-bold mb-0.5 ${cfg ? cfg.color : "text-foreground"}`}>{d}</div>
                     {Icon && <Icon className={`w-3 h-3 mx-auto ${cfg.color}`} />}
-                    {!isFuture && isAdmin && (
+                    {!isFuture && canEditAttendance && (
                       <Select
                         value={rec?.status ?? ""}
                         onValueChange={val => handleDayStatus(date, val as AttendanceStatus)}
@@ -1460,7 +1461,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
                         </SelectContent>
                       </Select>
                     )}
-                    {!isAdmin && cfg && (
+                    {!canEditAttendance && cfg && (
                       <p className={`text-[8px] font-bold mt-0.5 ${cfg.color}`}>{cfg.label}</p>
                     )}
                     {rec?.deduction ? (
@@ -1521,7 +1522,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin }: {
           </Card>
 
           {/* إضافة بونص أو خصم */}
-          {isAdmin && (
+          {canEditAttendance && (
             <Card className="border-border">
               <CardHeader className="pb-2 pt-3 px-4">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -3370,6 +3371,7 @@ function EmployeeDetail({
             profileId={profileId}
             monthlySalary={fullProfile?.monthlySalary ?? 0}
             isAdmin={isAdmin}
+            canEdit={isAdmin || canSalaries}
           />
         </TabsContent>
         )}
