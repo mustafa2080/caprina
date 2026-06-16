@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Plus, Edit2, Trash2, Target, FileText, ChevronRight, Check, X,
@@ -1621,7 +1621,9 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
   const [logValues, setLogValues] = useState<Record<number, string>>({});
   const [savingAll, setSavingAll] = useState(false);
 
-  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
+  // Memoize today's date to prevent recreating it on every render
+  const todayDateString = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const isToday = selectedDate === todayDateString;
 
   const { data: dailyData, isLoading, refetch } = useQuery({
     queryKey: ["employee-daily-logs", profileId, selectedDate],
@@ -1681,7 +1683,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
           value={selectedDate}
           onChange={e => setSelectedDate(e.target.value)}
           className="w-36 h-7 text-xs"
-          max={new Date().toISOString().slice(0, 10)}
+          max={todayDateString}
         />
         <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => refetch()}>
           <RefreshCw className="w-3 h-3" />تحديث
@@ -1706,7 +1708,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
       {/* ─── Manual KPIs Section (grouped with one lock button) ─── */}
       {(() => {
         const manualKpis = (dailyData?.kpis ?? []).filter(k => k.metric === "manual");
-        const isTodayDate = selectedDate === new Date().toISOString().slice(0, 10);
+        const isTodayDate = selectedDate === todayDateString;
         const anyLocked = isTodayDate && manualKpis.some(k => (k as any).todayValue !== null && (k as any).todayValue !== undefined);
         const allLocked = isTodayDate && manualKpis.length > 0 && manualKpis.every(k => (k as any).todayValue !== null && (k as any).todayValue !== undefined);
 
@@ -1840,19 +1842,23 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                 <p className="text-[10px] text-muted-foreground mb-1.5">{kpiWeek.kpiName}</p>
                 <div className="flex gap-1">
                   {kpiWeek.days.map(day => {
-                    const d = new Date(day.date + "T12:00:00");
-                    const dayName = d.toLocaleDateString("ar-EG", { weekday: "short" });
-                    const isToday = day.date === new Date().toISOString().slice(0, 10);
-                    return (
-                      <div key={day.date} className={`flex-1 text-center rounded p-1.5 text-[8px] border transition-colors ${
-                        day.achieved === true ? "bg-emerald-900/30 border-emerald-700/30 text-emerald-400" :
-                        day.achieved === false ? "bg-red-900/20 border-red-700/20 text-red-400" :
-                        "bg-muted/20 border-border text-muted-foreground"
-                      } ${isToday ? "ring-1 ring-primary/40" : ""}`}>
-                        <div className="font-bold text-[9px]">{day.achieved === true ? "✓" : day.achieved === false ? "✗" : "—"}</div>
-                        <div className="mt-0.5">{dayName}</div>
-                      </div>
-                    );
+                    try {
+                      const d = new Date(day.date + "T12:00:00");
+                      const dayName = d.toLocaleDateString("ar-EG", { weekday: "short" });
+                      const isTodayDay = day.date === todayDateString;
+                      return (
+                        <div key={day.date} className={`flex-1 text-center rounded p-1.5 text-[8px] border transition-colors ${
+                          day.achieved === true ? "bg-emerald-900/30 border-emerald-700/30 text-emerald-400" :
+                          day.achieved === false ? "bg-red-900/20 border-red-700/20 text-red-400" :
+                          "bg-muted/20 border-border text-muted-foreground"
+                        } ${isTodayDay ? "ring-1 ring-primary/40" : ""}`}>
+                          <div className="font-bold text-[9px]">{day.achieved === true ? "✓" : day.achieved === false ? "✗" : "—"}</div>
+                          <div className="mt-0.5">{dayName}</div>
+                        </div>
+                      );
+                    } catch (err) {
+                      return <div key={day.date} className="flex-1 text-center text-[8px] text-muted-foreground">خطأ</div>;
+                    }
                   })}
                 </div>
               </div>
