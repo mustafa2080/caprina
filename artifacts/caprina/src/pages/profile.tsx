@@ -125,7 +125,7 @@ function AvatarUpload({ currentAvatar, displayName, onUpload }: {
     if (!file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.onload = () => {
         const MAX = 300;
         const scale = Math.min(1, MAX / Math.max(img.width, img.height));

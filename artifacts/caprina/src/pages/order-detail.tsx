@@ -2241,7 +2241,7 @@ export default function OrderDetail() {
     const inv = order.invoiceNumber ?? `#${id}`;
     const dateLabel = format(new Date(order.createdAt), "yyyy/MM/dd HH:mm");
     const logoUrl = await new Promise<string>((resolve) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement("canvas");

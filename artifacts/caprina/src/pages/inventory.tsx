@@ -26,7 +26,7 @@ function ProductImageUpload({ value, onChange }: { value: string | null; onChang
     if (file.size > 5 * 1024 * 1024) { alert("الحجم الأقصى 5MB"); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.onload = () => {
         const MAX = 600;
         const scale = Math.min(1, MAX / Math.max(img.width, img.height));

@@ -730,7 +730,7 @@ export default function InvoiceGroup() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     const logoUrl = await new Promise<string>((resolve) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement("canvas");

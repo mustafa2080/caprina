@@ -15,7 +15,19 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   if (res.status === 204) return undefined as unknown as T;
   if (res.status === 401) {
     // dispatch event — AuthContext هو المسؤول عن الـ logout وليس apiFetch مباشرة
-    window.dispatchEvent(new CustomEvent("caprina:unauthorized"));
+    // ملاحظة: new CustomEvent() ممكن يرمي TypeError: Illegal constructor في بعض WebView/PWA contexts،
+    // فبنعمل fallback آمن عشان مانكسرش الـ flow كله بسبب الـ event ده
+    try {
+      window.dispatchEvent(new CustomEvent("caprina:unauthorized"));
+    } catch {
+      try {
+        const evt = document.createEvent("Event");
+        evt.initEvent("caprina:unauthorized", false, false);
+        window.dispatchEvent(evt);
+      } catch {
+        // تجاهل — التوكن لسه هيتمسح والخطأ تحت هيتعامل معاه الكولر
+      }
+    }
     throw new Error("غير مصرح");
   }
   const data = await res.json();

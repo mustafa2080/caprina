@@ -97,7 +97,7 @@ function ProfileFormDialog({
     }
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
@@ -1906,7 +1906,7 @@ function AddMemberWizard({ open, onClose, onSuccess, availableUsers, existingPro
     }
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
