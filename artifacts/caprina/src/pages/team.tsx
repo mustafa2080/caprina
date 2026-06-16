@@ -4999,18 +4999,19 @@ export default function TeamPage() {
 
   const selectedProfile = profiles.find(p => p.id === selectedProfileId);
 
-  // ── لو الـ user مش admin ومش عنده team.manage → وجّهه لـ profile بتاعه ──────
-  const myProfile = (!isAdmin && !canManage) ? profiles.find((p: any) => p.userId === user?.id) : null;
+  // ── لو الـ user مش admin ومش عنده أي صلاحية فريق → وجّهه لـ profile بتاعه ──────
+  const hasTeamAccess = isAdmin || canManage || canSalaries || canPerformance;
+  const myProfile = !hasTeamAccess ? profiles.find((p: any) => p.userId === user?.id) : null;
 
-  // auto-select عند أول تحميل للـ profiles (بس لو مش admin ومش canManage)
+  // auto-select عند أول تحميل للـ profiles (بس لو مفيش team access)
   React.useEffect(() => {
-    if (!isAdmin && !canManage && myProfile && selectedProfileId === null) {
+    if (!hasTeamAccess && myProfile && selectedProfileId === null) {
       setSelectedProfileId(myProfile.id);
     }
-  }, [isAdmin, canManage, myProfile?.id]);
+  }, [hasTeamAccess, myProfile?.id]);
 
-  // لو الـ user مش admin ومش canManage ومفيش profile → رسالة
-  if (!isAdmin && !canManage && !profilesLoading && !myProfile) {
+  // لو الـ user مش admin ومش عنده team access ومفيش profile → رسالة
+  if (!hasTeamAccess && !profilesLoading && !myProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -5030,7 +5031,7 @@ export default function TeamPage() {
           displayName={selectedProfile.displayName ?? "—"}
           isSystemUser={!!(selectedProfile as any).isSystemUser}
           username={(selectedProfile as any).username}
-          onBack={(isAdmin || canManage) ? () => setSelectedProfileId(null) : undefined}
+          onBack={hasTeamAccess ? () => setSelectedProfileId(null) : undefined}
         />
       </div>
     );
