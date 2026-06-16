@@ -4994,10 +4994,13 @@ export default function TeamPage() {
   const [teamSearch, setTeamSearch] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const canLoadTeamSettings = canAddMember;
+  const canLoadUsers = canManage || canAddMember;
 
   const { data: appSettings } = useQuery({
     queryKey: ["app-settings"],
     queryFn: appSettingsApi.get,
+    enabled: canLoadTeamSettings,
   });
 
   const showAddMemberBtn = appSettings?.showAddTeamMember ?? true;
@@ -5008,16 +5011,11 @@ export default function TeamPage() {
     queryKey: ["employee-profiles"],
     queryFn: employeeApi.listProfiles,
   });
-
-  const { data: teamPerfData = [] } = useQuery({
-    queryKey: ["team-perf-cards"],
-    queryFn: () => teamAnalyticsApi.teamPerformanceExtended(),
-    staleTime: 2 * 60_000,
-  });
   
   const { data: allUsers = [] } = useQuery({
     queryKey: ["users"],
     queryFn: usersApi.list,
+    enabled: canLoadUsers,
   });
 
   const profiledUserIds2 = new Set(profiles.map(p => (p as any).userId).filter(Boolean));
