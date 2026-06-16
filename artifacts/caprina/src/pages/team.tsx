@@ -5015,7 +5015,7 @@ export default function TeamPage() {
   const { data: allUsers = [] } = useQuery({
     queryKey: ["users"],
     queryFn: usersApi.list,
-    enabled: canLoadUsers,
+    enabled: canLoadUsers && isAdmin,
   });
 
   const profiledUserIds2 = new Set(profiles.map(p => (p as any).userId).filter(Boolean));

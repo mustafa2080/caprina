@@ -376,8 +376,8 @@ export default function OrderForm() {
   const { data: allVariants = [] }  = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
   const { data: warehouses }        = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
-  const { data: users }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list });
-  const { canViewFinancials, isEmployee } = useAuth();
+  const { canViewFinancials, isEmployee, isAdmin } = useAuth();
+  const { data: users }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list, enabled: isAdmin });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
