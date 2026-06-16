@@ -461,7 +461,7 @@ export default function OrderForm() {
           ? `${result.orders.length} منتجات في فاتورة واحدة للعميل ${values.customerName}`
           : `الطلب #${result.orders[0]?.id} تم إنشاؤه بنجاح للعميل ${values.customerName}`,
       });
-      setLocation(`/invoices/${encodeURIComponent(result.invoiceNumber)}`);
+      setLocation(`/orders/${result.orders[0]?.id}`);
     } catch (e: any) {
       toast({ title: "خطأ", description: e?.message || "فشل إنشاء الطلب.", variant: "destructive" });
     } finally {
