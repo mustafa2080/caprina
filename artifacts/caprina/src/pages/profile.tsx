@@ -13,6 +13,7 @@ import {
   ArrowDown, CalendarDays, Wallet, BadgeCheck, Info,
   RefreshCw, CalendarCheck2, Gauge, Award, ShieldAlert,
   Medal, GanttChart, Sparkles, BarChart2, Printer, Download,
+  LogIn, LogOut, Lock, Unlock, TrendingUp as TrendUp,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2839,7 +2840,126 @@ function SalesKPIDashboardTab({ myStats, profile }: { myStats?: TeamMemberExtSta
   );
 }
 
-/* ── Main Profile Page ── */
+/* ── Daily KPI Tracker (self-entry, daily lock) ── */
+const DAILY_KPIS = [
+  { key: "target_rate",       label: "معدل تحقيق التارجيت", unit: "%",   icon: Target,   color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", min: 0, max: 100 },
+  { key: "response_speed",    label: "سرعة الاستجابة للعملاء", unit: "%", icon: Zap,      color: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/30",    min: 0, max: 100 },
+  { key: "error_rate",        label: "معدل الأخطاء مع العملاء", unit: "%",icon: ShieldAlert, color: "text-rose-400",  bg: "bg-rose-500/10",   border: "border-rose-500/30",    min: 0, max: 100 },
+] as const;
+
+type DailyKpiKey = typeof DAILY_KPIS[number]["key"];
+
+function DailyKpiTracker() {
+  const { toast } = useToast();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const STORAGE_KEY = `daily_kpi_${today}`;
+
+  // قراءة القيم المحفوظة من localStorage
+  const [saved, setSaved] = useState<Partial<Record<DailyKpiKey, number>>>(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { return {}; }
+  });
+  const isLocked = Object.keys(saved).length === DAILY_KPIS.length;
+  const [values, setValues] = useState<Partial<Record<DailyKpiKey, string>>>(() =>
+    Object.fromEntries(DAILY_KPIS.map(k => [k.key, saved[k.key]?.toString() ?? ""])) as any
+  );
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    // تحقق كل القيم محتاجة تكون أرقام
+    const parsed: Partial<Record<DailyKpiKey, number>> = {};
+    for (const kpi of DAILY_KPIS) {
+      const v = parseFloat(values[kpi.key] ?? "");
+      if (isNaN(v) || v < 0 || v > 100) {
+        toast({ title: "خطأ", description: `أدخل قيمة صحيحة (0-100) لـ "${kpi.label}"`, variant: "destructive" });
+        return;
+      }
+      parsed[kpi.key] = v;
+    }
+    setSaving(true);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      setSaved(parsed);
+      toast({ title: "✅ تم الحفظ", description: "تم تسجيل متابعة اليوم — سيتم فتح التسجيل غداً تلقائياً" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حفظ البيانات", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+        style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+        <span className="font-black text-sm flex items-center gap-2">
+          <GanttChart className="w-4 h-4 text-primary" />المتابعة اليومية
+        </span>
+        <div className="flex items-center gap-2">
+          {isLocked ? (
+            <span className="flex items-center gap-1 text-[10px] text-amber-400 font-bold">
+              <Lock className="w-3 h-3" />مقفول — اليوم مسجّل
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Unlock className="w-3 h-3" />{format(new Date(), "EEEE d MMMM", { locale: ar })}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
+        {DAILY_KPIS.map(kpi => {
+          const val = isLocked ? (saved[kpi.key] ?? 0) : parseFloat(values[kpi.key] ?? "0") || 0;
+          return (
+            <div key={kpi.key} className={`rounded-xl border ${kpi.border} ${kpi.bg} p-3.5 space-y-2`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold flex items-center gap-1.5 ${kpi.color}`}>
+                  <kpi.icon className="w-3.5 h-3.5" />{kpi.label}
+                </span>
+                <span className={`text-xl font-black ${kpi.color}`}>{val.toFixed(0)}{kpi.unit}</span>
+              </div>
+              <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${
+                  kpi.key === "error_rate"
+                    ? val <= 5 ? "bg-emerald-500" : val <= 20 ? "bg-amber-500" : "bg-rose-500"
+                    : val >= 80 ? "bg-emerald-500" : val >= 50 ? "bg-amber-500" : "bg-rose-500"
+                }`} style={{ width: `${Math.min(100, val)}%` }} />
+              </div>
+              {!isLocked && (
+                <input
+                  type="number" min="0" max="100" step="1"
+                  value={values[kpi.key] ?? ""}
+                  onChange={e => setValues(v => ({ ...v, [kpi.key]: e.target.value }))}
+                  placeholder="0"
+                  className={`w-full bg-transparent border-0 border-b ${kpi.border} text-sm font-bold ${kpi.color} placeholder:text-muted-foreground/40 focus:outline-none py-1 text-center`}
+                />
+              )}
+            </div>
+          );
+        })}
+
+        {!isLocked && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSave}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
+              bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 hover:border-primary/60
+              disabled:opacity-40 disabled:cursor-not-allowed">
+            {saving ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            تسجيل وقفل اليوم
+          </button>
+        )}
+
+        {isLocked && (
+          <p className="text-[11px] text-center text-muted-foreground">
+            سيتم فتح تسجيل يوم جديد تلقائياً غداً
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Tab: Attendance ── */
 const STATUS_META: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
   present:  { label: "حاضر",     color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", dot: "bg-emerald-500" },
@@ -2851,12 +2971,41 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; bo
 };
 
 function AttendanceTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
 
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => {
     const d = subMonths(new Date(), i);
     return { value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: ar }) };
   }), []);
+
+  // Today's attendance status
+  const { data: todayAtt, isLoading: todayLoading } = useQuery({
+    queryKey: ["my-today-attendance"],
+    queryFn: () => employeeApi.getTodayAttendance(),
+    refetchInterval: 60_000,
+  });
+
+  const checkInMut = useMutation({
+    mutationFn: () => employeeApi.checkIn(),
+    onSuccess: () => {
+      toast({ title: "✅ تم تسجيل الحضور", description: `وقت الدخول: ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` });
+      qc.invalidateQueries({ queryKey: ["my-today-attendance"] });
+      qc.invalidateQueries({ queryKey: ["my-attendance-report"] });
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e?.message ?? "فشل تسجيل الحضور", variant: "destructive" }),
+  });
+
+  const checkOutMut = useMutation({
+    mutationFn: () => employeeApi.checkOut(),
+    onSuccess: () => {
+      toast({ title: "✅ تم تسجيل الانصراف", description: `وقت الخروج: ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` });
+      qc.invalidateQueries({ queryKey: ["my-today-attendance"] });
+      qc.invalidateQueries({ queryKey: ["my-attendance-report"] });
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e?.message ?? "فشل تسجيل الانصراف", variant: "destructive" }),
+  });
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["my-attendance-report", selectedMonth],
@@ -2914,6 +3063,91 @@ function AttendanceTab() {
 
   return (
     <div className="space-y-4" dir="rtl">
+
+      {/* ── Check-in / Check-out Card ─────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.08), transparent)" }}>
+          <span className="font-black text-sm flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />تسجيل الحضور اليوم
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {format(new Date(), "EEEE d MMMM yyyy", { locale: ar })}
+          </span>
+        </div>
+        <div className="p-4">
+          {todayLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {/* Current status */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {todayAtt ? (
+                  <>
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      مسجّل اليوم
+                    </span>
+                    {todayAtt.checkIn && (
+                      <span className="text-xs text-muted-foreground">
+                        دخول: <strong className="text-foreground">{todayAtt.checkIn}</strong>
+                      </span>
+                    )}
+                    {todayAtt.checkOut && (
+                      <span className="text-xs text-muted-foreground">
+                        خروج: <strong className="text-foreground">{todayAtt.checkOut}</strong>
+                      </span>
+                    )}
+                    {!todayAtt.checkOut && (
+                      <span className="text-[10px] text-amber-400">لم يتم تسجيل الخروج بعد</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+                    لم يتم تسجيل الحضور بعد
+                  </span>
+                )}
+              </div>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={!!todayAtt?.checkIn || checkInMut.isPending}
+                  onClick={() => checkInMut.mutate()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
+                    bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+                    hover:bg-emerald-500/20 hover:border-emerald-500/60
+                    disabled:opacity-40 disabled:cursor-not-allowed">
+                  {checkInMut.isPending ? (
+                    <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <LogIn className="w-4 h-4" />
+                  )}
+                  تسجيل الحضور
+                </button>
+                <button
+                  type="button"
+                  disabled={!todayAtt?.checkIn || !!todayAtt?.checkOut || checkOutMut.isPending}
+                  onClick={() => checkOutMut.mutate()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
+                    bg-rose-500/10 border border-rose-500/30 text-rose-400
+                    hover:bg-rose-500/20 hover:border-rose-500/60
+                    disabled:opacity-40 disabled:cursor-not-allowed">
+                  {checkOutMut.isPending ? (
+                    <div className="w-4 h-4 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
+                  تسجيل الانصراف
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Month Selector */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -3004,13 +3238,45 @@ function AttendanceTab() {
                 <span className="font-bold text-sm text-rose-400">- {fmt(attendanceDeduction)}</span>
               </div>
             )}
-            {bonuses > 0 && (
+            {/* Bonuses detail */}
+            {adjustments?.filter((a: any) => Number(a.amount) > 0).length > 0 && (
+              <div className="space-y-1 py-1.5 border-b border-border/20">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5"><ArrowUp className="w-3.5 h-3.5" />مكافآت وحوافز</span>
+                {adjustments.filter((a: any) => Number(a.amount) > 0).map((a: any, i: number) => (
+                  <div key={i} className="flex justify-between text-xs pr-4">
+                    <span className="text-muted-foreground">{a.reason || a.type || "مكافأة"}</span>
+                    <span className="text-emerald-400 font-bold">+ {fmt(Math.abs(Number(a.amount)))}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-0.5 pr-2">
+                  <span className="text-xs text-emerald-400">الإجمالي</span>
+                  <span className="font-bold text-xs text-emerald-400">+ {fmt(bonuses)}</span>
+                </div>
+              </div>
+            )}
+            {bonuses > 0 && !(adjustments?.filter((a: any) => Number(a.amount) > 0).length > 0) && (
               <div className="flex justify-between py-1.5 border-b border-border/20">
                 <span className="text-sm text-emerald-400 flex items-center gap-1.5"><ArrowUp className="w-3.5 h-3.5" />مكافآت</span>
                 <span className="font-bold text-sm text-emerald-400">+ {fmt(bonuses)}</span>
               </div>
             )}
-            {extraDeductions > 0 && (
+            {/* Deductions detail */}
+            {adjustments?.filter((a: any) => Number(a.amount) < 0).length > 0 && (
+              <div className="space-y-1 py-1.5 border-b border-border/20">
+                <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" />خصومات إضافية</span>
+                {adjustments.filter((a: any) => Number(a.amount) < 0).map((a: any, i: number) => (
+                  <div key={i} className="flex justify-between text-xs pr-4">
+                    <span className="text-muted-foreground">{a.reason || a.type || "خصم"}</span>
+                    <span className="text-rose-400 font-bold">- {fmt(Math.abs(Number(a.amount)))}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-0.5 pr-2">
+                  <span className="text-xs text-rose-400">الإجمالي</span>
+                  <span className="font-bold text-xs text-rose-400">- {fmt(extraDeductions)}</span>
+                </div>
+              </div>
+            )}
+            {extraDeductions > 0 && !(adjustments?.filter((a: any) => Number(a.amount) < 0).length > 0) && (
               <div className="flex justify-between py-1.5 border-b border-border/20">
                 <span className="text-sm text-rose-400 flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" />خصومات إضافية</span>
                 <span className="font-bold text-sm text-rose-400">- {fmt(extraDeductions)}</span>
@@ -3096,6 +3362,9 @@ function AttendanceTab() {
       ) : (
         <EmptyState icon={CalendarCheck2} title="لا يوجد سجل حضور" sub="لم يتم تسجيل أي حضور لهذا الشهر بعد" />
       )}
+
+      {/* ── Daily KPI Tracker ───────────────────────────────────────── */}
+      <DailyKpiTracker />
     </div>
   );
 }
