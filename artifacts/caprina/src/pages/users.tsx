@@ -480,6 +480,7 @@ export default function UsersPage() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: usersApi.list,
+    enabled: isAdmin,
   });
 
   const createMutation = useMutation({
