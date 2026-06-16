@@ -1608,7 +1608,9 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
   const qc = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [logValues, setLogValues] = useState<Record<number, string>>({});
-  const [saving, setSaving] = useState<Record<number, boolean>>({});
+  const [savingAll, setSavingAll] = useState(false);
+
+  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
 
   const { data: dailyData, isLoading, refetch } = useQuery({
     queryKey: ["employee-daily-logs", profileId, selectedDate],
@@ -1631,19 +1633,29 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
     setLogValues(init);
   }, [dailyData]);
 
-  const handleSave = async (kpi: DailyKpiEntry) => {
-    const val = parseFloat(logValues[kpi.id] ?? "");
-    if (isNaN(val)) { toast({ title: "أدخل قيمة صحيحة", variant: "destructive" }); return; }
-    setSaving(s => ({ ...s, [kpi.id]: true }));
+  // حفظ كل الـ manual KPIs دفعة واحدة وقفل اليوم
+  const handleSaveAll = async (manualKpis: DailyKpiEntry[]) => {
+    for (const kpi of manualKpis) {
+      const val = parseFloat(logValues[kpi.id] ?? "");
+      if (isNaN(val)) {
+        toast({ title: "خطأ", description: `أدخل قيمة لـ "${kpi.name}"`, variant: "destructive" });
+        return;
+      }
+    }
+    setSavingAll(true);
     try {
-      await employeeApi.saveDailyLog({ profileId, kpiId: kpi.id, date: selectedDate, value: val });
+      await Promise.all(
+        manualKpis.map(kpi =>
+          employeeApi.saveDailyLog({ profileId, kpiId: kpi.id, date: selectedDate, value: parseFloat(logValues[kpi.id]) })
+        )
+      );
       qc.invalidateQueries({ queryKey: ["employee-daily-logs", profileId, selectedDate] });
       qc.invalidateQueries({ queryKey: ["employee-week-logs", profileId, selectedDate] });
-      toast({ title: "تم التسجيل ✅" });
+      toast({ title: "✅ تم الحفظ وقفل اليوم", description: "سيُفتح التسجيل غداً تلقائياً" });
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
     } finally {
-      setSaving(s => ({ ...s, [kpi.id]: false }));
+      setSavingAll(false);
     }
   };
 
@@ -1680,28 +1692,100 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
         </div>
       )}
 
+      {/* ─── Manual KPIs Section (grouped with one lock button) ─── */}
+      {(() => {
+        const manualKpis = (dailyData?.kpis ?? []).filter(k => k.metric === "manual");
+        const isTodayDate = selectedDate === new Date().toISOString().slice(0, 10);
+        const anyLocked = isTodayDate && manualKpis.some(k => (k as any).todayValue !== null && (k as any).todayValue !== undefined);
+        const allLocked = isTodayDate && manualKpis.length > 0 && manualKpis.every(k => (k as any).todayValue !== null && (k as any).todayValue !== undefined);
+
+        if (manualKpis.length === 0) return null;
+        return (
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-muted-foreground">المؤشرات اليدوية</p>
+            {manualKpis.map(kpi => {
+              const todayValue = (kpi as any).todayValue as number | null;
+              const dailyTargetSimple = Math.max(1, Math.round(kpi.targetValue / 30));
+              const todayActual = todayValue ?? 0;
+              const rawPct = dailyTargetSimple > 0 ? Math.min(100, (todayActual / dailyTargetSimple) * 100) : 0;
+              const pct = kpi.direction === "lower_is_better"
+                ? (todayActual <= dailyTargetSimple ? 100 : Math.max(0, 100 - rawPct))
+                : rawPct;
+              const todayAchieved = todayValue !== null
+                ? (kpi.direction === "lower_is_better" ? todayActual <= dailyTargetSimple : todayActual >= dailyTargetSimple)
+                : undefined;
+              return (
+                <Card key={kpi.id} className={`border ${todayAchieved === true ? "border-emerald-700/50 bg-emerald-950/10" : todayAchieved === false ? "border-red-800/30" : "border-border"}`}>
+                  <CardContent className="px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {todayAchieved === true
+                          ? <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                          : todayAchieved === false
+                            ? <X className="w-4 h-4 text-red-400 shrink-0" />
+                            : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
+                        <p className="text-sm font-bold break-words leading-tight">{kpi.name}</p>
+                      </div>
+                      <Badge variant="outline" className={`text-[9px] shrink-0 ${todayAchieved === true ? "border-emerald-700 text-emerald-400" : todayAchieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
+                        {todayAchieved === true ? "✅ محقق" : todayAchieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
+                      </Badge>
+                    </div>
+                    <Progress value={pct} className={`h-1.5 ${todayAchieved === true ? "[&>div]:bg-emerald-500" : todayAchieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
+                    <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+                      <span>اليوم: <span className={`font-bold ${todayAchieved === true ? "text-emerald-400" : todayAchieved === false ? "text-red-400" : "text-foreground"}`}>
+                        {todayValue !== null ? `${fmtNum(todayValue)} ${kpi.unit}` : "—"}
+                      </span></span>
+                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(dailyTargetSimple)} {kpi.unit}</span></span>
+                      <span className="text-muted-foreground/50">الهدف الشهري: {fmtNum(kpi.targetValue)} {kpi.unit}</span>
+                    </div>
+                    {/* input per KPI — hidden if locked */}
+                    {!allLocked && (
+                      <Input
+                        type="number"
+                        min="0"
+                        value={logValues[kpi.id] ?? ""}
+                        onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
+                        placeholder={`قيمة اليوم (${kpi.unit})`}
+                        className="h-7 text-xs"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {/* Single Save & Lock button for today */}
+            {isTodayDate && (
+              allLocked ? (
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>تم تسجيل وقفل اليوم — سيُفتح غداً تلقائياً</span>
+                </div>
+              ) : (
+                <Button
+                  className="w-full gap-2"
+                  disabled={savingAll || manualKpis.some(k => !logValues[k.id])}
+                  onClick={() => handleSaveAll(manualKpis)}
+                >
+                  <Lock className="w-4 h-4" />
+                  {savingAll ? "جاري الحفظ..." : "حفظ وقفل اليوم"}
+                </Button>
+              )
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ─── Auto KPIs Section ─── */}
       <div className="space-y-2">
-        {(dailyData?.kpis ?? []).map(kpi => {
-          const isManual = kpi.metric === "manual";
-          const isTodayDate = selectedDate === new Date().toISOString().slice(0, 10);
-          const isLocked = isManual && isTodayDate && (kpi as any).todayValue !== null && (kpi as any).todayValue !== undefined;
-
-          const todayValue      = (kpi as any).todayValue as number | null;
-          const cumulativeValue = (kpi as any).cumulativeValue as number | null;
-
-          // هدف اليوم = targetValue / 30
-          const dailyTargetSimple = Math.max(1, Math.round(kpi.targetValue / 30));
-
-          // الـ progress والـ achieved من اليوم فقط
-          const todayActual = isManual ? (todayValue ?? 0) : (kpi.actualValue ?? 0);
-          const compareTarget = isManual ? dailyTargetSimple : kpi.dailyTarget;
+        {(dailyData?.kpis ?? []).filter(k => k.metric !== "manual").map(kpi => {
+          const todayActual = kpi.actualValue ?? 0;
+          const compareTarget = kpi.dailyTarget;
           const rawPct = compareTarget > 0 ? Math.min(100, (todayActual / compareTarget) * 100) : 0;
           const pct = kpi.direction === "lower_is_better"
             ? (todayActual <= compareTarget ? 100 : Math.max(0, 100 - rawPct))
             : rawPct;
-          const todayAchieved = isManual
-            ? (kpi.direction === "lower_is_better" ? todayActual <= compareTarget : todayActual >= compareTarget)
-            : kpi.achieved;
+          const todayAchieved = kpi.achieved;
 
           return (
             <Card key={kpi.id} className={`border ${todayAchieved === true ? "border-emerald-700/50 bg-emerald-950/10" : todayAchieved === false ? "border-red-800/30" : "border-border"}`}>
@@ -1714,7 +1798,7 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                         ? <X className="w-4 h-4 text-red-400 shrink-0" />
                         : <Target className="w-4 h-4 text-muted-foreground shrink-0" />}
                     <p className="text-sm font-bold break-words leading-tight" title={kpi.name}>{kpi.name}</p>
-                    {!isManual && <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>}
+                    <Badge variant="outline" className="text-[8px] h-3.5 shrink-0">تلقائي</Badge>
                   </div>
                   <Badge variant="outline" className={`text-[9px] shrink-0 ${todayAchieved === true ? "border-emerald-700 text-emerald-400" : todayAchieved === false ? "border-red-700 text-red-400" : "border-border text-muted-foreground"}`}>
                     {todayAchieved === true ? "✅ محقق" : todayAchieved === false ? "❌ لم يُحقَّق" : "غير مسجل"}
@@ -1724,54 +1808,12 @@ function DailyTrackerTab({ profileId }: { profileId: number }) {
                 <Progress value={pct} className={`h-1.5 ${todayAchieved === true ? "[&>div]:bg-emerald-500" : todayAchieved === false ? "[&>div]:bg-red-400" : "[&>div]:bg-primary"}`} />
 
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
-                  {isManual ? (
-                    <>
-                      <span>اليوم: <span className={`font-bold ${todayAchieved === true ? "text-emerald-400" : todayAchieved === false ? "text-red-400" : "text-foreground"}`}>
-                        {todayValue !== null ? `${fmtNum(todayValue)} ${kpi.unit}` : "—"}
-                      </span></span>
-                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(dailyTargetSimple)} {kpi.unit}</span></span>
-                      <span className="text-muted-foreground/50">الهدف الشهري: {fmtNum(kpi.targetValue)} {kpi.unit}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
-                      <span>المحقق: <span className={`font-bold ${todayAchieved === true ? "text-emerald-400" : todayAchieved === false ? "text-red-400" : "text-foreground"}`}>
-                        {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
-                      </span></span>
-                    </>
-                  )}
+                  <span>الهدف اليومي: <span className="font-bold text-foreground">{fmtNum(Math.round(kpi.dailyTarget * 10) / 10)} {kpi.unit}</span></span>
+                  <span>المحقق: <span className={`font-bold ${todayAchieved === true ? "text-emerald-400" : todayAchieved === false ? "text-red-400" : "text-foreground"}`}>
+                    {kpi.actualValue !== null ? `${fmtNum(kpi.actualValue)} ${kpi.unit}` : "—"}
+                  </span></span>
                 </div>
 
-                {isManual && (
-                  <div className="flex items-center gap-2 pt-0.5">
-                    {isLocked ? (
-                      <div className="flex items-center gap-2 flex-1 h-7 px-2 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                        <span>تم التسجيل اليوم — مقفل حتى الغد</span>
-                      </div>
-                    ) : (
-                      <>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={logValues[kpi.id] ?? ""}
-                          onChange={e => setLogValues(v => ({ ...v, [kpi.id]: e.target.value }))}
-                          placeholder={`أضف قيمة اليوم (${kpi.unit})`}
-                          className="h-7 text-xs flex-1"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs gap-1 shrink-0"
-                          disabled={saving[kpi.id] || !logValues[kpi.id]}
-                          onClick={() => handleSave(kpi)}
-                        >
-                          <Save className="w-3 h-3" />
-                          {saving[kpi.id] ? "..." : "أضف"}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
           );

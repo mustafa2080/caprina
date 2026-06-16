@@ -48,6 +48,105 @@ router.get("/attendance/my", async (req, res): Promise<void> => {
   res.json(records.filter((r) => r.date >= periodFrom && r.date <= periodTo));
 });
 
+// ─── POST self check-in (current user from token) ─────────────────────────────
+// POST /attendance/my/check-in
+router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.userId, userId));
+
+  if (!profile) { res.status(404).json({ error: "لا يوجد بروفايل موظف" }); return; }
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const time = now.toTimeString().slice(0, 5); // HH:MM
+
+  const [existing] = await db
+    .select()
+    .from(attendanceTable)
+    .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
+
+  if (existing) {
+    if (existing.checkIn) { res.status(409).json({ error: "تم تسجيل الحضور اليوم بالفعل" }); return; }
+    await db
+      .update(attendanceTable)
+      .set({ checkIn: time, status: existing.status === "absent" ? "present" : existing.status })
+      .where(eq(attendanceTable.id, existing.id));
+    const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, existing.id));
+    res.json(updated);
+    return;
+  }
+
+  const insertResult = await db.insert(attendanceTable).values({
+    profileId: profile.id,
+    date: today,
+    status: "present",
+    checkIn: time,
+  });
+  const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
+  const [created] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, insertId));
+  res.status(201).json(created);
+});
+
+// ─── POST self check-out (current user from token) ────────────────────────────
+// POST /attendance/my/check-out
+router.post("/attendance/my/check-out", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.userId, userId));
+
+  if (!profile) { res.status(404).json({ error: "لا يوجد بروفايل موظف" }); return; }
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const time = now.toTimeString().slice(0, 5); // HH:MM
+
+  const [existing] = await db
+    .select()
+    .from(attendanceTable)
+    .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
+
+  if (!existing || !existing.checkIn) { res.status(400).json({ error: "لم يتم تسجيل الحضور اليوم بعد" }); return; }
+  if (existing.checkOut) { res.status(409).json({ error: "تم تسجيل الخروج اليوم بالفعل" }); return; }
+
+  await db
+    .update(attendanceTable)
+    .set({ checkOut: time })
+    .where(eq(attendanceTable.id, existing.id));
+  const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, existing.id));
+  res.json(updated);
+});
+
+// ─── GET my today's attendance status (current user from token) ──────────────
+// GET /attendance/my/today
+router.get("/attendance/my/today", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [profile] = await db
+    .select()
+    .from(employeeProfilesTable)
+    .where(eq(employeeProfilesTable.userId, userId));
+
+  if (!profile) { res.json(null); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [record] = await db
+    .select()
+    .from(attendanceTable)
+    .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
+
+  res.json(record ?? null);
+});
+
 // ─── GET my salary report (current user from token) ──────────────────────────
 // GET /attendance/my/salary-report?month=YYYY-MM
 router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {

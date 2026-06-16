@@ -1163,6 +1163,12 @@ export const employeeApi = {
     apiFetch<Attendance[]>(`/attendance/my${month ? `?month=${month}` : ""}`),
   getMySalaryReport: (month?: string) =>
     apiFetch<AttendanceSalaryReport>(`/attendance/my/salary-report${month ? `?month=${month}` : ""}`),
+  getTodayAttendance: () =>
+    apiFetch<Attendance | null>("/attendance/my/today"),
+  checkIn: () =>
+    apiFetch<Attendance>("/attendance/my/check-in", { method: "POST" }),
+  checkOut: () =>
+    apiFetch<Attendance>("/attendance/my/check-out", { method: "POST" }),
   listUsers: () => apiFetch<AppUser[]>("/users"),
   getDailyLogs: (profileId: number, date?: string) =>
     apiFetch<DailyLogDay>(`/employee-daily-logs/${profileId}${date ? `?date=${date}` : ""}`),
