@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, Package, Truck, CheckCircle2, Clock, Plus, Search, Megaphone, Warehouse, UserCheck, DollarSign } from "lucide-react";
+import { ArrowRight, AlertCircle, Pencil, Save, X, Printer, Phone, MapPin, Trash2, RotateCcw, TrendingUp, TrendingDown, AlertTriangle, Lock, MessageCircle, MessageSquare, Package, Truck, CheckCircle2, Clock, Plus, Search, Megaphone, Warehouse, UserCheck, DollarSign } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect, useMemo } from "react";
 import React from "react";
@@ -3147,7 +3147,12 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
             })()}
 
             {manifestStatus.deliveryNote && (
-              <p className="text-xs text-muted-foreground">ملاحظة: {manifestStatus.deliveryNote}</p>
+              <div className="mt-1 p-2.5 rounded-md border border-red-500 bg-red-950/40 shadow-[0_0_14px_rgba(239,68,68,0.45)]">
+                <p className="text-[10px] text-red-400 font-bold mb-0.5 flex items-center gap-1">
+                  <MessageSquare className="w-3 h-3" />ملاحظات الإرجاع
+                </p>
+                <p className="text-xs text-red-200 leading-relaxed">{manifestStatus.deliveryNote}</p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -3190,24 +3195,34 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                   return null;
                 })();
                 return (
-                  <div key={item.id} className={`flex items-center justify-between rounded-md px-2.5 py-1.5 border ${isThis ? "border-primary/40 bg-primary/5" : "border-border bg-transparent"}`}>
-                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                      <span className={`text-xs font-semibold truncate ${isThis ? "text-primary" : "text-foreground"}`}>
-                        {isThis && <span className="text-[9px] text-primary font-bold ml-1">← هذا الطلب</span>}
-                        {item.product}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground">كمية: {item.quantity}</span>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      {ds ? (
-                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-bold border ${dsColor}`}>
-                          {dsLabel[ds] ?? ds}
+                  <div key={item.id} className={`flex flex-col gap-1.5 rounded-md px-2.5 py-1.5 border ${isThis ? "border-primary/40 bg-primary/5" : "border-border bg-transparent"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        <span className={`text-xs font-semibold truncate ${isThis ? "text-primary" : "text-foreground"}`}>
+                          {isThis && <span className="text-[9px] text-primary font-bold ml-1">← هذا الطلب</span>}
+                          {item.product}
                         </span>
-                      ) : (
-                        <span className="text-[9px] text-muted-foreground">لا يوجد بيان</span>
-                      )}
-                      {subStatus}
+                        <span className="text-[9px] text-muted-foreground">كمية: {item.quantity}</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5">
+                        {ds ? (
+                          <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-bold border ${dsColor}`}>
+                            {dsLabel[ds] ?? ds}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-muted-foreground">لا يوجد بيان</span>
+                        )}
+                        {subStatus}
+                      </div>
                     </div>
+                    {item.returnNote && ds === "returned" && (
+                      <div className="p-2 rounded-md border border-red-500 bg-red-950/40 shadow-[0_0_12px_rgba(239,68,68,0.4)]">
+                        <p className="text-[9px] text-red-400 font-bold mb-0.5 flex items-center gap-1">
+                          <MessageSquare className="w-2.5 h-2.5" />ملاحظات الإرجاع
+                        </p>
+                        <p className="text-[10px] text-red-200 leading-relaxed">{item.returnNote}</p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -3830,7 +3845,12 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                       </p>
                     )}
                     {orderReturnNote && (
-                      <p className="text-xs text-red-400/80 mt-1">{orderReturnNote}</p>
+                      <div className="mt-2 p-2.5 rounded-md border border-red-500 bg-red-950/40 shadow-[0_0_12px_rgba(239,68,68,0.5)]">
+                        <p className="text-[10px] text-red-400 font-bold mb-0.5 flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" />ملاحظات الإرجاع
+                        </p>
+                        <p className="text-xs text-red-200 leading-relaxed">{orderReturnNote}</p>
+                      </div>
                     )}
                   </div>
                 )}
