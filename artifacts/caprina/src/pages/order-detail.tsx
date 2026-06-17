@@ -3819,16 +3819,18 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                 </div>
 
                 {/* Return reason section */}
-                {order.status === "returned" && orderReturnReason && (
+                {order.status === "returned" && (orderReturnReason || orderReturnNote) && (
                   <div className="mt-2 p-3 rounded border border-red-900 bg-red-900/10">
                     <p className="text-xs text-red-400 font-bold mb-1 flex items-center gap-1">
                       <RotateCcw className="w-3 h-3" />سبب الإرجاع
                     </p>
-                    <p className="text-sm font-semibold text-red-300">
-                      {returnReasonLabel(orderReturnReason)}
-                    </p>
+                    {orderReturnReason && (
+                      <p className="text-sm font-semibold text-red-300">
+                        {returnReasonLabel(orderReturnReason)}
+                      </p>
+                    )}
                     {orderReturnNote && (
-                      <p className="text-xs text-muted-foreground mt-1">{orderReturnNote}</p>
+                      <p className="text-xs text-red-400/80 mt-1">{orderReturnNote}</p>
                     )}
                   </div>
                 )}
