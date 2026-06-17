@@ -885,7 +885,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
           assignedUserId:    values.assignedUserId || null,
           adSource:          values.adSource || null,
           adCampaign:        values.adCampaign || null,
-          notes:             ps?.notes || null,
+          notes:             values.notes || null,
           quantity:          ps?.quantity ?? o.quantity,
           unitPrice:         ps?.unitPrice ?? o.unitPrice,
           costPrice:         ps?.costPrice ?? null,
