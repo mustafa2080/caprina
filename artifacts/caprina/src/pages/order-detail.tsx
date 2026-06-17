@@ -1261,6 +1261,13 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
               <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان</span>
               <span className="text-xs font-semibold text-foreground/90 line-clamp-2">{primaryOrder.address || "—"}</span>
             </div>
+            {primaryOrder.notes && (
+              <div className="flex flex-col gap-1 col-span-2 pt-2 mt-1 border-t border-red-500/30 rounded-lg p-2"
+                style={{ background: "rgba(239,68,68,0.07)", boxShadow: "0 0 12px 2px rgba(239,68,68,0.25), inset 0 0 8px rgba(239,68,68,0.10)" }}>
+                <span className="text-[10px] font-bold flex items-center gap-1" style={{ color: "#f87171" }}>📝 ملاحظات</span>
+                <span className="text-xs whitespace-pre-wrap font-medium" style={{ color: "#fca5a5" }}>{primaryOrder.notes}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
