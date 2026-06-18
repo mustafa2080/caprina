@@ -4059,10 +4059,11 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // جمع كل الطلبات اللي returned أو partial_received وreturnReceived = 0 أو null
+        // جمع الاستلام الجزئي فقط — الجزء الباقي لسه مش مؤكد استلامه
+        // (المرتجع الكامل عنده زراريه جوه صفه في الجدول مباشرة)
         const pendingReturnOrders = manifest.orders.filter(
           o =>
-            (o.deliveryStatus === "returned" || o.deliveryStatus === "partial_received") &&
+            o.deliveryStatus === "partial_received" &&
             (o as any).returnReceived !== 1
         );
         if (pendingReturnOrders.length === 0) return null;
@@ -4077,9 +4078,9 @@ export default function ShippingManifestPage() {
               </h2>
               <Badge
                 variant="outline"
-                className="border-red-700 bg-red-900/30 text-red-400 text-[10px] mr-auto"
+                className="border-teal-700 bg-teal-900/30 text-teal-400 text-[10px] mr-auto"
               >
-                {pendingReturnOrders.length} طلب بانتظار التأكيد
+                {pendingReturnOrders.length} طلب جزئي — الباقي بانتظار التأكيد
               </Badge>
             </div>
 
@@ -4229,10 +4230,10 @@ export default function ShippingManifestPage() {
             {/* Footer note */}
             <div className="px-4 py-2.5 border-t border-red-900/30 bg-red-950/20">
               <p className="text-[10px] text-red-500/70 text-center">
-                {isLocked
-                  ? "البيان مغلق — المرتجعات غير المؤكَّدة ترحَّلت للبيان التالي"
-                  : "عند إغلاق البيان: المؤكَّد استلامه يرجع للمخزن، وغير المؤكَّد يُرحَّل للبيان الجديد"}
-              </p>
+              {isLocked
+                ? "البيان مغلق — الجزء غير المؤكَّد استلامه ترحَّل للبيان التالي"
+                : "عند إغلاق البيان: الجزء المؤكَّد استلامه يرجع للمخزن، وغير المؤكَّد يُرحَّل للبيان الجديد"}
+            </p>
             </div>
           </Card>
         );
