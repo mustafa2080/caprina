@@ -58,7 +58,7 @@ async function generateManifestNumber(companyId: number): Promise<string> {
 // ─── إنشاء فاتورة مالية تلقائية عند قفل البيان + تحويل للخزنة ───────────────
 async function createFinancialInvoiceOnClose(
   manifest: typeof shippingManifestsTable.$inferSelect,
-  allOrders: (typeof ordersTable.$inferSelect & { deliveryStatus: string; partialQuantity?: number | null })[],
+  allOrders: (typeof ordersTable.$inferSelect & { deliveryStatus: string; partialQuantity?: number | null; deliveryNote?: string | null })[],
   userId: number | null,
   userName: string | null,
 ): Promise<void> {
@@ -91,8 +91,12 @@ async function createFinancialInvoiceOnClose(
         shippingFees += shipping;
       }
     } else if (o.deliveryStatus === "returned") {
-      // مرتجع كامل → خسارة تكلفة الشحن فقط
-      returnFees += shipping;
+      // مرتجع جزئي مرحَّل من بيان سابق → لا رسوم شحن إضافية (اتحسبت في البيان الأصلي)
+      const isRolledPartial = (o as any).deliveryNote?.includes("الجزء الباقي من استلام جزئي");
+      if (!isRolledPartial) {
+        // مرتجع كامل حقيقي → خسارة تكلفة الشحن فقط
+        returnFees += shipping;
+      }
     }
   }
 
@@ -249,8 +253,12 @@ function computeStats(orders: OrderWithDelivery[]) {
       }
 
     } else if (o.deliveryStatus === "returned") {
-      // مرتجع كامل → خسارة شحن فقط — المرتجع مش "لسه عند الشحن"
-      totalShippingCost += shipping;
+      // مرتجع مرحَّل من استلام جزئي → لا رسوم شحن إضافية (اتحسبت في البيان الأصلي)
+      const isRolledPartial = (o as any).deliveryNote?.includes("الجزء الباقي من استلام جزئي");
+      if (!isRolledPartial) {
+        // مرتجع كامل حقيقي → خسارة شحن فقط — المرتجع مش "لسه عند الشحن"
+        totalShippingCost += shipping;
+      }
 
     } else {
       // مؤجل / pending → محسوب بالفعل في loop الفواتير
@@ -716,6 +724,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
           ...o,
           deliveryStatus: allLinks.find(l => l.orderId === o.id)?.deliveryStatus ?? "pending",
           partialQuantity: allLinks.find(l => l.orderId === o.id)?.partialQuantity ?? null,
+          deliveryNote: allLinks.find(l => l.orderId === o.id)?.deliveryNote ?? null,
         }));
         const userId   = (req as any).user?.id ?? null;
         const userName = (req as any).user?.name ?? null;
