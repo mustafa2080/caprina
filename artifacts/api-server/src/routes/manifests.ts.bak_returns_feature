@@ -281,23 +281,6 @@ function buildOrderRef(order: typeof ordersTable.$inferSelect) {
   };
 }
 
-// ─── Helper: إرجاع كمية مرتجع مؤكَّد للمخزن (نفس المخزن الأصلي اللي خرج منه) ──
-// تُستخدم وقت قفل البيان فقط — اللحظة الوحيدة المسموح فيها بحركة مخزون فعلية للمرتجعات
-async function adjustWarehouseStockSafe(ref: ReturnType<typeof buildOrderRef>, qty: number, orderId: number): Promise<void> {
-  if (qty <= 0) return;
-  const { variantId: vid, productId: pid } = await resolveInventoryTarget(ref);
-  if (!vid && !pid) return;
-  await adjustWarehouseStock(ref.warehouseId, vid, pid, +qty);
-  await syncProductQuantityFromWarehouses(vid, pid);
-  const resolved = await resolveProductIdFromVariant(vid, pid);
-  await recordMovement({
-    type: "IN", reason: "from_shipping" as any, quantity: qty,
-    warehouseId: ref.warehouseId, variantId: resolved.variantId, productId: resolved.productId,
-    product: ref.product, color: ref.color, size: ref.size, orderId,
-    notes: "مرتجع مؤكَّد — رجع المخزن عند قفل البيان",
-  });
-}
-
 // ─── List manifests ───────────────────────────────────────────────────────────
 
 router.get("/shipping-manifests", async (req, res): Promise<void> => {
@@ -576,36 +559,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
   let rolledOverManifest: any = null;
 
   if (parsed.data.status === "closed") {
-    // ── أ) المرتجعات المؤكَّد استلامها (returnReceived=1) — تُحسم من المخزون الآن وتُقفل نهائيًا ──
-    // ده اللحظة الوحيدة اللي المخزون فيها يتحرك فعليًا للمرتجعات (راجع اتفاقنا: لا حركة مخزون فورية وقت التعليم)
-    const confirmedReturnLinks = await db.select().from(shippingManifestOrdersTable).where(
-      and(
-        eq(shippingManifestOrdersTable.manifestId, id),
-        inArray(shippingManifestOrdersTable.deliveryStatus, ["returned", "partial_received"]),
-        sql`${shippingManifestOrdersTable.returnReceived} = 1`
-      )
-    );
-    for (const link of confirmedReturnLinks) {
-      const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, link.orderId));
-      if (!order) continue;
-      const ref = buildOrderRef(order);
-      if (link.deliveryStatus === "returned") {
-        // مرتجع كامل مؤكَّد → الكمية الكاملة ترجع المخزن الآن
-        await adjustWarehouseStockSafe(ref, order.quantity, order.id);
-      } else {
-        // partial_received مؤكَّد → الجزء الباقي (غير المسلَّم) فقط يرجع المخزن
-        const deliveredQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
-        const remainingQty = order.quantity - deliveredQty;
-        if (remainingQty > 0) await adjustWarehouseStockSafe(ref, remainingQty, order.id);
-      }
-      // الطلب يتقفل نهائيًا كمرتجع — لا يترحّل لبيان جديد
-      await db.update(ordersTable)
-        .set({ status: "returned", partialQuantity: null, returnReceived: 1 })
-        .where(eq(ordersTable.id, order.id));
-    }
-    const confirmedReturnIds = new Set(confirmedReturnLinks.map(l => l.orderId));
-
-    // ── ب) الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned/partial غير مؤكَّدة ──
+    // الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned/partial بدون returnReceived
     const pendingLinks = await db.select().from(shippingManifestOrdersTable).where(
       and(
         eq(shippingManifestOrdersTable.manifestId, id),
@@ -617,7 +571,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       )
     );
 
-    console.log(`[CLOSE manifest ${id}] confirmedReturns=${confirmedReturnLinks.length} pendingLinks count=${pendingLinks.length}`, JSON.stringify(pendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
+    console.log(`[CLOSE manifest ${id}] pendingLinks count=${pendingLinks.length}`, JSON.stringify(pendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
 
     if (pendingLinks.length > 0) {
       // جيب كل الطلبات مرة واحدة في البداية عشان نستخدمها في كل العمليات
@@ -636,12 +590,19 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         await reverseShipping(buildOrderRef(order), order.quantity, order.id);
       }
 
-      // ── الطلبات الجزئية (partial_received) غير المؤكَّدة ────────────────────
-      // القاعدة الجديدة: المرتجع غير المؤكَّد ميتلمسش مخزونه خالص — يفضل عند
-      // شركة الشحن (نفس وضع الكمية الكاملة) لحد ما يتأكد استلامه فعليًا.
-      // (الكود القديم كان بيرجّع الجزء الباقي للمخزن هنا تلقائيًا — ده اللي تسبب
-      // في المشكلة، فاتفقنا إننا نوقفه)
-      // مفيش حركة مخزون هنا بالمرّة لـ partial_received غير المؤكَّدة.
+      // ── الطلبات الجزئية (partial_received) بدون returnReceived ──────────────
+      // الجزء المتبقي (لم يستلم) لسه عند شركة الشحن → نرجعه للمخزن
+      const partialWithoutReturn = pendingLinks.filter((l) => l.deliveryStatus === "partial_received");
+      for (const link of partialWithoutReturn) {
+        const order = pendingOrders.find(o => o.id === link.orderId);
+        if (!order) continue;
+        // الكمية اللي اتستلمت = link.partialQuantity (دايماً من الـ link مش ordersTable)
+        // لأن ordersTable.partialQuantity ممكن يكون اتغير في بيانات سابقة
+        const deliveredQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
+        const remainingQty = order.quantity - deliveredQty;
+        // الجزء الباقي كان عند شركة الشحن → أرجعه للمخزن
+        if (remainingQty > 0) await reverseShipping(buildOrderRef(order), remainingQty, order.id);
+      }
 
       // ── رحّل كل الطلبات لبيان جديد ───────────────────────────────────────────
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
@@ -653,46 +614,43 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       const [newManifest] = await db.select().from(shippingManifestsTable).where(eq(shippingManifestsTable.id, newId));
 
       // الطلبات في البيان الجديد:
-      //   - مؤجل           → يفضل مؤجل
-      //   - مرتجع غير مؤكَّد → يفضل "مرتجع" في حاوية البيان الجديد، علامة "مترحّل" (لمنع تكرار رسوم الشحن)
-      //   - جزئي غير مؤكَّد  → يفضل "استلام جزئي" بنفس partialQuantity، علامة "مترحّل"
-      //   - باقي            → pending
+      //   - مؤجل  → يفضل مؤجل
+      //   - مرتجع → يفضل مرتجع
+      //   - جزئي  → returned + returnReceived=1 (الباقي رجع المخزن، إيراد صفر في البيان الجديد)
+      //   - باقي  → pending
       await db.insert(shippingManifestOrdersTable).values(
         pendingLinks.map((link) => {
           const isDelayed  = link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed";
           const isReturned = link.deliveryStatus === "returned";
           const isPartial  = link.deliveryStatus === "partial_received";
-          // المرتجع/الجزئي غير المؤكَّد يفضل بنفس حالته — لا تحويل تلقائي ولا حركة مخزون
-          const newStatus  = isDelayed ? link.deliveryStatus : (isReturned || isPartial) ? link.deliveryStatus : "pending";
-          const rolledNote = "مترحّل من بيان سابق — بانتظار تأكيد الاستلام من شركة الشحن";
-          const newNote    = isDelayed ? link.deliveryNote : (isReturned || isPartial) ? rolledNote : null;
+          // الجزء الباقي من الاستلام الجزئي هيرجع مخزون → سجّله كمرتجع وصل المخزن
+          const newStatus  = isPartial ? "returned" : isDelayed ? link.deliveryStatus : isReturned ? "returned" : "pending";
+          const newNote    = isDelayed || isReturned ? link.deliveryNote : isPartial ? "مرتجع — الجزء الباقي من استلام جزئي في البيان السابق" : null;
           return {
             manifestId:     newManifest.id,
             orderId:        link.orderId,
             deliveryStatus: newStatus as any,
             deliveryNote:   newNote,
             deliveredAt:    null,
-            // الجزئي المترحّل يحافظ على partialQuantity عشان نعرف الكمية المتبقية المرتجعة
-            partialQuantity: isPartial ? link.partialQuantity : null,
-            // غير مؤكَّد دايمًا (لو كان مؤكَّد كان هيتقفل في كتلة confirmedReturnLinks فوق)
-            returnReceived:  (isReturned || isPartial) ? 0 : null,
-            // علامة داخلية: هل ده مترحّل من بيان سابق؟ تُستخدم في الفاتورة المالية لمنع تكرار رسوم الشحن
-            ...( (isReturned || isPartial) ? { rolledOver: true } : {} ),
+            partialQuantity: null,
+            // partial → returnReceived=1 (وصل المخزن فعلاً عبر reverseShipping)
+            returnReceived:  isPartial ? 1 : (isReturned ? link.returnReceived : null),
             addedAt:         new Date(),
           };
         })
       );
 
-      console.log(`[CLOSE manifest ${id}] new manifest ${newManifest.id} inserted links:`, JSON.stringify(pendingLinks.map(l => { const newStatus = (l.deliveryStatus === "postponed" || l.deliveryStatus === "delayed") ? l.deliveryStatus : l.deliveryStatus; return { orderId: l.orderId, prevStatus: l.deliveryStatus, newStatus }; })));
+      console.log(`[CLOSE manifest ${id}] new manifest ${newManifest.id} inserted links:`, JSON.stringify(pendingLinks.map(l => { const newStatus = (l.deliveryStatus === "postponed" || l.deliveryStatus === "delayed") ? l.deliveryStatus : l.deliveryStatus === "returned" ? "returned" : "pending"; return { orderId: l.orderId, prevStatus: l.deliveryStatus, newStatus }; })));
 
       // ── جيب الطلبات وأضفها للبيان الجديد بدون خصم مخزون إضافي ─────────────
-      // المخزون اتخصم بالفعل لما الطلبات دخلت البيان الأول، ومفيش حركة جديدة
-      // إلا لو اتأكد الاستلام (وده بيتعامل معاه في كتلة confirmedReturnLinks فوق
-      // قبل ما نوصل هنا أصلاً)
+      // المخزون اتخصم بالفعل لما الطلبات دخلت البيان الأول
+      // نعمل to_shipping جديدة في السجل بس (بدون تعديل المخزون = skipWarehouseStock=true)
 
-      // ── الطلبات المرحّلة: لسه عند شركة الشحن فعليًا → processToShipping تسجل to_shipping بالبيان الجديد ──
-      // الطلبات returned/partial_received غير المؤكَّدة: لسه في حالة "غير مؤكَّد" — برضو لسه عند الشحن منطقيًا
-      // فمفيش داعي لحركة processToShipping تانية (الحركة الأصلية لسه قايمة من البيان الأول)
+      // ── الطلبات المرحّلة: لما ترجعت للمخزن عبر reverseShipping ──
+      // processToShipping هتخصمها تاني وتسجل to_shipping في البيان الجديد
+      // الطلبات المرتجعة (returned) لا تحتاج to_shipping — هي لسه في حالة مرتجعة
+      // الطلبات الجزئية (partial_received) كذلك: الجزء الباقي رجع المخزن فعلاً (reverseShipping)
+      // وسُجِّل كمرتجع في البيان الجديد، فمفيش داعي يتسجل عليه to_shipping تاني
       const returnedIdsForShipping = new Set(pendingLinks.filter((l) => l.deliveryStatus === "returned").map((l) => l.orderId));
       const partialIdsForShipping = new Set(pendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId));
       for (const order of pendingOrders) {
@@ -701,30 +659,31 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         }
       }
 
-      // تحديث ordersTable: المرتجع/الجزئي غير المؤكَّد يفضل بنفس حالته (returned/partial_received) في الجدول
+      // تحديث الطلبات: المرتجعة تفضل "returned"، partial_received → returned كذلك (الباقي رجع المخزن فعلاً)
       const returnedIds = pendingLinks
         .filter((l) => l.deliveryStatus === "returned")
         .map((l) => l.orderId);
+      const nonReturnedIds = allPendingIds.filter((id) => !returnedIds.includes(id));
+
       const partialIds = pendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId);
-      const nonPartialNonReturnedIds = allPendingIds.filter((oid) => !returnedIds.includes(oid) && !partialIds.includes(oid));
+      const nonPartialNonReturnedIds = allPendingIds.filter((id) => !returnedIds.includes(id) && !partialIds.includes(id));
 
       if (nonPartialNonReturnedIds.length > 0) {
         await db.update(ordersTable)
           .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, partialQuantity: null })
           .where(inArray(ordersTable.id, nonPartialNonReturnedIds));
       }
-      // partial_received غير مؤكَّد → يفضل partial_received في ordersTable (لسه منتظر تأكيد)
+      // partial_received → الجزء الباقي رجع المخزن فعلاً (reverseShipping) وسُجِّل "مرتجع" في البيان الجديد
+      // إذن حالة الطلب في ordersTable لازم تكون "returned" مش "in_shipping" (ميرحلش لشحن تاني)
       if (partialIds.length > 0) {
-        for (const link of pendingLinks.filter(l => l.deliveryStatus === "partial_received")) {
-          await db.update(ordersTable)
-            .set({
-              status: "partial_received",
-              shippingCompanyId: updated.shippingCompanyId,
-              partialQuantity: link.partialQuantity,
-              returnReceived: 0,
-            })
-            .where(eq(ordersTable.id, link.orderId));
-        }
+        await db.update(ordersTable)
+          .set({
+            status: "returned",
+            shippingCompanyId: updated.shippingCompanyId,
+            partialQuantity: null,
+            returnReceived: 1,
+          })
+          .where(inArray(ordersTable.id, partialIds));
       }
       if (returnedIds.length > 0) {
         await db.update(ordersTable)
@@ -1031,62 +990,89 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     let movNotes: string;
 
     if (deliveryStatus === "partial_received") {
-      // ─── المرتجع (الجزء الباقي من الاستلام الجزئي) ──────────────────────
-      // القاعدة الجديدة: تأكيد الاستلام (returnReceived) هنا هو مجرد "تعليم" —
-      // المخزون لا يتحرك إلا عند قفل البيان (راجع منطق /shipping-manifests/:id closed).
-      // الكمية الكاملة تتسجل دايماً كـ OUT/to_shipping لحد القفل.
       const newPartialQty = parsedPartialQty!;
-      movType   = "OUT";
-      movReason = "to_shipping";
-      movQty    = totalQty;
-      movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (الباقي يُحسم من المخزون عند قفل البيان)`;
+      const newReturnBool = partialReturnReceived ?? false;
+      const remainingQty  = totalQty - newPartialQty;
 
-      // لو كان فيه حركة IN قديمة (من سلوك سابق أرجعت جزء للمخزن) → اعكسها فقط، بدون أي إضافة جديدة
+      if (newReturnBool && remainingQty > 0) {
+        // الجزء الراجع دخل المخزن → IN
+        movType   = "IN";
+        movReason = "from_shipping";
+        movQty    = remainingQty;
+        movNotes  = `استلام جزئي — ${newPartialQty} قطعة مُسلَّمة، ${remainingQty} قطعة رجعت المخزن`;
+      } else if (newReturnBool && remainingQty === 0) {
+        // كل الكمية اتستلمت، مفيش باقي → بيع كامل
+        movType   = "OUT";
+        movReason = "sale";
+        movQty    = totalQty;
+        movNotes  = `استلام كامل — ${totalQty} قطعة مُسلَّمة`;
+      } else {
+        // الباقي لسه في الشحن → OUT/to_shipping بالكمية الكاملة
+        movType   = "OUT";
+        movReason = "to_shipping";
+        movQty    = totalQty;
+        movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (الباقي عند الشحن)`;
+      }
+
+      // تعديل المخزون:
       const prevStatus     = oldDeliveryStatus;
       const prevPartialQty = oldPartialQtyNum ?? 0;
       const prevReturnBool = oldPartialReturnReceivedBool;
       const prevInStock    = prevStatus === "partial_received" && prevReturnBool === true
         ? (totalQty - prevPartialQty) : 0;
-      if ((vid || pid) && prevInStock !== 0) {
-        await adjustWarehouseStock(ref.warehouseId, vid, pid, -prevInStock);
+      const newInStock     = (newReturnBool && remainingQty > 0) ? remainingQty : 0;
+      const stockAdjust    = newInStock - prevInStock;
+      if ((vid || pid) && stockAdjust !== 0) {
+        await adjustWarehouseStock(ref.warehouseId, vid, pid, stockAdjust);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
 
-    } else if (deliveryStatus === "returned") {
-      // ─── المرتجع الكامل ──────────────────────────────────────────────────
-      // القاعدة الجديدة: returnReceived هنا مجرد "تعليم" (تم/لم يتم الاستلام).
-      // المخزون لا يرجع فعليًا إلا عند قفل البيان. لحد القفل تفضل الكمية مسجّلة
-      // عند شركة الشحن (to_shipping) بغض النظر عن قيمة returnReceived.
-      movType   = "OUT";
-      movReason = "to_shipping";
-      movQty    = totalQty;
-      movNotes  = returnReceived === true
-        ? "مرتجع — تم تأكيد الاستلام (سيُحسم من المخزون عند قفل البيان)"
-        : "مرتجع — لسه عند شركة الشحن";
+    } else if (deliveryStatus === "returned" && returnReceived === true) {
+      // مرتجع وصل المخزن → IN بالكمية الكاملة دايماً
+      const wasPartial        = oldDeliveryStatus === "partial_received";
+      const prevPartialQty    = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
+      const prevReturnBool    = oldPartialReturnReceivedBool; // هل الباقي كان في المخزن؟
 
-      // لو كان فيه حركة IN قديمة من سلوك سابق (returnReceived كان true وحرّك المخزون فورًا) → اعكسها
-      const wasPartial     = oldDeliveryStatus === "partial_received";
-      const prevPartialQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
-      const prevReturnBool = oldPartialReturnReceivedBool;
-      let qtyToReverse = 0;
-      if (oldDeliveryStatus === "returned" && Number(oldReturnReceived) === 1) {
-        qtyToReverse = totalQty;
-      } else if (wasPartial && prevReturnBool === true) {
-        qtyToReverse = prevPartialQty;
+      // الكمية اللي لازم ترجع المخزن دلوقتي:
+      // - لو partial + الباقي في المخزن: الجزء المستلم فقط (الباقي أصلاً في المخزن)
+      // - لو partial + الباقي في الشحن: الكمية الكاملة
+      // - لو مش partial: الكمية الكاملة
+      let qtyToAddNow: number;
+      if (wasPartial && prevReturnBool === true) {
+        // الباقي (totalQty - prevPartialQty) أصلاً في المخزن
+        // اللي لازم نضيفه = الجزء المستلم (prevPartialQty) فقط
+        qtyToAddNow = prevPartialQty;
+      } else if (wasPartial && prevReturnBool === false) {
+        // الباقي كان في الشحن → كل الكمية ترجع
+        qtyToAddNow = totalQty;
+      } else {
+        // مش partial → كل الكمية ترجع
+        qtyToAddNow = totalQty;
       }
-      if ((vid || pid) && qtyToReverse > 0) {
-        await adjustWarehouseStock(ref.warehouseId, vid, pid, -qtyToReverse);
+
+      movType   = "IN";
+      movReason = "from_shipping";
+      movQty    = totalQty; // الحركة تسجل الكمية الكاملة للوضوح
+      movNotes  = wasPartial
+        ? `مرتجع كامل — ${prevPartialQty} قطعة كانت مستلمة + ${totalQty - prevPartialQty} قطعة رجعت للمخزن`
+        : "مرتجع — وصل المخزن من شركة الشحن";
+
+      if ((vid || pid) && qtyToAddNow > 0) {
+        await adjustWarehouseStock(ref.warehouseId, vid, pid, +qtyToAddNow);
         await syncProductQuantityFromWarehouses(vid, pid);
       }
 
     } else {
-      // pending / postponed / delivered (returned و partial_received لهم فروع خاصة فوق)
+      // pending / postponed / returned(في الشحن) / delivered
       movType   = "OUT";
       movQty    = totalQty;
 
       if (deliveryStatus === "delivered") {
         movReason = "sale";
         movNotes  = "تم الاستلام — بيع";
+      } else if (deliveryStatus === "returned") {
+        movReason = "to_shipping";
+        movNotes  = "مرتجع — لسه عند شركة الشحن";
       } else {
         movReason = "to_shipping";
         movNotes  = deliveryStatus === "postponed" ? "مؤجل — عند شركة الشحن" : "قيد الانتظار — عند شركة الشحن";
