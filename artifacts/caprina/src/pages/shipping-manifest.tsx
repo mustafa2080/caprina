@@ -1025,13 +1025,7 @@ function InvoiceGroupDeliveryRow({
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
                   {displayOpt.label} ({displayTotalPartialQty}/{totalQty})
                 </Badge>
-                {/* المنتجات اللي اتستلمت (qty > 0) */}
-                {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) > 0).map(o => (
-                  <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[120px] font-semibold">
-                    ✅ {o.product} ×{displayPartialQtyMap[o.id]}
-                  </p>
-                ))}
-                {/* المنتجات اللي كميتها صفر = مرتجعة */}
+                {/* المنتجات اللي كميتها صفر فقط = مرتجعة */}
                 {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) === 0).map(o => (
                   <p key={o.id} className="text-[9px] text-red-500 dark:text-red-400 truncate max-w-[120px] font-semibold">
                     ↩ مرتجع: {o.product}
@@ -1224,11 +1218,6 @@ function InvoiceGroupDeliveryRow({
           )}
           {displayStatus === "partial_received" && (
             <div className="flex flex-col gap-0.5">
-              {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) > 0).map(o => (
-                <p key={o.id} className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
-                  ✅ {o.product} ×{displayPartialQtyMap[o.id]}
-                </p>
-              ))}
               {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) === 0).map(o => (
                 <p key={o.id} className="text-[10px] text-red-500 dark:text-red-400 font-semibold">
                   ↩ مرتجع: {o.product}
