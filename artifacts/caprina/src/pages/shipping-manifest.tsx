@@ -890,7 +890,7 @@ function InvoiceGroupDeliveryRow({
       toast({ title: "تم حفظ حالة التسليم للفاتورة كاملها" });
       // نطبق القيم المُرسَلة في الـ state فوراً
       if (pendingSaveRef.current) {
-        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk, partialReturnReceived: savedBulkReturn } = pendingSaveRef.current;
+        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk, bulkReturnReceived: savedBulkReturn } = pendingSaveRef.current;
         setPartialQtyMap(savedQty);
         setPerOrderStatus(savedStatus);
         setBulkStatus(savedBulk);
@@ -3217,6 +3217,7 @@ export default function ShippingManifestPage() {
     queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
     queryClient.invalidateQueries({ queryKey: ["analytics-alerts"] });
     queryClient.invalidateQueries({ queryKey: ["variant-wh-stock"] });
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
   }, [queryClient, id]);
 
   const updateMutation = useMutation({
@@ -4159,7 +4160,7 @@ export default function ShippingManifestPage() {
                         onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, returnReceived: false }); refetch(); } catch(e){console.error(e);} }}
                         className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===0?"border-amber-500 bg-amber-900/40 text-amber-300 ring-1 ring-amber-500/50":"border-border text-muted-foreground hover:border-amber-600 hover:text-amber-400 hover:bg-amber-900/20"}`}>
                         <span className="text-base">🚚</span><span>لم يتم الاستلام</span>
-                        {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">{isPartialRow ? "ما زال عند الشحن" : "سيُرحَّل ← بيان جديد"}</span>}
+                        {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">{isPartialRow ? "ما زال عند الشحن" : "ما زال عند الشحن"}</span>}
                       </button>
                       <button type="button"
                         onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, returnReceived: true }); refetch(); } catch(e){console.error(e);} }}
