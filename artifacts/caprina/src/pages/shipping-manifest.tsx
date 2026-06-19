@@ -4089,6 +4089,7 @@ export default function ShippingManifestPage() {
         const pendingReturnOrders = manifest.orders.filter(
           o =>
             o.deliveryStatus === "partial_received" &&
+            Number(o.partialQuantity) === 0 &&
             ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
         );
         if (pendingReturnOrders.length === 0) return null;
