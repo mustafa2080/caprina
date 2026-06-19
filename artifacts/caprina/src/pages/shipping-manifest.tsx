@@ -1100,10 +1100,10 @@ function InvoiceGroupDeliveryRow({
                     ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
                   </p>
                 )}
-                {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && (
+                {displayStatus === "partial_received" && currentGroupReturnReceived === true && (
                   <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ استلام جزء المرتجع في المخزن</p>
                 )}
-                {displayStatus === "partial_received" && (rep as any).returnReceived !== 1 && (
+                {displayStatus === "partial_received" && currentGroupReturnReceived !== true && (
                   <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">🚚 ما زال عند شركة الشحن</p>
                 )}
               </div>
@@ -1251,8 +1251,8 @@ function InvoiceGroupDeliveryRow({
                   ↩ مرتجع: {o.product}
                 </p>
               ))}
-              {(rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ استلام جزء المرتجع في المخزن</p>}
-              {((rep as any).returnReceived === 0 || (rep as any).returnReceived == null) && <p className="text-[10px] text-orange-500 font-semibold">🚚 ما زال عند شركة الشحن</p>}
+              {currentGroupReturnReceived === true && <p className="text-[10px] text-emerald-600 font-semibold">↩ استلام جزء المرتجع في المخزن</p>}
+              {currentGroupReturnReceived !== true && <p className="text-[10px] text-orange-500 font-semibold">🚚 ما زال عند شركة الشحن</p>}
             </div>
           )}
           {/* Action button */}
