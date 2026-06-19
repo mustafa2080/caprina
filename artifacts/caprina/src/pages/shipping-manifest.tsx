@@ -4100,6 +4100,7 @@ export default function ShippingManifestPage() {
         // لحد ما يتحسم بزرار "تم/لم يتم الاستلام"، بغض النظر عن الترحيل
         const partialRemainderRows = manifest.orders.filter(o => {
           if (o.deliveryStatus !== "partial_received") return false;
+          if ((o as any).returnReceived === 1) return false; // اتأكد من استلامه → يختفي
           const qty = o.quantity ?? 0;
           const pq = o.partialQuantity ?? 0;
           return qty - pq > 0;
