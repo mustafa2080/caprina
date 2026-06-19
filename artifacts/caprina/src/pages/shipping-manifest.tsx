@@ -4091,12 +4091,10 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // جمع الاستلام الجزئي فقط — الجزء الباقي لسه مش مؤكد استلامه
-        // (المرتجع الكامل عنده زراريه جوه صفه في الجدول مباشرة)
+        // كل المرحّلين من بيان سابق — سواء partialQuantity = 0 (مرتجع كامل) أو > 0 (استلم جزئي والباقي مرتجع)
         const pendingReturnOrders = manifest.orders.filter(
           o =>
             o.deliveryStatus === "partial_received" &&
-            Number(o.partialQuantity) === 0 &&
             ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
         );
         if (pendingReturnOrders.length === 0) return null;
