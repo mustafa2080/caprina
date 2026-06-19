@@ -4044,12 +4044,11 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // مرتجع كامل (returned) — بيظهر بس لو مترحّل من بيان سابق وغير مؤكَّد
-        const allRolledOver = manifest.orders.filter(o => {
-          const note = ((o as any).deliveryNote ?? "");
-          return note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
-        });
-        const returnedRows = allRolledOver.filter(o => o.deliveryStatus === "returned");
+        // مرتجع كامل (returned) — يظهر في نفس البيان أو مترحّل، طالما لم يتأكد الاستلام (returnReceived !== 1)
+        // لو البيان اتقفل بدون action → يترحّل للبيان الجديد تلقائياً (الـ backend بيعمله)
+        const returnedRows = manifest.orders.filter(o =>
+          o.deliveryStatus === "returned" && (o as any).returnReceived !== 1
+        );
 
         // استلام جزئي وباقي منه عند الشحن — يظهر دايمًا (بيان مفتوح أو مقفول)
         // لحد ما يتحسم بزرار "تم/لم يتم الاستلام"، بغض النظر عن الترحيل
