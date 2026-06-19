@@ -3039,6 +3039,7 @@ export default function ShippingManifestPage() {
   const [manifestCustomerSearch, setManifestCustomerSearch] = useState("");
   const [manifestProductSearch, setManifestProductSearch] = useState("");
   const [manifestTotalSearch, setManifestTotalSearch] = useState("");
+  const [confirmReceiveOrder, setConfirmReceiveOrder] = useState<{ id: number; clientName?: string | null; product?: string | null; deliveryStatus: string } | null>(null);
   const [sortCol, setSortCol] = useState<keyof ColFilters | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const handleSort = useCallback((col: keyof ColFilters, dir: "asc" | "desc") => {
@@ -4093,8 +4094,6 @@ export default function ShippingManifestPage() {
         // مرتجع كامل (returned) — يظهر في نفس البيان أو مترحّل، طالما لم يتأكد الاستلام (returnReceived !== 1)
         // لو البيان اتقفل بدون action → يترحّل للبيان الجديد تلقائياً (الـ backend بيعمله)
         const isReturnConfirmed = (o: any) => Number(o.returnReceived) === 1;
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const [confirmReceiveOrder, setConfirmReceiveOrder] = useState<(typeof manifest.orders)[0] | null>(null);
 
         const returnedRows = manifest.orders.filter(o =>
           o.deliveryStatus === "returned" && !isReturnConfirmed(o)
