@@ -2188,7 +2188,7 @@ function ExportDialog({
       if (returnReceived == null) return sum;
       if (o.partialQuantity == null || o.quantity <= 0) return sum;
       // المرحّل (partialQuantity=0) إيراده صفر — هيرجع المخزن مش مبيع
-      if (o.partialQuantity === 0) return sum;
+      if (o.partialQuantity == null || Number(o.partialQuantity) === 0) return sum;
       const unitPrice = (o as any).unitPrice != null
         ? Number((o as any).unitPrice)
         : Number(o.totalPrice) / Number(o.quantity);
@@ -3394,8 +3394,8 @@ export default function ShippingManifestPage() {
   const visibleOrders = manifest.orders.filter(o => {
     const isRolledPartial =
       o.deliveryStatus === "partial_received" &&
-      (o as any).returnReceived !== 1 &&
-      (o.partialQuantity === 0 || o.partialQuantity === null || o.partialQuantity === undefined);
+      Number((o as any).returnReceived) !== 1 &&
+      (o.partialQuantity == null || Number(o.partialQuantity) === 0);
     return !isRolledPartial;
   });
   const groupedManifestOrders = groupManifestOrders(visibleOrders);
@@ -3444,7 +3444,7 @@ export default function ShippingManifestPage() {
       if (returnReceived == null) return sum;
       if (o.partialQuantity == null || o.quantity <= 0) return sum;
       // المرحّل (partialQuantity=0) إيراده صفر — هيرجع المخزن مش مبيع
-      if (o.partialQuantity === 0) return sum;
+      if (o.partialQuantity == null || Number(o.partialQuantity) === 0) return sum;
       const unitPrice = (o as any).unitPrice != null
         ? Number((o as any).unitPrice)
         : Number(o.totalPrice) / Number(o.quantity);
@@ -4083,9 +4083,9 @@ export default function ShippingManifestPage() {
         const pendingReturnOrders = manifest.orders.filter(
           o =>
             o.deliveryStatus === "partial_received" &&
-            (o as any).returnReceived !== 1 &&
+            Number((o as any).returnReceived) !== 1 &&
             // بس المنتجات اللي العميل مستلمهاش (كمية مستلمة = 0 أو null)
-            (o.partialQuantity === 0 || o.partialQuantity === null || o.partialQuantity === undefined)
+            (o.partialQuantity == null || Number(o.partialQuantity) === 0)
         );
         if (pendingReturnOrders.length === 0) return null;
 
