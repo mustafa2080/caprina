@@ -4187,7 +4187,8 @@ export default function ShippingManifestPage() {
                     <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>المنتج</th>
                     <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>اللون/المقاس</th>
                     <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>النوع</th>
-                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>الكمية</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#16a34a" }}>استُلم ✓</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#dc2626" }}>مرتجع ↩</th>
                     <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>الحالة</th>
                     <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>✓ استلمت</th>
                   </tr>
@@ -4196,7 +4197,9 @@ export default function ShippingManifestPage() {
                   {returnContainerRows.map((order, idx) => {
                     const isP = order.deliveryStatus === "partial_received";
                     const rr = (order as any).returnReceived;
-                    const qty = isP ? (order.quantity ?? 0) - (order.partialQuantity ?? 0) : (order.quantity ?? 0);
+                    const totalQty = order.quantity ?? 0;
+                    const deliveredQty = isP ? (order.partialQuantity ?? 0) : 0;
+                    const returnedQty = isP ? totalQty - deliveredQty : totalQty;
                     return (
                       <tr key={order.id} style={{ borderBottom: "1px solid #fecaca", backgroundColor: idx % 2 === 0 ? "#fff" : "#fff5f5" }}>
                         <td style={{ padding: "5px 8px", color: "#6b7280", fontFamily: "monospace" }}>#{order.id.toString().padStart(4,"0")}</td>
@@ -4206,10 +4209,15 @@ export default function ShippingManifestPage() {
                         <td style={{ padding: "5px 8px", color: "#6b7280" }}>{[order.color, order.size].filter(Boolean).join(" / ") || "—"}</td>
                         <td style={{ padding: "5px 8px", textAlign: "center" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, border: isP ? "1px solid #0d9488" : "1px solid #dc2626", color: isP ? "#0d9488" : "#dc2626" }}>
-                            {isP ? "جزئي" : "كامل"}
+                            {isP ? "جزئي" : "مرتجع كامل"}
                           </span>
                         </td>
-                        <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: "#dc2626" }}>{qty}</td>
+                        <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: "#16a34a" }}>
+                          {isP ? deliveredQty : "—"}
+                        </td>
+                        <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: "#dc2626" }}>
+                          {returnedQty}
+                        </td>
                         <td style={{ padding: "5px 8px", textAlign: "center", fontSize: 10, color: rr === 1 ? "#16a34a" : rr === 0 ? "#d97706" : "#9ca3af" }}>
                           {rr === 1 ? "✅ عند المخزن" : rr === 0 ? "🚚 عند الشحن" : "⏳ لم يُحدَّد"}
                         </td>
@@ -4223,7 +4231,10 @@ export default function ShippingManifestPage() {
                 <tfoot>
                   <tr style={{ borderTop: "2px solid #fca5a5", backgroundColor: "#fef2f2" }}>
                     <td colSpan={6} style={{ padding: "6px 8px", fontWeight: 700, color: "#b91c1c" }}>الإجمالي</td>
-                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>
+                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#16a34a" }}>
+                      {returnContainerRows.reduce((s, o) => s + (o.deliveryStatus === "partial_received" ? (o.partialQuantity ?? 0) : 0), 0) || "—"}
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#dc2626" }}>
                       {returnContainerRows.reduce((s, o) => {
                         const isP = o.deliveryStatus === "partial_received";
                         return s + (isP ? (o.quantity ?? 0) - (o.partialQuantity ?? 0) : (o.quantity ?? 0));
