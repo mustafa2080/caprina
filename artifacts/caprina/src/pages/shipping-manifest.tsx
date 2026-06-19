@@ -4098,11 +4098,12 @@ export default function ShippingManifestPage() {
           o.deliveryStatus === "returned" && !isReturnConfirmed(o)
         );
 
-        // استلام جزئي — يظهر في الحاوية طالما لم يتأكد الاستلام
+        // استلام جزئي — يظهر في الحاوية لو في كمية باقية عند الشحن (qty - partialQuantity > 0) ولم يتأكد استلامها
         const partialRemainderRows = manifest.orders.filter(o => {
           if (o.deliveryStatus !== "partial_received") return false;
-          if (isReturnConfirmed(o)) return false; // اتأكد من استلامه → يختفي
-          return true;
+          if (isReturnConfirmed(o)) return false;
+          const remaining = (o.quantity ?? 0) - (o.partialQuantity ?? 0);
+          return remaining > 0;
         });
 
         const returnContainerRows = [...returnedRows, ...partialRemainderRows];
