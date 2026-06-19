@@ -1000,13 +1000,15 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
   // لو partial_received وبدون كمية في الـ request → نستخدم الكمية القديمة من DB
   // (يحصل ده لما زراير الحاوية الحمراء بتبعت returnReceived فقط بدون كمية)
+  // fallback chain: request → link.partialQuantity → existingOrder.partialQuantity → 0
   const resolvedPartialQty = (deliveryStatus === "partial_received" && parsedPartialQty === null)
     ? (link.partialQuantity != null ? Number(link.partialQuantity)
       : existingOrder.partialQuantity != null ? Number(existingOrder.partialQuantity)
-      : null)
+      : 0)   // ← زرار الحاوية الحمراء: مفيش كمية في DB يعني الكمية 0 (الكل عند الشحن)
     : parsedPartialQty;
 
-  // لو partial_received وما فيش كمية خالص (مش في الطلب ولا في DB) → خطأ صريح
+  // لو partial_received وجاي من الـ edit form بدون كمية خالص → خطأ صريح فقط
+  // (زراري الحاوية الحمراء مش بيبعتوا partialQuantity فمش هيوصلوا هنا أبداً)
   if (deliveryStatus === "partial_received" && resolvedPartialQty === null) {
     res.status(400).json({ error: "يجب إدخال الكمية المستلمة للتسليم الجزئي" }); return;
   }
