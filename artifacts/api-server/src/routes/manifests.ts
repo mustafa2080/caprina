@@ -618,9 +618,15 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         const remainingQty = order.quantity - deliveredQty;
         if (remainingQty > 0) await adjustWarehouseStockSafe(ref, remainingQty, order.id);
       }
-      // الطلب يتقفل نهائيًا كمرتجع — لا يترحّل لبيان جديد
+      // الطلب يتقفل نهائيًا — لا يترحّل لبيان جديد
+      // partial_received مؤكَّد → يفضل partial_received (العميل استلم جزء، الباقي رجع المخزن)
+      // returned مؤكَّد → يبقى returned
+      const finalStatus = link.deliveryStatus === "partial_received" ? "partial_received" : "returned";
+      const finalPartialQty = link.deliveryStatus === "partial_received"
+        ? (link.partialQuantity != null ? Number(link.partialQuantity) : null)
+        : null;
       await db.update(ordersTable)
-        .set({ status: "returned", partialQuantity: null, returnReceived: 1 })
+        .set({ status: finalStatus, partialQuantity: finalPartialQty, returnReceived: 1 })
         .where(eq(ordersTable.id, order.id));
     }
     const confirmedReturnIds = new Set(confirmedReturnLinks.map(l => l.orderId));
