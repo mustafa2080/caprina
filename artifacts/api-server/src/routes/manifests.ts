@@ -1029,19 +1029,17 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // حساب القيمة القديمة لـ partialReturnReceived بشكل صريح
   const oldPartialReturnReceivedBool = link.returnReceived == null ? null : Number(link.returnReceived) === 1 ? true : false;
 
-  // لو partial_received بكمية 0 وباقي عند الشحن → نعامله كـ pending (مش partial فعلاً)
-  // ده بيحصل للأوردرات الـ siblings في الفاتورة المتعددة
-  const effectiveDeliveryStatus = (deliveryStatus === "partial_received" && parsedPartialQty === 0 && partialReturnReceived === false)
-    ? "pending"
-    : deliveryStatus;
+  // استخدم deliveryStatus مباشرة بدون ترحيل لـ pending حتى نحافظ على حالة الاستلام الجزئي للمنتجات المرفوضة
+  const effectiveDeliveryStatus = deliveryStatus;
 
   const noChange = effectiveDeliveryStatus === oldDeliveryStatus &&
     // returned: لو returnReceived لم يتغير
     (effectiveDeliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
     // partial_received: الكمية لم تتغير
     (effectiveDeliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
-    // partial_received: returnReceived لم يتغير
-    (effectiveDeliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
+    // partial_received: partialReturnReceived لم يتغير
+    // تحويل false و null كلاهما لـ false عشان ما نعتبرش null→false تغيير
+    (effectiveDeliveryStatus !== "partial_received" || (partialReturnReceived ?? false) === (oldPartialReturnReceivedBool ?? false));
 
   console.log(`[PATCH order ${orderId}] parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} noChange=${noChange}`);
 
@@ -1182,7 +1180,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     partialQuantity: deliveryStatus === "partial_received" && parsedPartialQty != null ? parsedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "partial_received"
-      ? { returnReceived: ((partialReturnReceived ?? false) || (parsedPartialQty != null && parsedPartialQty >= totalQty)) ? 1 : 0 }
+      ? { returnReceived: (partialReturnReceived ?? false) ? 1 : 0 }
       : {}),
     ...(deliveryStatus === "returned" && returnReceived != null
       ? { returnReceived: returnReceived ? 1 : 0 }
@@ -1203,7 +1201,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   const orderUpdate: Record<string, unknown> = { status: newOrderStatus };
   if (deliveryStatus === "partial_received" && parsedPartialQty != null) orderUpdate.partialQuantity = parsedPartialQty;
   if (deliveryStatus === "partial_received") {
-    orderUpdate.returnReceived = ((partialReturnReceived ?? false) || (parsedPartialQty != null && parsedPartialQty >= totalQty)) ? 1 : 0;
+    orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
   }
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;

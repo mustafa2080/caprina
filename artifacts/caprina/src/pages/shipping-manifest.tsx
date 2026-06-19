@@ -714,6 +714,24 @@ function InvoiceGroupDeliveryRow({
     : hasMixedPartial
       ? "partial_received"
       : "pending";
+  const getGroupReturnReceived = (grp: ManifestOrder[], status: DeliveryStatus): boolean | null => {
+    if (status === "returned") {
+      const values = grp.map(o => (o as any).returnReceived);
+      if (values.every(v => v === 1)) return true;
+      if (values.some(v => v === 0)) return false;
+      return null;
+    }
+    if (status === "partial_received") {
+      const remainderItems = grp.filter(o => (o.partialQuantity ?? 0) < o.quantity);
+      if (remainderItems.length === 0) return true;
+      const values = remainderItems.map(o => (o as any).returnReceived);
+      if (values.every(v => v === 1)) return true;
+      if (values.some(v => v === 0)) return false;
+      return null;
+    }
+    return null;
+  };
+
   const groupOpt = deliveryOpt(groupStatus);
   const hasMultipleStatuses = statuses.length > 1;
 
@@ -726,7 +744,7 @@ function InvoiceGroupDeliveryRow({
   const [bulkNote, setBulkNote] = useState(rep.deliveryNote ?? "");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [bulkReturnReceived, setBulkReturnReceived] = useState<boolean | null>(
-    (rep as any).returnReceived === 1 ? true : (rep as any).returnReceived === 0 ? false : null
+    getGroupReturnReceived(group, groupStatus)
   );
   const [bulkReturnReason, setBulkReturnReason] = useState<string>((rep as any).returnReason ?? "");
 
@@ -738,7 +756,7 @@ function InvoiceGroupDeliveryRow({
     Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""]))
   );
   const [partialReturnReceived, setPartialReturnReceived] = useState<boolean | null>(
-    group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null
+    getGroupReturnReceived(group, groupStatus)
   );
   // نحفظ القيم المُرسَلة للـ API هنا عشان نستخدمها في onSuccess
   const pendingSaveRef = useRef<{
@@ -755,6 +773,10 @@ function InvoiceGroupDeliveryRow({
   // الحالة المعروضة في الـ UI (خارج وضع التعديل): لما pendingSaveRef موجود نعرض bulkStatus (الحالة المحفوظة) لحد ما يجي الـ refetch
   const displayStatus: DeliveryStatus = (bulkEditing || pendingSaveRef.current !== null) ? bulkStatus : groupStatus;
   const displayOpt = deliveryOpt(displayStatus);
+
+  const currentGroupReturnReceived = (bulkEditing || pendingSaveRef.current !== null)
+    ? (displayStatus === "returned" ? bulkReturnReceived : partialReturnReceived)
+    : getGroupReturnReceived(group, displayStatus);
 
   const displayPartialQtyMap: Record<number, number> = Object.fromEntries(
     group.map(o => {
