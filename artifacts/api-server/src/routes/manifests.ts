@@ -262,7 +262,11 @@ function computeStats(orders: OrderWithDelivery[]) {
     }
   }
   const actuallyDeliveredShipping = orders
-    .filter(o => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
+    .filter(o => {
+      if (o.deliveryStatus === "delivered") return true;
+      if (o.deliveryStatus === "partial_received" && !o.deliveryNote?.includes("مترحّل من بيان سابق")) return true;
+      return false;
+    })
     .reduce((sum, o) => sum + (o.shippingCost ?? 0), 0);
   const dueFromCompany = deliveredGross - actuallyDeliveredShipping;
   return {

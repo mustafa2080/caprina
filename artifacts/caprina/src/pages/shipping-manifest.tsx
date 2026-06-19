@@ -1774,7 +1774,10 @@ function SettlementCard({ manifest, onSaved }: { manifest: ShippingManifestDetai
   const effectiveShippingCost = manifest.manualShippingCost ?? s.totalShippingCost;
   const hasManualCost = manifest.manualShippingCost != null;
 
-  const settlementPartialCount = manifest.orders.filter(o => o.deliveryStatus === "partial_received").length;
+  const settlementPartialCount = manifest.orders.filter(o =>
+    o.deliveryStatus === "partial_received" &&
+    !((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
+  ).length;
   const deliveredTotal = s.deliveredGross;
   // صافي الربح الحقيقي = إجمالي الإيرادات − تكلفة البضاعة − تكلفة الشحن − خسائر الإرجاع
   const netProfit = s.totalRevenue - s.totalCost - effectiveShippingCost - s.returnLosses;
