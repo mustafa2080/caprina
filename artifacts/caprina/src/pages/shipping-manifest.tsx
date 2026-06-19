@@ -4087,79 +4087,17 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // المرحّلون من بيان سابق — نقسّمهم لفئتين:
-        // 1) مرتجع كامل (partialQty = 0) → يظهر في حاوية المرتجعات
-        // 2) استلم جزئي (partialQty > 0) → يظهر في حاوية الاستلام الجزئي (الكاونتر فوق)
+        // المرحّلون من بيان سابق — فقط اللي قيمته صفر (ما استلمش حاجة) يظهر في حاوية المرتجعات
         const allRolledOver = manifest.orders.filter(
           o => ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
         );
-        const fullReturnOrders   = allRolledOver.filter(o => (o.partialQuantity ?? 0) === 0);
-        const partialDoneOrders  = allRolledOver.filter(o => (o.partialQuantity ?? 0) > 0);
-        if (allRolledOver.length === 0) return null;
+        const fullReturnOrders  = allRolledOver.filter(o => (o.partialQuantity ?? 0) === 0);
+        if (fullReturnOrders.length === 0) return null;
 
         return (
           <div className="space-y-3 print:hidden">
 
-          {/* ── حاوية الاستلام الجزئي ── */}
-          {partialDoneOrders.length > 0 && (
-          <Card className="border-teal-800/60 bg-teal-950/20 overflow-hidden">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-teal-800/40 bg-teal-950/30">
-              <div className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
-              <h2 className="font-black text-sm text-teal-400 tracking-wide">استلام جزئي — بانتظار تأكيد استلام المرتجع من الشحن</h2>
-              <Badge variant="outline" className="border-teal-700 bg-teal-900/30 text-teal-400 text-[10px] mr-auto">
-                {partialDoneOrders.length} طلب
-              </Badge>
-            </div>
-            <div className="divide-y divide-teal-900/30">
-              {partialDoneOrders.map((order) => {
-                const deliveredQty  = order.partialQuantity ?? 0;
-                const returnedQty   = order.quantity - deliveredQty;
-                const currentReceived = (order as any).returnReceived;
-                return (
-                  <div key={order.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 rounded px-1.5 py-0.5 border border-border/40">#{order.id.toString().padStart(4,"0")}</span>
-                        <span className="font-semibold text-sm text-foreground truncate">{order.customerName}</span>
-                        {order.phone && <span className="text-[11px] text-muted-foreground">{order.phone}</span>}
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-foreground/80">{order.product}</span>
-                        {(order.color || order.size) && <span className="text-[10px] text-muted-foreground">{[order.color,order.size].filter(Boolean).join(" / ")}</span>}
-                        <Badge variant="outline" className="text-[9px] border-teal-700 bg-teal-900/20 text-teal-400">استلام جزئي</Badge>
-                      </div>
-                      <p className="text-[11px] text-teal-400 font-semibold">
-                        مستلم: <span className="font-black">{deliveredQty}</span>
-                        <span className="text-muted-foreground font-normal"> — مرتجع: </span>
-                        <span className="font-black text-red-400">{returnedQty}</span>
-                        <span className="text-muted-foreground font-normal"> (من أصل {order.quantity})</span>
-                      </p>
-                    </div>
-                    {!isLocked && (
-                      <div className="flex gap-2 shrink-0">
-                        <button type="button"
-                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: "partial_received", partialReturnReceived: false, partialQuantity: deliveredQty }); refetch(); } catch(e){console.error(e);} }}
-                          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===0?"border-amber-500 bg-amber-900/40 text-amber-300 ring-1 ring-amber-500/50":"border-border text-muted-foreground hover:border-amber-600 hover:text-amber-400 hover:bg-amber-900/20"}`}>
-                          <span className="text-base">🚚</span><span>لم يتم الاستلام</span>
-                          {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">سيُرحَّل ← بيان جديد</span>}
-                        </button>
-                        <button type="button"
-                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: "returned", returnReceived: true }); refetch(); } catch(e){console.error(e);} }}
-                          className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all border-emerald-700 text-emerald-400 hover:bg-emerald-900/20">
-                          <span className="text-base">✅</span><span>تم الاستلام</span>
-                          <span className="text-[9px] font-normal opacity-80">يُعاد للمخزن</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-          )}
-
           {/* ── حاوية المرتجع الكامل ── */}
-          {fullReturnOrders.length > 0 && (
           <Card className="border-red-800/60 bg-red-950/20 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-red-800/40 bg-red-950/30">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
@@ -4209,7 +4147,6 @@ export default function ShippingManifestPage() {
               })}
             </div>
           </Card>
-          )}
 
           </div>
         );
