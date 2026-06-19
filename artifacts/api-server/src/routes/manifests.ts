@@ -596,8 +596,10 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
   let rolledOverManifest: any = null;
 
   if (parsed.data.status === "closed") {
-    // ── أ) المرتجعات المؤكَّد استلامها (returnReceived=1) — تُحسم من المخزون الآن وتُقفل نهائيًا ──
-    // ده اللحظة الوحيدة اللي المخزون فيها يتحرك فعليًا للمرتجعات (راجع اتفاقنا: لا حركة مخزون فورية وقت التعليم)
+    // ── أ) المرتجعات المؤكَّد استلامها (returnReceived=1) — تُقفل نهائيًا بدون ترحيل ──
+    // partial_received المؤكَّد: المخزون اتحرك بالفعل عند الضغط على «تم الاستلام» (PATCH order)
+    //   → هنا بنقفل الحالة فقط، بدون أي حركة مخزون إضافية لمنع الإضافة المزدوجة.
+    // returned المؤكَّد: لسه محتاج حركة مخزون فعلية هنا (مرتجع كامل).
     const confirmedReturnLinks = await db.select().from(shippingManifestOrdersTable).where(
       and(
         eq(shippingManifestOrdersTable.manifestId, id),
@@ -608,16 +610,12 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     for (const link of confirmedReturnLinks) {
       const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, link.orderId));
       if (!order) continue;
-      const ref = buildOrderRef(order);
       if (link.deliveryStatus === "returned") {
         // مرتجع كامل مؤكَّد → الكمية الكاملة ترجع المخزن الآن
+        const ref = buildOrderRef(order);
         await adjustWarehouseStockSafe(ref, order.quantity, order.id);
-      } else {
-        // partial_received مؤكَّد → الجزء الباقي (غير المسلَّم) فقط يرجع المخزن
-        const deliveredQty = link.partialQuantity != null ? Number(link.partialQuantity) : 0;
-        const remainingQty = order.quantity - deliveredQty;
-        if (remainingQty > 0) await adjustWarehouseStockSafe(ref, remainingQty, order.id);
       }
+      // partial_received مؤكَّد → لا حركة مخزون هنا (اتحركت عند «تم الاستلام» بالفعل)
       // الطلب يتقفل نهائيًا — لا يترحّل لبيان جديد
       // partial_received مؤكَّد → يفضل partial_received (العميل استلم جزء، الباقي رجع المخزن)
       // returned مؤكَّد → يبقى returned
@@ -831,7 +829,11 @@ router.delete("/shipping-manifests/:id", requireAdmin, async (req, res): Promise
           await reverseDelivery(ref, order.quantity, order.id);
         } else if (link.deliveryStatus === "partial_received") {
           if (deliveredQty > 0) await reverseDelivery(ref, deliveredQty, order.id);
-          if (remainingQty > 0) await reverseShipping(ref, remainingQty, order.id);
+          // المرتجع المؤكَّد (returnReceived=1) دخل المخزن بالفعل عند «تم الاستلام»
+          // → لا تعكسه كأنه لسه في الشحن (هيضيف ازدواج للمخزن)
+          if (remainingQty > 0 && Number(link.returnReceived) !== 1) {
+            await reverseShipping(ref, remainingQty, order.id);
+          }
         } else if (link.deliveryStatus === "returned") {
           if (Number(link.returnReceived) !== 1) {
             await reverseShipping(ref, order.quantity, order.id);
@@ -883,7 +885,10 @@ router.delete("/shipping-manifests/:id/orders/:orderId", async (req, res): Promi
       await reverseDelivery(ref, order.quantity, order.id);
     } else if (link.deliveryStatus === "partial_received") {
       if (deliveredQty > 0) await reverseDelivery(ref, deliveredQty, order.id);
-      if (remainingQty > 0) await reverseShipping(ref, remainingQty, order.id);
+      // المرتجع المؤكَّد دخل المخزن بالفعل عند «تم الاستلام» → لا تعكسه (ازدواج)
+      if (remainingQty > 0 && Number(link.returnReceived) !== 1) {
+        await reverseShipping(ref, remainingQty, order.id);
+      }
     } else if (link.deliveryStatus === "returned") {
       if (Number(link.returnReceived) !== 1) await reverseShipping(ref, order.quantity, order.id);
     } else {
@@ -1058,16 +1063,15 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
     if (deliveryStatus === "partial_received") {
       // ─── المرتجع (الجزء الباقي من الاستلام الجزئي) ──────────────────────
-      // القاعدة الجديدة: تأكيد الاستلام (returnReceived) هنا هو مجرد "تعليم" —
-      // المخزون لا يتحرك إلا عند قفل البيان (راجع منطق /shipping-manifests/:id closed).
-      // الكمية الكاملة تتسجل دايماً كـ OUT/to_shipping لحد القفل.
+      // القاعدة: لما يضغط المستخدم «تم الاستلام» (partialReturnReceived=true)
+      // → الجزء المرتجع (الباقي) يرجع المخزن فورًا في اللحظة دي.
+      // وعند قفل البيان، الطلب ده بيتقفل نهائيًا بدون ترحيل (المخزون اتحرك بالفعل).
+      // لو partialReturnReceived=false (لسه عند الشحن) → الكمية الكاملة تفضل OUT/to_shipping.
       const newPartialQty = parsedPartialQty!;
-      movType   = "OUT";
-      movReason = "to_shipping";
-      movQty    = totalQty;
-      movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (الباقي يُحسم من المخزون عند قفل البيان)`;
+      const isReturnConfirmedNow = partialReturnReceived === true;
 
-      // لو كان فيه حركة IN قديمة (من سلوك سابق أرجعت جزء للمخزن) → اعكسها فقط، بدون أي إضافة جديدة
+      // لو كان فيه حركة IN قديمة (من تأكيد سابق أرجع جزء للمخزن) → اعكسها الأول
+      // عشان نعيد ضبط المخزون للحالة الجديدة بشكل صحيح
       const prevStatus     = oldDeliveryStatus;
       const prevPartialQty = oldPartialQtyNum ?? 0;
       const prevReturnBool = oldPartialReturnReceivedBool;
@@ -1076,6 +1080,27 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       if ((vid || pid) && prevInStock !== 0) {
         await adjustWarehouseStock(ref.warehouseId, vid, pid, -prevInStock);
         await syncProductQuantityFromWarehouses(vid, pid);
+      }
+
+      if (isReturnConfirmedNow) {
+        // تم الاستلام → الجزء المرتجع (الباقي) يدخل المخزن فورًا
+        const remainingQty = totalQty - newPartialQty;
+        if ((vid || pid) && remainingQty > 0) {
+          await adjustWarehouseStock(ref.warehouseId, vid, pid, +remainingQty);
+          await syncProductQuantityFromWarehouses(vid, pid);
+        }
+        movType   = remainingQty > 0 ? "IN" : "OUT";
+        movReason = remainingQty > 0 ? "from_shipping" : "to_shipping";
+        movQty    = remainingQty > 0 ? remainingQty : totalQty;
+        movNotes  = remainingQty > 0
+          ? `استلام جزئي — ${newPartialQty} من ${totalQty} (تم الاستلام: الباقي ${remainingQty} رجع المخزن فورًا)`
+          : `استلام جزئي — ${newPartialQty} من ${totalQty} (لا يوجد باقٍ للإرجاع)`;
+      } else {
+        // لسه عند الشحن → الكمية الكاملة OUT/to_shipping
+        movType   = "OUT";
+        movReason = "to_shipping";
+        movQty    = totalQty;
+        movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (الباقي لسه عند شركة الشحن)`;
       }
 
     } else if (deliveryStatus === "returned") {
