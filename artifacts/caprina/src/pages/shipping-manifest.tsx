@@ -1049,7 +1049,7 @@ function InvoiceGroupDeliveryRow({
             ) : displayStatus === "partial_received" ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
-                  {(bulkEditing ? partialReturnReceived === true : (rep as any).returnReceived === 1)
+                  {currentGroupReturnReceived === true
                     ? "استلام جزئي المرتجع في المخزن"
                     : "استلام جزئي ما زال عند شركة الشحن"}{" "}
                   ({displayTotalPartialQty}/{totalQty})
@@ -1060,10 +1060,10 @@ function InvoiceGroupDeliveryRow({
                     ↩ مرتجع: {o.product}
                   </p>
                 ))}
-                {(rep as any).returnReceived === 1 && (
+                {currentGroupReturnReceived === true && (
                   <p className="text-[9px] text-emerald-500 font-semibold">↩ المرتجع في المخزن</p>
                 )}
-                {(rep as any).returnReceived === 0 && (
+                {currentGroupReturnReceived !== true && (
                   <p className="text-[9px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
                 )}
               </div>
@@ -1185,7 +1185,7 @@ function InvoiceGroupDeliveryRow({
               ) : (
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
                   {displayStatus === "partial_received"
-                    ? ((bulkEditing ? partialReturnReceived === true : (rep as any).returnReceived === 1)
+                    ? (currentGroupReturnReceived === true
                       ? "استلام جزئي المرتجع في المخزن"
                       : "استلام جزئي ما زال عند شركة الشحن")
                     : displayOpt.label}
