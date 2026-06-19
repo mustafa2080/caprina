@@ -819,7 +819,10 @@ function InvoiceGroupDeliveryRow({
       setBulkReturnReason((rep as any).returnReason ?? "");
       setPerOrderStatus(Object.fromEntries(group.map(o => [o.id, o.deliveryStatus as DeliveryStatus])));
       setPartialQtyMap(Object.fromEntries(group.map(o => [o.id, o.partialQuantity?.toString() ?? ""])));
-      const serverPartialReturn = group[0]?.returnReceived === 1 ? true : group[0]?.returnReceived === 0 ? false : null;
+      // نستخدم returnReceived من rep مباشرة (هو الـ representative للفاتورة)
+      // لو null → partial_received بدون اختيار سابق → default false (ما زال عند الشحن)
+      const repRR = (rep as any).returnReceived;
+      const serverPartialReturn = repRR === 1 ? true : repRR === 0 ? false : null;
       setPartialReturnReceived(groupStatus === "partial_received" && serverPartialReturn === null ? false : serverPartialReturn);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
