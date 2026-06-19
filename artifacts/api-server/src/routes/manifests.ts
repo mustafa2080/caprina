@@ -641,16 +641,20 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       )
     );
 
-    console.log(`[CLOSE manifest ${id}] confirmedReturns=${confirmedReturnLinks.length} pendingLinks count=${pendingLinks.length}`, JSON.stringify(pendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
+    // فلتر دفاعي: استبعد أي طلب تم تأكيده في الكتلة (أ) من الترحيل
+    // ده يحمي من حالة تزامن أو تأخير في تحديث shippingManifestOrdersTable
+    const safePendingLinks = pendingLinks.filter(l => !confirmedReturnIds.has(l.orderId));
 
-    if (pendingLinks.length > 0) {
+    console.log(`[CLOSE manifest ${id}] confirmedReturns=${confirmedReturnLinks.length} pendingLinks=${pendingLinks.length} safePendingLinks=${safePendingLinks.length}`, JSON.stringify(safePendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
+
+    if (safePendingLinks.length > 0) {
       // جيب كل الطلبات مرة واحدة في البداية عشان نستخدمها في كل العمليات
-      const allPendingIds = pendingLinks.map((l) => l.orderId);
+      const allPendingIds = safePendingLinks.map((l) => l.orderId);
       const pendingOrders = await db.select().from(ordersTable).where(inArray(ordersTable.id, allPendingIds));
 
       // ── الطلبات اللي لسه عند شركة الشحن (pending/postponed/in_shipping) ────────
       // كانت خرجت بـ to_shipping → نرجعها بـ from_shipping + نرجع حالتها لـ pending
-      const stillAtShippingLinks = pendingLinks.filter(
+      const stillAtShippingLinks = safePendingLinks.filter(
         (l) => l.deliveryStatus === "pending" || l.deliveryStatus === "postponed" || l.deliveryStatus === "in_shipping"
       );
       for (const link of stillAtShippingLinks) {
@@ -682,7 +686,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       //   - جزئي غير مؤكَّد  → يفضل "استلام جزئي" بنفس partialQuantity، علامة "مترحّل"
       //   - باقي            → pending
       await db.insert(shippingManifestOrdersTable).values(
-        pendingLinks.map((link) => {
+        safePendingLinks.map((link) => {
           const isDelayed  = link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed";
           const isReturned = link.deliveryStatus === "returned";
           const isPartial  = link.deliveryStatus === "partial_received";
@@ -707,7 +711,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         })
       );
 
-      console.log(`[CLOSE manifest ${id}] new manifest ${newManifest.id} inserted links:`, JSON.stringify(pendingLinks.map(l => { const newStatus = (l.deliveryStatus === "postponed" || l.deliveryStatus === "delayed") ? l.deliveryStatus : l.deliveryStatus; return { orderId: l.orderId, prevStatus: l.deliveryStatus, newStatus }; })));
+      console.log(`[CLOSE manifest ${id}] new manifest ${newManifest.id} inserted links:`, JSON.stringify(safePendingLinks.map(l => { const newStatus = (l.deliveryStatus === "postponed" || l.deliveryStatus === "delayed") ? l.deliveryStatus : l.deliveryStatus; return { orderId: l.orderId, prevStatus: l.deliveryStatus, newStatus }; })));
 
       // ── جيب الطلبات وأضفها للبيان الجديد بدون خصم مخزون إضافي ─────────────
       // المخزون اتخصم بالفعل لما الطلبات دخلت البيان الأول، ومفيش حركة جديدة
@@ -717,8 +721,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       // ── الطلبات المرحّلة: لسه عند شركة الشحن فعليًا → processToShipping تسجل to_shipping بالبيان الجديد ──
       // الطلبات returned/partial_received غير المؤكَّدة: لسه في حالة "غير مؤكَّد" — برضو لسه عند الشحن منطقيًا
       // فمفيش داعي لحركة processToShipping تانية (الحركة الأصلية لسه قايمة من البيان الأول)
-      const returnedIdsForShipping = new Set(pendingLinks.filter((l) => l.deliveryStatus === "returned").map((l) => l.orderId));
-      const partialIdsForShipping = new Set(pendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId));
+      const returnedIdsForShipping = new Set(safePendingLinks.filter((l) => l.deliveryStatus === "returned").map((l) => l.orderId));
+      const partialIdsForShipping = new Set(safePendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId));
       for (const order of pendingOrders) {
         if (!returnedIdsForShipping.has(order.id) && !partialIdsForShipping.has(order.id)) {
           await processToShipping(buildOrderRef(order), order.quantity, order.id);
@@ -726,10 +730,10 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       }
 
       // تحديث ordersTable: المرتجع/الجزئي غير المؤكَّد يفضل بنفس حالته (returned/partial_received) في الجدول
-      const returnedIds = pendingLinks
+      const returnedIds = safePendingLinks
         .filter((l) => l.deliveryStatus === "returned")
         .map((l) => l.orderId);
-      const partialIds = pendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId);
+      const partialIds = safePendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId);
       const nonPartialNonReturnedIds = allPendingIds.filter((oid) => !returnedIds.includes(oid) && !partialIds.includes(oid));
 
       if (nonPartialNonReturnedIds.length > 0) {
@@ -739,7 +743,7 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       }
       // partial_received غير مؤكَّد → يفضل partial_received في ordersTable (لسه منتظر تأكيد)
       if (partialIds.length > 0) {
-        for (const link of pendingLinks.filter(l => l.deliveryStatus === "partial_received")) {
+        for (const link of safePendingLinks.filter(l => l.deliveryStatus === "partial_received")) {
           await db.update(ordersTable)
             .set({
               status: "partial_received",
@@ -757,11 +761,11 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       }
 
       rolledOverManifest = {
-        ...newManifest, orderCount: pendingLinks.length,
-        postponedCount: pendingLinks.filter((l) => l.deliveryStatus === "postponed").length,
-        pendingCount: pendingLinks.filter((l) => l.deliveryStatus === "pending" || l.deliveryStatus === "in_shipping").length,
-        returnedInShippingCount: pendingLinks.filter((l) => l.deliveryStatus === "returned").length,
-        partialInShippingCount: pendingLinks.filter((l) => l.deliveryStatus === "partial_received").length,
+        ...newManifest, orderCount: safePendingLinks.length,
+        postponedCount: safePendingLinks.filter((l) => l.deliveryStatus === "postponed").length,
+        pendingCount: safePendingLinks.filter((l) => l.deliveryStatus === "pending" || l.deliveryStatus === "in_shipping").length,
+        returnedInShippingCount: safePendingLinks.filter((l) => l.deliveryStatus === "returned").length,
+        partialInShippingCount: safePendingLinks.filter((l) => l.deliveryStatus === "partial_received").length,
       };
     }
   }
