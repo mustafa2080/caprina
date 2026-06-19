@@ -4132,13 +4132,13 @@ export default function ShippingManifestPage() {
                     {!isLocked && (
                       <div className="flex gap-2 shrink-0">
                         <button type="button"
-                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, returnReceived: false }); refetch(); } catch(e){console.error(e);} }}
+                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, returnReceived: false }); refetch(); } catch(e){console.error(e);} }}
                           className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===0?"border-amber-500 bg-amber-900/40 text-amber-300 ring-1 ring-amber-500/50":"border-border text-muted-foreground hover:border-amber-600 hover:text-amber-400 hover:bg-amber-900/20"}`}>
                           <span className="text-base">🚚</span><span>لم يتم الاستلام</span>
                           {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">سيُرحَّل ← بيان جديد</span>}
                         </button>
                         <button type="button"
-                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, returnReceived: true }); refetch(); } catch(e){console.error(e);} }}
+                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, returnReceived: true }); refetch(); } catch(e){console.error(e);} }}
                           className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===1?"border-emerald-500 bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-500/50":"border-border text-muted-foreground hover:border-emerald-600 hover:text-emerald-400 hover:bg-emerald-900/20"}`}>
                           <span className="text-base">✅</span><span>تم الاستلام</span>
                           {currentReceived===1 && <span className="text-[9px] font-normal opacity-80">يُعاد للمخزن عند الإغلاق</span>}
