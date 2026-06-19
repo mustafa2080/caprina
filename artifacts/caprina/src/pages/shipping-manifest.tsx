@@ -4094,9 +4094,15 @@ export default function ShippingManifestPage() {
           const note = ((o as any).deliveryNote ?? "");
           return note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
         });
-        const rolledOverReturns = allRolledOver.filter(o => 
-          o.deliveryStatus === "returned" || o.deliveryStatus === "partial_received"
-        );
+        const rolledOverReturns = allRolledOver.filter(o => {
+          if (o.deliveryStatus === "returned") return true;
+          if (o.deliveryStatus === "partial_received") {
+            const qty = o.quantity ?? 0;
+            const pq = o.partialQuantity ?? 0;
+            return qty - pq > 0;
+          }
+          return false;
+        });
         if (rolledOverReturns.length === 0) return null;
 
         return (
