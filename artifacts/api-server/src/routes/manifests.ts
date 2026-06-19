@@ -188,7 +188,21 @@ function computeStats(orders: OrderWithDelivery[]) {
     if (!groupMap.has(key)) groupMap.set(key, []);
     groupMap.get(key)!.push(order);
   }
-  const groupedOrders = Array.from(groupMap.values());
+  const allGroupedOrders = Array.from(groupMap.values());
+
+  // المرحّلون من بيان سابق يُستثنَون من كل الإحصائيات
+  const isRolledOverOrder = (o: OrderWithDelivery) =>
+    o.deliveryStatus === "partial_received" && !!o.deliveryNote?.includes("مترحّل من بيان سابق");
+
+  // نفلتر على مستوى الـ orders أولاً، ثم نعيد بناء الـ groups
+  const activeOrders = orders.filter(o => !isRolledOverOrder(o));
+  const activeGroupMap = new Map<string, OrderWithDelivery[]>();
+  for (const order of activeOrders) {
+    const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
+    if (!activeGroupMap.has(key)) activeGroupMap.set(key, []);
+    activeGroupMap.get(key)!.push(order);
+  }
+  const groupedOrders = Array.from(activeGroupMap.values());
   // الإحصائيات تُحسب على مستوى الفواتير/الطلبات (مش المنتجات الفردية)
   // كل فاتورة = طلب واحد، حالتها = حالة أسوأ منتج فيها
   function groupStatus(group: OrderWithDelivery[]): string {
@@ -225,7 +239,7 @@ function computeStats(orders: OrderWithDelivery[]) {
     // partial_received و returned → بيرجعوا مخزن — مش "لسه عند الشحن"
   }
 
-  for (const o of orders) {
+  for (const o of activeOrders) {
     const isPartial  = o.deliveryStatus === "partial_received";
     const shipping   = o.shippingCost ?? 0;
     const rv         = (o as any).returnReceived;
@@ -261,12 +275,8 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalShippingCost += shipping;
     }
   }
-  const actuallyDeliveredShipping = orders
-    .filter(o => {
-      if (o.deliveryStatus === "delivered") return true;
-      if (o.deliveryStatus === "partial_received" && !o.deliveryNote?.includes("مترحّل من بيان سابق")) return true;
-      return false;
-    })
+  const actuallyDeliveredShipping = activeOrders
+    .filter(o => o.deliveryStatus === "delivered" || o.deliveryStatus === "partial_received")
     .reduce((sum, o) => sum + (o.shippingCost ?? 0), 0);
   const dueFromCompany = deliveredGross - actuallyDeliveredShipping;
   return {
