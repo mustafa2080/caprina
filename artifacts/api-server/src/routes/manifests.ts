@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { eq, desc, and, inArray, or, sql, count, isNull } from "drizzle-orm";
 import {
   db,
@@ -1179,7 +1179,9 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     deliveryNote: deliveryNote ?? null,
     partialQuantity: deliveryStatus === "partial_received" && parsedPartialQty != null ? parsedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
-    ...(deliveryStatus === "partial_received" ? { returnReceived: (partialReturnReceived ?? false) ? 1 : 0 } : {}),
+    ...(deliveryStatus === "partial_received"
+      ? { returnReceived: ((partialReturnReceived ?? false) || (parsedPartialQty != null && parsedPartialQty >= totalQty)) ? 1 : 0 }
+      : {}),
     ...(deliveryStatus === "returned" && returnReceived != null
       ? { returnReceived: returnReceived ? 1 : 0 }
       : deliveryStatus !== "returned" && deliveryStatus !== "partial_received"
@@ -1198,7 +1200,9 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     : (STATUS_MAP[deliveryStatus] ?? "in_shipping");
   const orderUpdate: Record<string, unknown> = { status: newOrderStatus };
   if (deliveryStatus === "partial_received" && parsedPartialQty != null) orderUpdate.partialQuantity = parsedPartialQty;
-  if (deliveryStatus === "partial_received") orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
+  if (deliveryStatus === "partial_received") {
+    orderUpdate.returnReceived = ((partialReturnReceived ?? false) || (parsedPartialQty != null && parsedPartialQty >= totalQty)) ? 1 : 0;
+  }
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   // حفظ سبب الإرجاع في جدول الطلبات
