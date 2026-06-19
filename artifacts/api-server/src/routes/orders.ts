@@ -1,4 +1,4 @@
-﻿import { Router, type IRouter } from "express";
+import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm";
 import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import {
@@ -1275,7 +1275,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
               await updateMovementReason(sibling.id, siblingMovement.reason as any, "return", "مرتجع — تم الاستلام ودخل المخزن").catch(() => {});
             }
           } else {
-            await updateMovementReason(sibling.id, siblingMovement.reason as any, "return", "مرتجع — مازال عند شركة الشحن").catch(() => {});
+            await updateMovementReason(sibling.id, siblingMovement.reason as any, "return", "مرتجع — ما زال عند شركة الشحن").catch(() => {});
           }
         } else {
           const wasReceived = oldStatus === "received" || oldStatus === "partial_received";
@@ -1294,7 +1294,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
                 variantId: variantId ?? null,
                 warehouseId: sibling.warehouseId ?? null,
                 orderId: sibling.id,
-                notes: "مرتجع — مازال عند شركة الشحن",
+                notes: "مرتجع — ما زال عند شركة الشحن",
               }).catch(() => {});
             }
           }

@@ -2116,7 +2116,7 @@ export default function OrderDetail() {
         setSelectDisplayStatus(null);
         const msg = returnReceived
           ? (returnIsDamaged ? "تم تسجيل المرتجع التالف — لم يُضاف للمخزون." : "تم استلام المرتجع وأُضيف للمخزون.")
-          : "تم تسجيل المرتجع — مازال عند شركة الشحن.";
+          : "تم تسجيل المرتجع — ما زال عند شركة الشحن.";
         toast({ title: "تم التسجيل", description: msg });
       },
       onError: () => {
@@ -3810,9 +3810,15 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                           <Badge variant="outline" className="text-[9px] font-bold border-teal-600 text-teal-400 w-fit">
                             ◑ استُلم جزئياً — {pQty ?? "؟"} من {order.quantity}
                           </Badge>
-                          <Badge variant="outline" className="text-[9px] font-bold border-amber-600 text-amber-400 w-fit">
-                            🚚 الباقي ({(pQty != null ? order.quantity - pQty : "؟")}) مازال عند الشحن
-                          </Badge>
+                          {(order as any).returnReceived === 1 ? (
+                            <Badge variant="outline" className="text-[9px] font-bold border-emerald-600 text-emerald-400 w-fit">
+                              ↩ استلام جزء المرتجع في المخزن
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] font-bold border-amber-600 text-amber-400 w-fit">
+                              🚚 ما زال عند شركة الشحن
+                            </Badge>
+                          )}
                         </div>
                       );
                       if (ds === "postponed") return (

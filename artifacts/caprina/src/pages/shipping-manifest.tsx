@@ -285,15 +285,10 @@ function OrderDeliveryRow({
           )}
           {/* sub-status للاستلام الجزئي — الباقي */}
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
-            <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ المرتجع في المخزن</p>
+            <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ استلام جزء المرتجع في المخزن</p>
           )}
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived !== 1 && (
-            <>
-              {(order as any).returnReceived === 0 && (
-                <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">🚚 الباقي عند الشحن</p>
-              )}
-              <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">🚚 المرتجع ما زال في شركة الشحن</p>
-            </>
+            <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">🚚 ما زال عند شركة الشحن</p>
           )}
           {(order.deliveryStatus === "delayed" || order.deliveryStatus === "postponed") && !editing && (
             <p className="text-[10px] text-orange-400 mt-0.5 font-semibold truncate max-w-[110px]">
@@ -407,15 +402,10 @@ function OrderDeliveryRow({
         )}
         {/* سبب الإرجاع مباشرة تحت حالة الاستلام */}
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
-          <p className="text-[10px] text-emerald-600 font-semibold">↩ المرتجع في المخزن</p>
+          <p className="text-[10px] text-emerald-600 font-semibold">↩ استلام جزء المرتجع في المخزن</p>
         )}
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived !== 1 && (
-          <>
-            {(order as any).returnReceived === 0 && (
-              <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
-            )}
-            <p className="text-[10px] text-orange-400 font-semibold">🚚 المرتجع ما زال في شركة الشحن</p>
-          </>
+          <p className="text-[10px] text-orange-400 font-semibold">🚚 ما زال عند شركة الشحن</p>
         )}
         {order.deliveryStatus === "delayed" && order.deliveryNote && !editing && (
           <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
@@ -535,7 +525,7 @@ function OrderDeliveryRow({
                   }`}
                 >
                   <span className="text-base">🚚</span>
-                  <span>مازال عند الشحن</span>
+                  <span>ما زال عند شركة الشحن</span>
                   <span className="text-[9px] font-normal opacity-70">سيُرحَّل للبيان الجديد</span>
                 </button>
                 <button
@@ -554,7 +544,7 @@ function OrderDeliveryRow({
               </div>
               <p className="text-[10px] text-center font-medium" style={{ color: partialReturnReceived === true ? "#0F6E56" : partialReturnReceived === false ? "#854F0B" : "var(--color-text-secondary)" }}>
                 {partialReturnReceived === true && "✓ سيتم إرجاع الباقي للمخزن"}
-                {partialReturnReceived === false && "⏳ الباقي مازال في شركة الشحن — سيُرحَّل"}
+                {partialReturnReceived === false && "⏳ الباقي ما زال عند شركة الشحن — سيُرحَّل"}
                 {partialReturnReceived === null && "⚠ يجب اختيار حالة الباقي قبل الحفظ"}
               </p>
             </div>
@@ -1072,15 +1062,10 @@ function InvoiceGroupDeliveryRow({
                   </p>
                 )}
                 {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && (
-                  <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ المرتجع في المخزن</p>
+                  <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ استلام جزء المرتجع في المخزن</p>
                 )}
                 {displayStatus === "partial_received" && (rep as any).returnReceived !== 1 && (
-                  <>
-                    {(rep as any).returnReceived === 0 && (
-                      <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">🚚 الباقي عند الشحن</p>
-                    )}
-                    <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">🚚 المرتجع ما زال في شركة الشحن</p>
-                  </>
+                  <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">🚚 ما زال عند شركة الشحن</p>
                 )}
               </div>
             )}
@@ -1223,8 +1208,8 @@ function InvoiceGroupDeliveryRow({
                   ↩ مرتجع: {o.product}
                 </p>
               ))}
-              {(rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ المرتجع في المخزن</p>}
-              {(rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>}
+              {(rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ استلام جزء المرتجع في المخزن</p>}
+              {((rep as any).returnReceived === 0 || (rep as any).returnReceived == null) && <p className="text-[10px] text-orange-500 font-semibold">🚚 ما زال عند شركة الشحن</p>}
             </div>
           )}
           {/* Action button */}
@@ -1454,7 +1439,7 @@ function InvoiceGroupDeliveryRow({
                     }`}
                   >
                     <span className="text-base">🚚</span>
-                    <span>مازال عند الشحن</span>
+                    <span>ما زال عند شركة الشحن</span>
                     <span className="text-[9px] font-normal opacity-70">سيُرحَّل للبيان الجديد</span>
                   </button>
                   <button
@@ -3785,7 +3770,7 @@ export default function ShippingManifestPage() {
                 )}
                 {stillAtShipping > 0 && (
                   <p className="text-[10px] text-orange-400 mt-0.5 font-semibold">
-                    🚚 المرتجع ما زال في شركة الشحن
+                    🚚 ما زال عند شركة الشحن
                   </p>
                 )}
               </>

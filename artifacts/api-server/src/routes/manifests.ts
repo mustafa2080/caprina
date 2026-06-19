@@ -1106,7 +1106,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
         movType   = "OUT";
         movReason = "to_shipping";
         movQty    = totalQty;
-        movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (الباقي لسه عند شركة الشحن)`;
+        movNotes  = `استلام جزئي — ${newPartialQty} من ${totalQty} (ما زال عند شركة الشحن)`;
       }
 
     } else if (deliveryStatus === "returned") {
