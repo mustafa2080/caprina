@@ -252,6 +252,7 @@ function computeStats(orders: OrderWithDelivery[]) {
     } else if (isPartial) {
       // مرحّل من بيان سابق → إيراده صفر تماماً (سواء partialQuantity=0 أو >0)
       const isRolledOver = o.deliveryNote?.includes("مترحّل من بيان سابق");
+      console.log("[computeStats DEBUG] order", o.id, "deliveryNote=", JSON.stringify(o.deliveryNote), "isRolledOver=", isRolledOver, "partialQuantity=", (o as any).partialQuantity, "totalPrice=", o.totalPrice);
       if (isRolledOver) {
         // لا إيراد، لا تكلفة، لا شحن — كأنه مش موجود في الحسابات
       } else {
