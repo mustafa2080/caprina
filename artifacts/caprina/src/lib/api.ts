@@ -718,6 +718,7 @@ export interface ManifestStats {
   total: number;
   delivered: number;
   returned: number;
+  partial: number;
   pending: number;
   postponed: number;
   deliveryRate: number;

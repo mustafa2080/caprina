@@ -3421,16 +3421,17 @@ export default function ShippingManifestPage() {
         ? order.deliveryStatus
         : worst,
     group[0]?.deliveryStatus ?? "pending");
-  const groupedPostponedCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "postponed").length;
-  const groupedPartialCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "partial_received").length;
-  const groupedPendingCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "pending").length;
-  const groupedDeliveredCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "delivered").length;
-  const groupedReturnedCount = groupedManifestOrders.filter((group) => groupManifestStatus(group) === "returned").length;
-  const groupedTotalCount = groupedManifestOrders.length;
+  // الكاونترات تيجي من manifest.stats (محسوبة صح في الـ API وتشمل المرحّلين)
+  const groupedTotalCount     = s.total;
+  const groupedDeliveredCount = s.delivered;
+  const groupedReturnedCount  = s.returned;
+  const groupedPartialCount   = s.partial;
+  const groupedPostponedCount = s.postponed;
+  const groupedPendingCount   = s.pending ?? groupedManifestOrders.filter((group) => groupManifestStatus(group) === "pending").length;
   const groupedCompletedCount = groupedDeliveredCount + groupedPartialCount;
-  const groupedDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedCompletedCount / groupedTotalCount) * 100) : 0;
-  const screenDeliveryRate = groupedTotalCount > 0 ? Math.round((groupedCompletedCount / groupedTotalCount) * 100) : 0;
-  const groupedPendingOrders = groupedPendingCount;
+  const groupedDeliveryRate   = s.deliveryRate;
+  const screenDeliveryRate    = s.deliveryRate;
+  const groupedPendingOrders  = groupedPendingCount;
 
   const statusLabel = (st: DeliveryStatus) => {
     switch (st) {
