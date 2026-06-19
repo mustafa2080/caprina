@@ -190,27 +190,33 @@ function computeStats(orders: OrderWithDelivery[]) {
   }
   const allGroupedOrders = Array.from(groupMap.values());
 
-  // المرحّلون من بيان سابق يُستثنَون من كل الإحصائيات
+  // المرحّلون من بيان سابق — إيرادهم يُستثنى من الحسابات المالية فقط
+  // لكنهم يُعَدّون في الحاويات (مُسلَّم/جزئي/مرتجع/مؤجل) حسب حالتهم الفعلية
   const isRolledOverOrder = (o: OrderWithDelivery) =>
     o.deliveryStatus === "partial_received" && !!o.deliveryNote?.includes("مترحّل من بيان سابق");
 
-  // نفلتر على مستوى الـ orders أولاً، ثم نعيد بناء الـ groups
+  // نفلتر على مستوى الـ orders للحسابات المالية فقط
   const activeOrders = orders.filter(o => !isRolledOverOrder(o));
-  const activeGroupMap = new Map<string, OrderWithDelivery[]>();
-  for (const order of activeOrders) {
-    const key = order.invoiceNumber?.trim() || `solo-${order.id}`;
-    if (!activeGroupMap.has(key)) activeGroupMap.set(key, []);
-    activeGroupMap.get(key)!.push(order);
-  }
-  const groupedOrders = Array.from(activeGroupMap.values());
+
+  // الإحصائيات (العدادات) تُحسب على مستوى كل الطلبات — بما فيها المرحّلة
+  const groupedOrders = allGroupedOrders;
   // الإحصائيات تُحسب على مستوى الفواتير/الطلبات (مش المنتجات الفردية)
   // كل فاتورة = طلب واحد، حالتها = حالة أسوأ منتج فيها
+  // المرحّل بـ partialQuantity=0 يُعامَل كمرتجع (returned) للعد، والمرحّل بـ partialQuantity>0 يُعامَل كاستلام جزئي (partial_received)
+  function effectiveStatus(o: OrderWithDelivery): string {
+    if (isRolledOverOrder(o)) {
+      const pq = (o as any).partialQuantity != null ? Number((o as any).partialQuantity) : 0;
+      return pq === 0 ? "returned" : "partial_received";
+    }
+    return o.deliveryStatus;
+  }
   function groupStatus(group: OrderWithDelivery[]): string {
     // أولوية الحالات: returned > postponed > partial_received > pending > delivered
     const priority: Record<string, number> = { returned: 5, postponed: 4, partial_received: 3, pending: 2, delivered: 1 };
     return group.reduce((worst, o) => {
-      return (priority[o.deliveryStatus] ?? 0) > (priority[worst] ?? 0) ? o.deliveryStatus : worst;
-    }, group[0].deliveryStatus);
+      const s = effectiveStatus(o);
+      return (priority[s] ?? 0) > (priority[worst] ?? 0) ? s : worst;
+    }, effectiveStatus(group[0]));
   }
   const total     = groupedOrders.length;
   const delivered = groupedOrders.filter((g) => groupStatus(g) === "delivered").length;
@@ -252,7 +258,6 @@ function computeStats(orders: OrderWithDelivery[]) {
     } else if (isPartial) {
       // مرحّل من بيان سابق → إيراده صفر تماماً (سواء partialQuantity=0 أو >0)
       const isRolledOver = o.deliveryNote?.includes("مترحّل من بيان سابق");
-      console.log("[computeStats DEBUG] order", o.id, "deliveryNote=", JSON.stringify(o.deliveryNote), "isRolledOver=", isRolledOver, "partialQuantity=", (o as any).partialQuantity, "totalPrice=", o.totalPrice);
       if (isRolledOver) {
         // لا إيراد، لا تكلفة، لا شحن — كأنه مش موجود في الحسابات
       } else {
