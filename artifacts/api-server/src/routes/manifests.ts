@@ -1001,7 +1001,9 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // لو partial_received وبدون كمية في الـ request → نستخدم الكمية القديمة من DB
   // (يحصل ده لما زراير الحاوية الحمراء بتبعت returnReceived فقط بدون كمية)
   const resolvedPartialQty = (deliveryStatus === "partial_received" && parsedPartialQty === null)
-    ? (link.partialQuantity != null ? Number(link.partialQuantity) : null)
+    ? (link.partialQuantity != null ? Number(link.partialQuantity)
+      : existingOrder.partialQuantity != null ? Number(existingOrder.partialQuantity)
+      : null)
     : parsedPartialQty;
 
   // لو partial_received وما فيش كمية خالص (مش في الطلب ولا في DB) → خطأ صريح
