@@ -1188,9 +1188,17 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   } // end if (!noChange)
 
   // ─── تحديث جدول البيان ────────────────────────────────────────────────────
+  // لو المستخدم أكّد الاستلام (returnReceived=true) → نغيّر الـ note تلقائياً
+  const confirmedNote =
+    (deliveryStatus === "partial_received" || deliveryStatus === "returned") &&
+    (returnReceived === true || partialReturnReceived === true)
+      ? "✅ تم تأكيد الاستلام في المخزن"
+      : undefined;
   await db.update(shippingManifestOrdersTable).set({
     deliveryStatus,
-    ...(deliveryNote !== undefined ? { deliveryNote: deliveryNote ?? null } : {}),
+    ...(confirmedNote !== undefined
+      ? { deliveryNote: confirmedNote }
+      : deliveryNote !== undefined ? { deliveryNote: deliveryNote ?? null } : {}),
     partialQuantity: deliveryStatus === "partial_received" && resolvedPartialQty != null ? resolvedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "partial_received" && returnReceived != null

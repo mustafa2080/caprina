@@ -4275,7 +4275,8 @@ export default function ShippingManifestPage() {
                       setConfirmReceiveOrder(null);
                       try {
                         await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, returnReceived: true });
-                        queryClient.setQueryData(["shipping-manifest", id], (old: any) => old ? { ...old, orders: old.orders.map((o: any) => o.id === order.id ? { ...o, returnReceived: 1 } : o) } : old);
+                        queryClient.setQueryData(["shipping-manifest", id], (old: any) => old ? { ...old, orders: old.orders.map((o: any) => o.id === order.id ? { ...o, returnReceived: 1, deliveryNote: "✅ تم تأكيد الاستلام في المخزن" } : o) } : old);
+                        queryClient.invalidateQueries({ queryKey: ["orders"] });
                         refetch();
                         toast({ title: "✅ تم الاستلام — رجع المخزن" });
                       } catch(e: any) { console.error(e); toast({ title: "خطأ", description: e?.message ?? String(e), variant: "destructive" }); }
