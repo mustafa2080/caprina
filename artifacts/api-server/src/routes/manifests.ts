@@ -236,16 +236,20 @@ function computeStats(orders: OrderWithDelivery[]) {
       totalShippingCost += shipping; deliveredGross += o.totalPrice;
 
     } else if (isPartial) {
-      // أي طلب partial_received عنده partialQuantity → احسب إيراد القطع اللي اتستلمت
-      const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
-      console.log(`[computeStats] partial order ${o.id}: partialQty=${deliveredQty}, unitPrice=${(o as any).unitPrice}, totalPrice=${o.totalPrice}, qty=${o.quantity}`);
-      if (deliveredQty > 0) {
-        const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? o.totalPrice / o.quantity : 0);
-        const revenue = unitPrice * deliveredQty;
-        console.log(`[computeStats] partial order ${o.id}: unitPrice=${unitPrice}, revenue=${revenue}`);
-        totalRevenue += revenue; deliveredGross += revenue;
-        totalCost += (o.costPrice ?? 0) * deliveredQty;
-        totalShippingCost += shipping;
+      // مرحّل من بيان سابق → إيراده صفر تماماً (سواء partialQuantity=0 أو >0)
+      const isRolledOver = o.deliveryNote?.includes("مترحّل من بيان سابق");
+      if (isRolledOver) {
+        // لا إيراد، لا تكلفة، لا شحن — كأنه مش موجود في الحسابات
+      } else {
+        // أي طلب partial_received عادي → احسب إيراد القطع اللي اتستلمت
+        const deliveredQty = o.partialQuantity != null ? Number(o.partialQuantity) : 0;
+        if (deliveredQty > 0) {
+          const unitPrice = Number((o as any).unitPrice ?? 0) || (o.quantity > 0 ? o.totalPrice / o.quantity : 0);
+          const revenue = unitPrice * deliveredQty;
+          totalRevenue += revenue; deliveredGross += revenue;
+          totalCost += (o.costPrice ?? 0) * deliveredQty;
+          totalShippingCost += shipping;
+        }
       }
 
     } else if (o.deliveryStatus === "returned") {

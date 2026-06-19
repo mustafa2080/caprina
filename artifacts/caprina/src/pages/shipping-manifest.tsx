@@ -3057,7 +3057,6 @@ export default function ShippingManifestPage() {
   const visibleOrdersForTable = useMemo(() => (manifest?.orders ?? []).filter(o => {
     const isRolledPartial =
       o.deliveryStatus === "partial_received" &&
-      Number((o as any).returnReceived) !== 1 &&
       ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
     return !isRolledPartial;
   }), [manifest?.orders]);
@@ -3402,7 +3401,6 @@ export default function ShippingManifestPage() {
   const visibleOrders = manifest.orders.filter(o => {
     const isRolledPartial =
       o.deliveryStatus === "partial_received" &&
-      Number((o as any).returnReceived) !== 1 &&
       ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
     return !isRolledPartial;
   });
@@ -4091,7 +4089,6 @@ export default function ShippingManifestPage() {
         const pendingReturnOrders = manifest.orders.filter(
           o =>
             o.deliveryStatus === "partial_received" &&
-            Number((o as any).returnReceived) !== 1 &&
             ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
         );
         if (pendingReturnOrders.length === 0) return null;
