@@ -4093,6 +4093,8 @@ export default function ShippingManifestPage() {
         // مرتجع كامل (returned) — يظهر في نفس البيان أو مترحّل، طالما لم يتأكد الاستلام (returnReceived !== 1)
         // لو البيان اتقفل بدون action → يترحّل للبيان الجديد تلقائياً (الـ backend بيعمله)
         const isReturnConfirmed = (o: any) => Number(o.returnReceived) === 1;
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const [confirmReceiveOrder, setConfirmReceiveOrder] = React.useState<(typeof manifest.orders)[0] | null>(null);
 
         const returnedRows = manifest.orders.filter(o =>
           o.deliveryStatus === "returned" && !isReturnConfirmed(o)
@@ -4164,7 +4166,7 @@ export default function ShippingManifestPage() {
                         {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">ما زال عند الشحن</span>}
                       </button>
                       <button type="button"
-                        onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, returnReceived: true }); queryClient.setQueryData(["shipping-manifest", id], (old: any) => old ? { ...old, orders: old.orders.map((o: any) => o.id === order.id ? { ...o, returnReceived: 1 } : o) } : old); refetch(); toast({ title: "✅ تم الاستلام — رجع المخزن" }); } catch(e:any){console.error(e); toast({ title: "خطأ", description: e?.message ?? String(e), variant: "destructive" });} }}
+                        onClick={() => { if (currentReceived !== 1) setConfirmReceiveOrder(order); }}
                         className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===1?"border-emerald-500 bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-500/50":"border-border text-muted-foreground hover:border-emerald-600 hover:text-emerald-400 hover:bg-emerald-900/20"}`}>
                         <span className="text-base">✅</span><span>تم الاستلام</span>
                         {currentReceived===1 && <span className="text-[9px] font-normal opacity-80">رجع المخزن</span>}
@@ -4175,6 +4177,44 @@ export default function ShippingManifestPage() {
               })}
             </div>
           </Card>
+
+          {/* dialog تأكيد الاستلام */}
+          {confirmReceiveOrder && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setConfirmReceiveOrder(null)}>
+              <div className="bg-card border border-emerald-700/50 rounded-2xl shadow-2xl p-6 w-80 max-w-[90vw] flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="w-14 h-14 rounded-full bg-emerald-900/40 border border-emerald-600/50 flex items-center justify-center text-3xl">✅</div>
+                  <p className="font-bold text-base text-foreground">تأكيد الاستلام</p>
+                  <p className="text-sm text-muted-foreground">
+                    هل تأكد استلام المرتجع؟
+                  </p>
+                  <p className="text-xs font-semibold text-emerald-400 bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-800/50">
+                    {confirmReceiveOrder.clientName} — {confirmReceiveOrder.product}
+                  </p>
+                  <p className="text-[11px] text-amber-400/80">سيتم إرجاع المنتج للمخزن</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted/20 transition-colors"
+                    onClick={() => setConfirmReceiveOrder(null)}
+                  >إلغاء</button>
+                  <button
+                    className="flex-1 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold transition-colors"
+                    onClick={async () => {
+                      const order = confirmReceiveOrder;
+                      setConfirmReceiveOrder(null);
+                      try {
+                        await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, returnReceived: true });
+                        queryClient.setQueryData(["shipping-manifest", id], (old: any) => old ? { ...old, orders: old.orders.map((o: any) => o.id === order.id ? { ...o, returnReceived: 1 } : o) } : old);
+                        refetch();
+                        toast({ title: "✅ تم الاستلام — رجع المخزن" });
+                      } catch(e: any) { console.error(e); toast({ title: "خطأ", description: e?.message ?? String(e), variant: "destructive" }); }
+                    }}
+                  >✅ نعم، تم الاستلام</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           </div>
         );
