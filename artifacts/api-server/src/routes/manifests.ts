@@ -192,8 +192,10 @@ function computeStats(orders: OrderWithDelivery[]) {
 
   // المرحّلون من بيان سابق — إيرادهم يُستثنى من الحسابات المالية
   // أي أوردر مرحّل من بيان سابق يُستثنى من العدادات والحسابات كلياً
-  const isRolledOverOrder = (o: OrderWithDelivery) =>
-    !!o.deliveryNote?.includes("مترحّل من بيان سابق");
+  const isRolledOverOrder = (o: OrderWithDelivery) => {
+    const note = o.deliveryNote ?? "";
+    return note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
+  };
 
   // نفلتر على مستوى الـ orders للحسابات المالية فقط
   const activeOrders = orders.filter(o => !isRolledOverOrder(o));
@@ -253,7 +255,7 @@ function computeStats(orders: OrderWithDelivery[]) {
 
     } else if (isPartial) {
       // مرحّل من بيان سابق → إيراده صفر تماماً (سواء partialQuantity=0 أو >0)
-      const isRolledOver = o.deliveryNote?.includes("مترحّل من بيان سابق");
+      const isRolledOver = isRolledOverOrder(o);
       if (isRolledOver) {
         // لا إيراد، لا تكلفة، لا شحن — كأنه مش موجود في الحسابات
       } else {
