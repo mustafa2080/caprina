@@ -1,4 +1,4 @@
-﻿import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
   ArrowRight, AlertCircle, Printer, Trash2, RefreshCw,
@@ -28,7 +28,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { ordersApi, apiFetch, manifestsApi, productsApi, variantsApi, shippingApi, cashRegistersApi } from "@/lib/api";
-import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses, RETURN_REASONS } from "@/lib/order-constants";
+import { STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses, RETURN_REASONS, getOrderStatusLabel } from "@/lib/order-constants";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { useBrand } from "@/contexts/BrandContext";
@@ -900,7 +900,7 @@ export default function InvoiceGroup() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold">فاتورة #{invoiceNumber}</h1>
                 <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[dominantStatus] || ""}`}>
-                  {allSameStatus ? statusLabels[dominantStatus] || dominantStatus : "حالات متعددة"}
+                  {allSameStatus ? getOrderStatusLabel(dominantStatus, rep.returnReceived) : "حالات متعددة"}
                 </Badge>
                 {isAnyLocked && (
                   <Badge variant="outline" className="text-[9px] font-bold border-amber-700 bg-amber-900/10 text-amber-400 gap-1 flex items-center">
@@ -1149,7 +1149,7 @@ export default function InvoiceGroup() {
                     <p className="text-[9px] text-muted-foreground line-through">{formatCurrency(order.totalPrice)}</p>
                   )}
                   <Badge variant="outline" className={`text-[8px] font-bold border mt-0.5 ${statusClasses[order.status] || ""}`}>
-                    {statusLabels[order.status] || order.status}
+                    {getOrderStatusLabel(order.status, (order as any).returnReceived)}
                   </Badge>
                 </div>
               </div>

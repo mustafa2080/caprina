@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Printer, FileText, CheckSquare, Square } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
+import { getOrderStatusLabel } from "@/lib/order-constants";
 
 const statusLabels: Record<string, string> = {
   pending:          "قيد الانتظار",
@@ -114,6 +115,7 @@ export default function Invoices() {
       totalPrice: orders.reduce((s, o) => s + o.totalPrice, 0),
       shippingCost: Math.abs((rep as any).shippingCost ?? 0),
       status: rep.status,
+      returnReceived: (rep as any).returnReceived,
       createdAt: rep.createdAt,
       phone: rep.phone ?? null,
       city: (rep as any).city ?? null,
@@ -423,7 +425,7 @@ export default function Invoices() {
                     </div>
                   </div>
                   <Badge variant="outline" className={`text-[9px] font-bold border shrink-0 ${statusClasses[grp.status] || ""}`}>
-                    {statusLabels[grp.status]}
+                    {getOrderStatusLabel(grp.status, grp.returnReceived)}
                   </Badge>
                 </div>
 

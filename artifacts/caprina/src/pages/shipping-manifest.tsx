@@ -252,7 +252,9 @@ function OrderDeliveryRow({
             variant="outline"
             className={`text-[9px] font-bold border ${opt.bg} ${opt.color}`}
           >
-            {opt.label}
+            {order.deliveryStatus === "partial_received"
+              ? ((order as any).returnReceived === 1 ? "استلام جزئي المرتجع في المخزن" : "استلام جزئي ما زال عند شركة الشحن")
+              : opt.label}
           </Badge>
           {/* سبب التأجيل تحت الـ badge مباشرة */}
           {(order.deliveryStatus === "delayed" || order.deliveryStatus === "postponed") && (
@@ -359,7 +361,9 @@ function OrderDeliveryRow({
             {order.phone && <span className="text-[10px] text-muted-foreground">{order.phone}</span>}
           </div>
           <Badge variant="outline" className={`text-[9px] font-bold border shrink-0 ${opt.bg} ${opt.color}`}>
-            {opt.label}
+            {order.deliveryStatus === "partial_received"
+              ? ((order as any).returnReceived === 1 ? "استلام جزئي المرتجع في المخزن" : "استلام جزئي ما زال عند شركة الشحن")
+              : opt.label}
           </Badge>
         </div>
         {/* سبب التأجيل تحت الـ badge في الموبايل */}
@@ -1013,7 +1017,10 @@ function InvoiceGroupDeliveryRow({
             ) : displayStatus === "partial_received" ? (
               <div className="flex flex-col gap-0.5">
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
-                  {displayOpt.label} ({displayTotalPartialQty}/{totalQty})
+                  {(bulkEditing ? partialReturnReceived === true : (rep as any).returnReceived === 1)
+                    ? "استلام جزئي المرتجع في المخزن"
+                    : "استلام جزئي ما زال عند شركة الشحن"}{" "}
+                  ({displayTotalPartialQty}/{totalQty})
                 </Badge>
                 {/* المنتجات اللي كميتها صفر فقط = مرتجعة */}
                 {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) === 0).map(o => (
@@ -1145,7 +1152,11 @@ function InvoiceGroupDeliveryRow({
                 <Badge variant="outline" className="text-[9px] font-bold border border-border text-muted-foreground">حالات متعددة</Badge>
               ) : (
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
-                  {displayOpt.label}
+                  {displayStatus === "partial_received"
+                    ? ((bulkEditing ? partialReturnReceived === true : (rep as any).returnReceived === 1)
+                      ? "استلام جزئي المرتجع في المخزن"
+                      : "استلام جزئي ما زال عند شركة الشحن")
+                    : displayOpt.label}
                 </Badge>
               )}
             </div>

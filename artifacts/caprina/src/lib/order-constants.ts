@@ -31,3 +31,12 @@ export const STATUS_CLASSES: Record<string, string> = {
   returned:         "bg-red-50     dark:bg-red-900/30     text-red-700     dark:text-red-400     border-red-300     dark:border-red-800",
   partial_received: "bg-purple-50  dark:bg-purple-900/30  text-purple-700  dark:text-purple-400  border-purple-300  dark:border-purple-800",
 };
+
+export const getOrderStatusLabel = (status: string, returnReceived: number | boolean | null | undefined): string => {
+  if (status === "partial_received") {
+    const isReceived = returnReceived === 1 || returnReceived === true;
+    return isReceived ? "استلام جزئي المرتجع في المخزن" : "استلام جزئي ما زال عند شركة الشحن";
+  }
+  return STATUS_LABELS[status] || status;
+};
+

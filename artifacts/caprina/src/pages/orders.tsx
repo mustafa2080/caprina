@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { returnReasonLabel } from "@/lib/order-constants";
+import { returnReasonLabel, getOrderStatusLabel } from "@/lib/order-constants";
 import { type WhatsAppOrderData, type WaSettings, applyTemplate, applyShippingTemplate, buildWhatsAppLink } from "@/lib/whatsapp";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -266,7 +266,7 @@ export default function Orders() {
       case "product":  return o.product ?? "";
       case "total":    return String(Math.round((o.totalPrice ?? 0) + (o.shippingCost ?? 0)));
       case "creator":  return (o as any).createdByName ?? "";
-      case "status":   return statusLabels[o.status] ?? o.status;
+      case "status":   return getOrderStatusLabel(o.status, (o as any).returnReceived);
       default:         return "";
     }
   }, []);
@@ -878,7 +878,7 @@ export default function Orders() {
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
-                          {statusLabels[order.status] || order.status}
+                          {getOrderStatusLabel(order.status, (order as any).returnReceived)}
                         </Badge>
                         {order.status === "warehouse_ready" && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-500 dark:text-amber-400">🏠 ما زال في المخزن</span>
@@ -1040,7 +1040,7 @@ export default function Orders() {
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
-                            {statusLabels[order.status] || order.status}
+                            {getOrderStatusLabel(order.status, (order as any).returnReceived)}
                           </Badge>
                           {order.status === "warehouse_ready" && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">

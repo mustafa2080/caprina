@@ -26,7 +26,7 @@ import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { ProductSearchCombobox } from "@/components/product-search-combobox";
-import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses } from "@/lib/order-constants";
+import { RETURN_REASONS, returnReasonLabel, STATUS_LABELS as statusLabels, STATUS_CLASSES as statusClasses, getOrderStatusLabel } from "@/lib/order-constants";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2725,7 +2725,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-base font-bold truncate">فاتورة {invoiceNumber}</h1>
                     <Badge className={`shrink-0 font-bold text-[10px] px-2 py-0.5 ${statusClasses[order.status] || ""}`}>
-                      {statusLabels[order.status] || order.status}
+                      {getOrderStatusLabel(order.status, (order as any).returnReceived)}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -2859,7 +2859,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
               <h1 className="text-xl font-bold">طلب #{order.id.toString().padStart(4,"0")}</h1>
               {!isEditing && (
                 <Badge variant="outline" className={`font-bold border text-[10px] ${statusClasses[selectDisplayStatus ?? order.status] || ""}`}>
-                  {statusLabels[selectDisplayStatus ?? order.status] || order.status}
+                  {getOrderStatusLabel(selectDisplayStatus ?? order.status, (order as any).returnReceived)}
                 </Badge>
               )}
               {isOrderLocked && (
