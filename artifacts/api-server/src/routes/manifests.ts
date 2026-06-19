@@ -193,21 +193,15 @@ function computeStats(orders: OrderWithDelivery[]) {
   // المرحّلون من بيان سابق — إيرادهم يُستثنى من الحسابات المالية فقط
   // لكنهم يُعَدّون في الحاويات (مُسلَّم/جزئي/مرتجع/مؤجل) حسب حالتهم الفعلية
   const isRolledOverOrder = (o: OrderWithDelivery) =>
-    o.deliveryStatus === "partial_received" && !!o.deliveryNote?.includes("مترحّل من بيان سابق");
+    !!o.deliveryNote?.includes("مترحّل من بيان سابق");
 
   // نفلتر على مستوى الـ orders للحسابات المالية فقط
   const activeOrders = orders.filter(o => !isRolledOverOrder(o));
 
   // الإحصائيات (العدادات) تُحسب على مستوى كل الطلبات — بما فيها المرحّلة
   const groupedOrders = allGroupedOrders;
-  // الإحصائيات تُحسب على مستوى الفواتير/الطلبات (مش المنتجات الفردية)
-  // كل فاتورة = طلب واحد، حالتها = حالة أسوأ منتج فيها
-  // المرحّل بـ partialQuantity=0 يُعامَل كمرتجع (returned) للعد، والمرحّل بـ partialQuantity>0 يُعامَل كاستلام جزئي (partial_received)
+  // effectiveStatus: المرحّل يُعدّ بحالته الفعلية (returned أو partial_received)
   function effectiveStatus(o: OrderWithDelivery): string {
-    if (isRolledOverOrder(o)) {
-      const pq = (o as any).partialQuantity != null ? Number((o as any).partialQuantity) : 0;
-      return pq === 0 ? "returned" : "partial_received";
-    }
     return o.deliveryStatus;
   }
   function groupStatus(group: OrderWithDelivery[]): string {
