@@ -1178,7 +1178,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // ─── تحديث جدول البيان ────────────────────────────────────────────────────
   await db.update(shippingManifestOrdersTable).set({
     deliveryStatus,
-    deliveryNote: deliveryNote ?? null,
+    ...(deliveryNote !== undefined ? { deliveryNote: deliveryNote ?? null } : {}),
     partialQuantity: deliveryStatus === "partial_received" && parsedPartialQty != null ? parsedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "partial_received"
@@ -1209,10 +1209,10 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
   // حفظ سبب الإرجاع في جدول الطلبات
   if (deliveryStatus === "returned") {
-    orderUpdate.returnReason = returnReason ?? null;
+    if (returnReason !== undefined) orderUpdate.returnReason = returnReason ?? null;
     // الملاحظة المكتوبة في تفاصيل البيان (deliveryNote) لازم تتعرض في تفاصيل الطلب
     // (صفحة تفاصيل الطلب بتعرض ordersTable.returnNote، مش shippingManifestOrdersTable.deliveryNote)
-    orderUpdate.returnNote = deliveryNote ?? null;
+    if (deliveryNote !== undefined) orderUpdate.returnNote = deliveryNote ?? null;
   }
   await db.update(ordersTable).set(orderUpdate).where(eq(ordersTable.id, orderId));
 
