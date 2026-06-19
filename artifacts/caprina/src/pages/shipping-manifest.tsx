@@ -183,7 +183,7 @@ function OrderDeliveryRow({
           status === "partial_received" && partialQty !== "" && partialQty !== null && partialQty !== undefined
             ? parseInt(partialQty)
             : null,
-        ...(status === "returned" ? { returnReceived } : {}),
+        ...(status === "returned" || status === "partial_received" ? { returnReceived } : {}),
         ...(status === "returned" ? { returnReason: returnReason || null } : {}),
       });
     },
@@ -513,10 +513,32 @@ function OrderDeliveryRow({
               </>
             )}
           </div>
-          {/* الاستلام الجزئي: الباقي يظهر تلقائياً في حاوية المرتجعات — لا خيار للمستخدم هنا */}
+          {/* الاستلام الجزئي: تحديد حالة الكمية الباقية — تتعرض في حاوية المرتجعات أسفل البيان أيضًا */}
           {status === "partial_received" && (
-            <div className="rounded-lg border border-teal-800/40 bg-teal-900/10 px-3 py-2 text-[10px] text-teal-400 font-semibold">
-              🚚 الكمية الباقية ({Math.max(0, (order.quantity ?? 0) - (parseInt(partialQty) || 0))}) ستظهر في حاوية المرتجعات أسفل البيان — يمكن تأكيد استلامها لاحقاً من هناك
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[10px] text-muted-foreground">
+                حالة الكمية الباقية ({Math.max(0, (order.quantity ?? 0) - (parseInt(partialQty) || 0))})
+              </Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={returnReceived === false ? "default" : "outline"}
+                  onClick={() => setReturnReceived(false)}
+                  className={`h-7 text-[11px] px-2.5 ${returnReceived === false ? "bg-orange-600 hover:bg-orange-700 text-white" : "border-orange-700/50 text-orange-500"}`}
+                >
+                  🚚 ما زال عند شركة الشحن
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={returnReceived === true ? "default" : "outline"}
+                  onClick={() => setReturnReceived(true)}
+                  className={`h-7 text-[11px] px-2.5 ${returnReceived === true ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-700/50 text-emerald-500"}`}
+                >
+                  ↩ تم الاستلام في المخزن
+                </Button>
+              </div>
             </div>
           )}
           {/* حالة استلام المرتجع + سبب — زي الطلبات */}
@@ -859,7 +881,7 @@ function InvoiceGroupDeliveryRow({
           deliveryStatus: finalStatus,
           deliveryNote: bulkNote.trim() || null,
           partialQuantity: finalPartialQty,
-          ...(finalStatus === 'partial_received' ? { partialReturnReceived: partialReturnReceived ?? false } : {}),
+          ...(finalStatus === 'partial_received' ? { returnReceived: bulkReturnReceived } : {}),
           ...(finalStatus === 'returned' ? { returnReceived: bulkReturnReceived, returnReason: bulkReturnReason || null } : {}),
         });
       }
@@ -1428,8 +1450,30 @@ function InvoiceGroupDeliveryRow({
 
             {/* الاستلام الجزئي: الباقي يظهر تلقائياً في حاوية المرتجعات — لا خيار للمستخدم هنا */}
             {bulkStatus === "partial_received" && (
-              <div className="rounded-lg border border-teal-800/40 bg-teal-900/10 px-3 py-2 text-[10px] text-teal-400 font-semibold">
-                🚚 الكميات الباقية ستظهر في حاوية المرتجعات أسفل البيان — يمكن تأكيد استلامها لاحقاً من هناك
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[10px] text-muted-foreground">
+                  حالة الكمية الباقية
+                </Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={bulkReturnReceived === false ? "default" : "outline"}
+                    onClick={() => setBulkReturnReceived(false)}
+                    className={`h-7 text-[11px] px-2.5 ${bulkReturnReceived === false ? "bg-orange-600 hover:bg-orange-700 text-white" : "border-orange-700/50 text-orange-500"}`}
+                  >
+                    🚚 ما زال عند شركة الشحن
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={bulkReturnReceived === true ? "default" : "outline"}
+                    onClick={() => setBulkReturnReceived(true)}
+                    className={`h-7 text-[11px] px-2.5 ${bulkReturnReceived === true ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-700/50 text-emerald-500"}`}
+                  >
+                    ↩ تم الاستلام في المخزن
+                  </Button>
+                </div>
               </div>
             )}
 
