@@ -185,7 +185,6 @@ function OrderDeliveryRow({
             : null,
         ...(status === "returned" ? { returnReceived } : {}),
         ...(status === "returned" ? { returnReason: returnReason || null } : {}),
-        ...(status === "partial_received" ? { partialReturnReceived } : {}),
       });
     },
     onSuccess: () => {
@@ -206,8 +205,6 @@ function OrderDeliveryRow({
     note !== (order.deliveryNote ?? "") ||
     (status === "partial_received" &&
       partialQty !== (order.partialQuantity?.toString() ?? "")) ||
-    (status === "partial_received" &&
-      partialReturnReceived !== ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null)) ||
     (status === "returned" &&
       returnReceived !== ((order as any).returnReceived === 1 ? true : (order as any).returnReceived === 0 ? false : null));
 
@@ -453,10 +450,6 @@ function OrderDeliveryRow({
                 value={status}
                 onValueChange={(v) => {
                   setStatus(v as DeliveryStatus);
-                  // لو اختار partial_received وpartialReturnReceived لسه null، حدده بـ false تلقائياً (ما زال عند شركة الشحن)
-                  if (v === "partial_received" && partialReturnReceived === null) {
-                    setPartialReturnReceived(false);
-                  }
                 }}
               >
                 <SelectTrigger className="h-8 text-xs w-40 bg-background">
@@ -520,43 +513,10 @@ function OrderDeliveryRow({
               </>
             )}
           </div>
-          {/* هل الباقي من الاستلام الجزئي عند الشحن؟ */}
+          {/* الاستلام الجزئي: الباقي يظهر تلقائياً في حاوية المرتجعات — لا خيار للمستخدم هنا */}
           {status === "partial_received" && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">هل الباقي عند شركة الشحن؟ *</p>
-              <div className="flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setPartialReturnReceived(false)}
-                  className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
-                    partialReturnReceived === false
-                      ? "border-amber-500 bg-amber-900/30 text-amber-300"
-                      : "border-border text-muted-foreground hover:bg-muted/20"
-                  }`}
-                >
-                  <span className="text-base">🚚</span>
-                  <span>ما زال عند شركة الشحن</span>
-                  <span className="text-[9px] font-normal opacity-70">سيُرحَّل للبيان الجديد</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPartialReturnReceived(true)}
-                  className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
-                    partialReturnReceived === true
-                      ? "border-emerald-500 bg-emerald-900/30 text-emerald-300"
-                      : "border-border text-muted-foreground hover:bg-muted/20"
-                  }`}
-                >
-                  <span className="text-base">✅</span>
-                  <span>تم استلامه في المخزن</span>
-                  <span className="text-[9px] font-normal opacity-70">يُعاد للمخزن تلقائياً</span>
-                </button>
-              </div>
-              <p className="text-[10px] text-center font-medium" style={{ color: partialReturnReceived === true ? "#0F6E56" : partialReturnReceived === false ? "#854F0B" : "var(--color-text-secondary)" }}>
-                {partialReturnReceived === true && "✓ سيتم إرجاع الباقي للمخزن"}
-                {partialReturnReceived === false && "⏳ الباقي ما زال عند شركة الشحن — سيُرحَّل"}
-                {partialReturnReceived === null && "⚠ يجب اختيار حالة الباقي قبل الحفظ"}
-              </p>
+            <div className="rounded-lg border border-teal-800/40 bg-teal-900/10 px-3 py-2 text-[10px] text-teal-400 font-semibold">
+              🚚 الكمية الباقية ({Math.max(0, (order.quantity ?? 0) - (parseInt(partialQty) || 0))}) ستظهر في حاوية المرتجعات أسفل البيان — يمكن تأكيد استلامها لاحقاً من هناك
             </div>
           )}
           {/* حالة استلام المرتجع + سبب — زي الطلبات */}
@@ -641,8 +601,7 @@ function OrderDeliveryRow({
                 (needsNote && !note.trim()) ||
                 (needsPartial && (partialQty === "")) ||
                 (needsPartial && parseInt(partialQty) > order.quantity) ||
-                (status === "returned" && returnReceived === null) ||
-                (status === "partial_received" && partialReturnReceived === null)
+                (status === "returned" && returnReceived === null)
               }
             >
               <Save className="w-3 h-3" />
@@ -1467,41 +1426,10 @@ function InvoiceGroupDeliveryRow({
               </div>
             )}
 
-            {/* حالة الباقي من الاستلام الجزئي — تظهر فقط لما يختار "استلام جزئي" */}
+            {/* الاستلام الجزئي: الباقي يظهر تلقائياً في حاوية المرتجعات — لا خيار للمستخدم هنا */}
             {bulkStatus === "partial_received" && (
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">الباقي عند شركة الشحن؟ <span className="text-destructive">*</span></p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPartialReturnReceived(false)}
-                    className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
-                      partialReturnReceived === false
-                        ? "border-amber-500 bg-amber-900/30 text-amber-300"
-                        : "border-border text-muted-foreground hover:bg-muted/20"
-                    }`}
-                  >
-                    <span className="text-base">🚚</span>
-                    <span>ما زال عند شركة الشحن</span>
-                    <span className="text-[9px] font-normal opacity-70">سيُرحَّل للبيان الجديد</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPartialReturnReceived(true)}
-                    className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${
-                      partialReturnReceived === true
-                        ? "border-emerald-500 bg-emerald-900/30 text-emerald-300"
-                        : "border-border text-muted-foreground hover:bg-muted/20"
-                    }`}
-                  >
-                    <span className="text-base">✅</span>
-                    <span>تم استلامه في المخزن</span>
-                    <span className="text-[9px] font-normal opacity-70">يُعاد للمخزن تلقائياً</span>
-                  </button>
-                </div>
-                {partialReturnReceived === null && (
-                  <p className="text-[10px] text-destructive font-medium">⚠ يجب اختيار حالة الباقي قبل الحفظ</p>
-                )}
+              <div className="rounded-lg border border-teal-800/40 bg-teal-900/10 px-3 py-2 text-[10px] text-teal-400 font-semibold">
+                🚚 الكميات الباقية ستظهر في حاوية المرتجعات أسفل البيان — يمكن تأكيد استلامها لاحقاً من هناك
               </div>
             )}
 
@@ -1614,7 +1542,6 @@ function InvoiceGroupDeliveryRow({
                   bulkMutation.isPending ||
                   (needsBulkNote && !bulkNote.trim()) ||
                   (bulkStatus === "returned" && bulkReturnReceived === null) ||
-                  (bulkStatus === "partial_received" && partialReturnReceived === null) ||
                   (!isPerItemMode && bulkStatus === "partial_received" && group[0] && (
                     partialQtyMap[group[0].id] === "" || partialQtyMap[group[0].id] === undefined
                   )) ||
@@ -4117,37 +4044,41 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // المرحّلون من بيان سابق — يظهر في حاوية المرتجعات لتأكيد الاستلام
+        // مرتجع كامل (returned) — بيظهر بس لو مترحّل من بيان سابق وغير مؤكَّد
         const allRolledOver = manifest.orders.filter(o => {
           const note = ((o as any).deliveryNote ?? "");
           return note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
         });
-        const rolledOverReturns = allRolledOver.filter(o => {
-          if (o.deliveryStatus === "returned") return true;
-          if (o.deliveryStatus === "partial_received") {
-            const qty = o.quantity ?? 0;
-            const pq = o.partialQuantity ?? 0;
-            return qty - pq > 0;
-          }
-          return false;
+        const returnedRows = allRolledOver.filter(o => o.deliveryStatus === "returned");
+
+        // استلام جزئي وباقي منه عند الشحن — يظهر دايمًا (بيان مفتوح أو مقفول)
+        // لحد ما يتحسم بزرار "تم/لم يتم الاستلام"، بغض النظر عن الترحيل
+        const partialRemainderRows = manifest.orders.filter(o => {
+          if (o.deliveryStatus !== "partial_received") return false;
+          const qty = o.quantity ?? 0;
+          const pq = o.partialQuantity ?? 0;
+          return qty - pq > 0;
         });
-        if (rolledOverReturns.length === 0) return null;
+
+        const returnContainerRows = [...returnedRows, ...partialRemainderRows];
+        if (returnContainerRows.length === 0) return null;
 
         return (
           <div className="space-y-3 print:hidden">
 
-          {/* ── حاوية المرتجع الكامل ── */}
+          {/* ── حاوية المرتجع الكامل + قطع الاستلام الجزئي الباقية ── */}
           <Card className="border-red-800/60 bg-red-950/20 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-red-800/40 bg-red-950/30">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
               <h2 className="font-black text-sm text-red-400 tracking-wide">مرتجعات — الرجاء التأكد من استلامها من الشحن</h2>
               <Badge variant="outline" className="border-red-700 bg-red-900/30 text-red-400 text-[10px] mr-auto">
-                {rolledOverReturns.length} طلب
+                {returnContainerRows.length} قطعة
               </Badge>
             </div>
             <div className="divide-y divide-red-900/30">
-              {rolledOverReturns.map((order) => {
+              {returnContainerRows.map((order) => {
                 const currentReceived = (order as any).returnReceived;
+                const isPartialRow = order.deliveryStatus === "partial_received";
                 return (
                   <div key={order.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
@@ -4159,16 +4090,16 @@ export default function ShippingManifestPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-medium text-foreground/80">{order.product}</span>
                         {(order.color || order.size) && <span className="text-[10px] text-muted-foreground">{[order.color,order.size].filter(Boolean).join(" / ")}</span>}
-                        {order.deliveryStatus === "partial_received" ? (
+                        {isPartialRow ? (
                           <Badge variant="outline" className="text-[9px] border-teal-700 bg-teal-900/20 text-teal-400">استلام جزئي</Badge>
                         ) : (
                           <Badge variant="outline" className="text-[9px] border-red-700 bg-red-900/20 text-red-400">مرتجع كامل</Badge>
                         )}
                       </div>
                       <p className="text-[11px] text-red-400 font-semibold">
-                        {order.deliveryStatus === "partial_received" ? (
+                        {isPartialRow ? (
                           <>
-                            الكمية المرتجعة: <span className="font-black text-red-300">{(order.quantity ?? 0) - (order.partialQuantity ?? 0)}</span> (المستلم: {order.partialQuantity})
+                            الكمية الباقية عند الشحن: <span className="font-black text-red-300">{(order.quantity ?? 0) - (order.partialQuantity ?? 0)}</span> (المستلم: {order.partialQuantity} من {order.quantity})
                           </>
                         ) : (
                           <>
@@ -4177,22 +4108,22 @@ export default function ShippingManifestPage() {
                         )}
                       </p>
                     </div>
-                    {!isLocked && (
-                      <div className="flex gap-2 shrink-0">
-                        <button type="button"
-                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, ...(order.deliveryStatus === "partial_received" ? { partialReturnReceived: false } : { returnReceived: false }) }); refetch(); } catch(e){console.error(e);} }}
-                          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===0?"border-amber-500 bg-amber-900/40 text-amber-300 ring-1 ring-amber-500/50":"border-border text-muted-foreground hover:border-amber-600 hover:text-amber-400 hover:bg-amber-900/20"}`}>
-                          <span className="text-base">🚚</span><span>لم يتم الاستلام</span>
-                          {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">سيُرحَّل ← بيان جديد</span>}
-                        </button>
-                        <button type="button"
-                          onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, ...(order.deliveryStatus === "partial_received" ? { partialReturnReceived: true } : { returnReceived: true }) }); refetch(); } catch(e){console.error(e);} }}
-                          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===1?"border-emerald-500 bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-500/50":"border-border text-muted-foreground hover:border-emerald-600 hover:text-emerald-400 hover:bg-emerald-900/20"}`}>
-                          <span className="text-base">✅</span><span>تم الاستلام</span>
-                          {currentReceived===1 && <span className="text-[9px] font-normal opacity-80">يُعاد للمخزن عند الإغلاق</span>}
-                        </button>
-                      </div>
-                    )}
+                    {/* أزرار تم/لم يتم الاستلام تفضل شغالة حتى لو البيان مقفول —
+                        دي بالظبط الوظيفة اللي المفروض تستمر بعد الإغلاق لحد ما تتحسم */}
+                    <div className="flex gap-2 shrink-0">
+                      <button type="button"
+                        onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, ...(isPartialRow ? { partialReturnReceived: false } : { returnReceived: false }) }); refetch(); } catch(e){console.error(e);} }}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===0?"border-amber-500 bg-amber-900/40 text-amber-300 ring-1 ring-amber-500/50":"border-border text-muted-foreground hover:border-amber-600 hover:text-amber-400 hover:bg-amber-900/20"}`}>
+                        <span className="text-base">🚚</span><span>لم يتم الاستلام</span>
+                        {currentReceived===0 && <span className="text-[9px] font-normal opacity-80">{isPartialRow ? "ما زال عند الشحن" : "سيُرحَّل ← بيان جديد"}</span>}
+                      </button>
+                      <button type="button"
+                        onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, partialQuantity: order.partialQuantity ?? undefined, ...(isPartialRow ? { partialReturnReceived: true } : { returnReceived: true }) }); refetch(); } catch(e){console.error(e);} }}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===1?"border-emerald-500 bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-500/50":"border-border text-muted-foreground hover:border-emerald-600 hover:text-emerald-400 hover:bg-emerald-900/20"}`}>
+                        <span className="text-base">✅</span><span>تم الاستلام</span>
+                        {currentReceived===1 && <span className="text-[9px] font-normal opacity-80">رجع المخزن</span>}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
