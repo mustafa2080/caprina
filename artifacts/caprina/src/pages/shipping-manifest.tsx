@@ -3053,9 +3053,17 @@ export default function ShippingManifestPage() {
   });
 
   // ─── Search filter — real-time, no popover ────────────────────────────────
+  // المنتجات المرحّلة (partial_received + returnReceived≠1 + partialQuantity=0) تُخفى من الجدول
+  const visibleOrdersForTable = (manifest?.orders ?? []).filter(o => {
+    const isRolledPartial =
+      o.deliveryStatus === "partial_received" &&
+      Number((o as any).returnReceived) !== 1 &&
+      (o.partialQuantity == null || Number(o.partialQuantity) === 0);
+    return !isRolledPartial;
+  });
+
   const filteredManifestOrders = useMemo(() => {
-    const orders = manifest?.orders ?? [];
-    const groups = groupManifestOrders(orders);
+    const groups = groupManifestOrders(visibleOrdersForTable);
     if (!manifestCustomerSearch && !manifestProductSearch && !manifestTotalSearch) return groups;
     const cLow = manifestCustomerSearch.toLowerCase();
     const pLow = manifestProductSearch.toLowerCase();
@@ -3069,7 +3077,7 @@ export default function ShippingManifestPage() {
       }
       return true;
     });
-  }, [manifest?.orders, manifestCustomerSearch, manifestProductSearch, manifestTotalSearch]);
+  }, [visibleOrdersForTable, manifestCustomerSearch, manifestProductSearch, manifestTotalSearch]);
 
   // ─── Sort — حسب الحالة فوق الـ filter ──────────────────────────────────────
   const sortedManifestOrders = useMemo(() => {
