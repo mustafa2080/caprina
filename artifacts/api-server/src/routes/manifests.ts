@@ -998,8 +998,14 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
 
   const parsedPartialQty = (partialQuantity != null && partialQuantity !== undefined && !isNaN(Number(partialQuantity))) ? Number(partialQuantity) : null;
 
-  // لو partial_received وبدون كمية → خطأ صريح
-  if (deliveryStatus === "partial_received" && parsedPartialQty === null) {
+  // لو partial_received وبدون كمية في الـ request → نستخدم الكمية القديمة من DB
+  // (يحصل ده لما زراير الحاوية الحمراء بتبعت returnReceived فقط بدون كمية)
+  const resolvedPartialQty = (deliveryStatus === "partial_received" && parsedPartialQty === null)
+    ? (link.partialQuantity != null ? Number(link.partialQuantity) : null)
+    : parsedPartialQty;
+
+  // لو partial_received وما فيش كمية خالص (مش في الطلب ولا في DB) → خطأ صريح
+  if (deliveryStatus === "partial_received" && resolvedPartialQty === null) {
     res.status(400).json({ error: "يجب إدخال الكمية المستلمة للتسليم الجزئي" }); return;
   }
   // لو الكمية المستلمة أكبر من كمية الطلب → خطأ صريح
@@ -1020,14 +1026,16 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // استخدم deliveryStatus مباشرة بدون ترحيل لـ pending حتى نحافظ على حالة الاستلام الجزئي للمنتجات المرفوضة
   const effectiveDeliveryStatus = deliveryStatus;
 
+  // لو المستخدم بعت returnReceived صراحة (سواء true أو false) → مش noChange حتى لو نفس القيمة
+  // ده عشان زرار "ما زال عند شركة الشحن" (false) يتحفظ صح حتى لو القيمة القديمة null أو 0
+  const callerExplicitlySetReturnReceived = effectivePartialReturnReceived !== undefined;
   const noChange = effectiveDeliveryStatus === oldDeliveryStatus &&
     // returned: لو returnReceived لم يتغير
     (effectiveDeliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
     // partial_received: الكمية لم تتغير
-    (effectiveDeliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
-    // partial_received: القيمة الفعلية لم تتغير
-    // ملاحظة: undefined (الحقل مش متبعت خالص) ≠ تغيير — لكن null أو false المتبعتين بصراحة لازم يتفحصوا
-    (effectiveDeliveryStatus !== "partial_received" || effectivePartialReturnReceived === undefined || effectivePartialReturnReceived === oldPartialReturnReceivedBool);
+    (effectiveDeliveryStatus !== "partial_received" || resolvedPartialQty === oldPartialQtyNum) &&
+    // partial_received: لو المستخدم بعت returnReceived صراحة → دايماً يعتبر تغيير
+    (effectiveDeliveryStatus !== "partial_received" || !callerExplicitlySetReturnReceived);
 
   console.log(`[PATCH order ${orderId}] parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} noChange=${noChange}`);
 
@@ -1060,7 +1068,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       // وعند قفل البيان، الطلب ده بيتقفل نهائيًا بدون ترحيل (المخزون اتحرك بالفعل).
       // لو partialReturnReceived=false (لسه عند الشحن) → الكمية الكاملة تفضل OUT/to_shipping.
       // لو الزرار في الحاوية ما بعتش partialQuantity، نستخدم الكمية الموجودة في DB
-      const newPartialQty = parsedPartialQty ?? oldPartialQtyNum ?? 0;
+      const newPartialQty = resolvedPartialQty ?? oldPartialQtyNum ?? 0;
       // دعم الزرارين من حاوية المرتجعات (returnReceived) أو من الـ edit form القديم (partialReturnReceived)
       // لو الاتنين undefined (مش متبعتين) → نحافظ على القيمة القديمة بدل اعتبارها false بالغلط
       const isReturnConfirmedNow = effectivePartialReturnReceived === undefined
@@ -1170,7 +1178,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   await db.update(shippingManifestOrdersTable).set({
     deliveryStatus,
     ...(deliveryNote !== undefined ? { deliveryNote: deliveryNote ?? null } : {}),
-    partialQuantity: deliveryStatus === "partial_received" && parsedPartialQty != null ? parsedPartialQty : null,
+    partialQuantity: deliveryStatus === "partial_received" && resolvedPartialQty != null ? resolvedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
     ...(deliveryStatus === "partial_received" && returnReceived != null
       ? { returnReceived: returnReceived ? 1 : 0 }
@@ -1194,7 +1202,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     ? (STATUS_MAP[oldDeliveryStatus] ?? "in_shipping")
     : (STATUS_MAP[deliveryStatus] ?? "in_shipping");
   const orderUpdate: Record<string, unknown> = { status: newOrderStatus };
-  if (deliveryStatus === "partial_received" && parsedPartialQty != null) orderUpdate.partialQuantity = parsedPartialQty;
+  if (deliveryStatus === "partial_received" && resolvedPartialQty != null) orderUpdate.partialQuantity = resolvedPartialQty;
   if (deliveryStatus === "partial_received") {
     // دعم الزرارين من حاوية المرتجعات (returnReceived) أو من الـ edit form القديم (partialReturnReceived)
     // لو الاتنين undefined → نحافظ على القيمة القديمة بدل ما نصفرها بالغلط
