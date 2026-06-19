@@ -203,7 +203,10 @@ function computeStats(orders: OrderWithDelivery[]) {
   const activeOrders = orders.filter(o => !isRolledOverOrder(o));
 
   // الإحصائيات (العدادات) — المرحّل بـ partialQty > 0 يُستثنى من العداد كلياً
-  const groupedOrders = allGroupedOrders.filter(g => !g.every(o => isRolledOverPartialDone(o)));
+  // نشيل الأوردرات المرحّلة بـ partialQty > 0 من كل group قبل الحساب
+  const groupedOrders = allGroupedOrders
+    .map(g => g.filter(o => !isRolledOverPartialDone(o)))
+    .filter(g => g.length > 0);
 
   function effectiveStatus(o: OrderWithDelivery): string {
     // المرحّل بـ partialQty = 0 يُعدّ returned
