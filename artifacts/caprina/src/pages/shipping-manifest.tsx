@@ -3056,9 +3056,10 @@ export default function ShippingManifestPage() {
   });
 
   // ─── Search filter — real-time, no popover ────────────────────────────────
-  // المنتجات المرحّلة (partial_received + delivery_note يحتوي "مترحّل من بيان سابق") تُخفى من الجدول
+  // المنتجات المرحّلة تُخفى من الجدول — أي أوردر فيه نوتة ترحيل بأي صيغة
   const visibleOrdersForTable = useMemo(() => (manifest?.orders ?? []).filter(o => {
-    const isRolledOver = ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
+    const note = ((o as any).deliveryNote ?? "");
+    const isRolledOver = note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
     return !isRolledOver;
   }), [manifest?.orders]);
 
@@ -3400,7 +3401,8 @@ export default function ShippingManifestPage() {
   ).length;
   // المنتجات المرحّلة تظهر فقط في حاوية المرتجعات — مش في الجدول
   const visibleOrders = manifest.orders.filter(o => {
-    const isRolledOver = ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
+    const note = ((o as any).deliveryNote ?? "");
+    const isRolledOver = note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
     return !isRolledOver;
   });
   const groupedManifestOrders = groupManifestOrders(visibleOrders);
@@ -4088,9 +4090,10 @@ export default function ShippingManifestPage() {
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
         // المرحّلون من بيان سابق — فقط اللي قيمته صفر (ما استلمش حاجة) يظهر في حاوية المرتجعات
-        const allRolledOver = manifest.orders.filter(
-          o => ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
-        );
+        const allRolledOver = manifest.orders.filter(o => {
+          const note = ((o as any).deliveryNote ?? "");
+          return note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
+        });
         const fullReturnOrders  = allRolledOver.filter(o => (o.partialQuantity ?? 0) === 0);
         if (fullReturnOrders.length === 0) return null;
 
