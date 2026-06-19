@@ -4127,7 +4127,7 @@ export default function ShippingManifestPage() {
                 const currentReceived = (order as any).returnReceived == null ? null : Number((order as any).returnReceived);
                 const isPartialRow = order.deliveryStatus === "partial_received";
                 return (
-                  <div key={order.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
+                  <div key={order.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3 print:hidden">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 rounded px-1.5 py-0.5 border border-border/40">#{order.id.toString().padStart(4,"0")}</span>
@@ -4175,6 +4175,66 @@ export default function ShippingManifestPage() {
                 );
               })}
             </div>
+
+            {/* ── نسخة الطباعة المفصّلة ── */}
+            <div className="hidden print:block px-4 pb-4 pt-2">
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#fef2f2", borderBottom: "2px solid #fca5a5" }}>
+                    <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>#</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>العميل</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>الهاتف</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>المنتج</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#b91c1c" }}>اللون/المقاس</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>النوع</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>الكمية</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>الحالة</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>✓ استلمت</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {returnContainerRows.map((order, idx) => {
+                    const isP = order.deliveryStatus === "partial_received";
+                    const rr = (order as any).returnReceived;
+                    const qty = isP ? (order.quantity ?? 0) - (order.partialQuantity ?? 0) : (order.quantity ?? 0);
+                    return (
+                      <tr key={order.id} style={{ borderBottom: "1px solid #fecaca", backgroundColor: idx % 2 === 0 ? "#fff" : "#fff5f5" }}>
+                        <td style={{ padding: "5px 8px", color: "#6b7280", fontFamily: "monospace" }}>#{order.id.toString().padStart(4,"0")}</td>
+                        <td style={{ padding: "5px 8px", fontWeight: 600 }}>{order.customerName}</td>
+                        <td style={{ padding: "5px 8px", color: "#6b7280", direction: "ltr" }}>{order.phone ?? "—"}</td>
+                        <td style={{ padding: "5px 8px" }}>{order.product}</td>
+                        <td style={{ padding: "5px 8px", color: "#6b7280" }}>{[order.color, order.size].filter(Boolean).join(" / ") || "—"}</td>
+                        <td style={{ padding: "5px 8px", textAlign: "center" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, border: isP ? "1px solid #0d9488" : "1px solid #dc2626", color: isP ? "#0d9488" : "#dc2626" }}>
+                            {isP ? "جزئي" : "كامل"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, color: "#dc2626" }}>{qty}</td>
+                        <td style={{ padding: "5px 8px", textAlign: "center", fontSize: 10, color: rr === 1 ? "#16a34a" : rr === 0 ? "#d97706" : "#9ca3af" }}>
+                          {rr === 1 ? "✅ عند المخزن" : rr === 0 ? "🚚 عند الشحن" : "⏳ لم يُحدَّد"}
+                        </td>
+                        <td style={{ padding: "5px 8px", textAlign: "center" }}>
+                          <span style={{ display: "inline-block", width: 18, height: 18, border: "1.5px solid #9ca3af", borderRadius: 3 }}></span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: "2px solid #fca5a5", backgroundColor: "#fef2f2" }}>
+                    <td colSpan={6} style={{ padding: "6px 8px", fontWeight: 700, color: "#b91c1c" }}>الإجمالي</td>
+                    <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 700, color: "#b91c1c" }}>
+                      {returnContainerRows.reduce((s, o) => {
+                        const isP = o.deliveryStatus === "partial_received";
+                        return s + (isP ? (o.quantity ?? 0) - (o.partialQuantity ?? 0) : (o.quantity ?? 0));
+                      }, 0)}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
           </Card>
 
           {/* dialog تأكيد الاستلام */}
