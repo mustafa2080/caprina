@@ -2187,6 +2187,8 @@ function ExportDialog({
       const returnReceived = (o as any).returnReceived == null ? null : Number((o as any).returnReceived);
       if (returnReceived == null) return sum;
       if (o.partialQuantity == null || o.quantity <= 0) return sum;
+      // المرحّل (partialQuantity=0) إيراده صفر — هيرجع المخزن مش مبيع
+      if (o.partialQuantity === 0) return sum;
       const unitPrice = (o as any).unitPrice != null
         ? Number((o as any).unitPrice)
         : Number(o.totalPrice) / Number(o.quantity);
@@ -3388,7 +3390,15 @@ export default function ShippingManifestPage() {
   const pendingOrders = manifest.orders.filter(
     (o) => o.deliveryStatus === "pending"
   ).length;
-  const groupedManifestOrders = groupManifestOrders(manifest.orders);
+  // المنتجات المرحّلة (partial_received + returnReceived≠1 + partialQuantity=0) تظهر فقط في حاوية المرتجعات — مش في الجدول
+  const visibleOrders = manifest.orders.filter(o => {
+    const isRolledPartial =
+      o.deliveryStatus === "partial_received" &&
+      (o as any).returnReceived !== 1 &&
+      (o.partialQuantity === 0 || o.partialQuantity === null || o.partialQuantity === undefined);
+    return !isRolledPartial;
+  });
+  const groupedManifestOrders = groupManifestOrders(visibleOrders);
   const manifestGroupPriority: Record<string, number> = {
     returned: 5,
     postponed: 4,
@@ -3433,6 +3443,8 @@ export default function ShippingManifestPage() {
       const returnReceived = (o as any).returnReceived == null ? null : Number((o as any).returnReceived);
       if (returnReceived == null) return sum;
       if (o.partialQuantity == null || o.quantity <= 0) return sum;
+      // المرحّل (partialQuantity=0) إيراده صفر — هيرجع المخزن مش مبيع
+      if (o.partialQuantity === 0) return sum;
       const unitPrice = (o as any).unitPrice != null
         ? Number((o as any).unitPrice)
         : Number(o.totalPrice) / Number(o.quantity);
