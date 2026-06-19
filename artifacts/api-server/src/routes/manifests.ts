@@ -1038,8 +1038,9 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     // partial_received: الكمية لم تتغير
     (effectiveDeliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
     // partial_received: partialReturnReceived لم يتغير
-    // تحويل false و null كلاهما لـ false عشان ما نعتبرش null→false تغيير
-    (effectiveDeliveryStatus !== "partial_received" || (partialReturnReceived ?? false) === (oldPartialReturnReceivedBool ?? false));
+    // ملاحظة: null (غير محدد) ≠ false (صراحة "ما زال عند الشحن") — لازم يعتبر تغيير
+    // عشان المستخدم لما يختار صراحة "ما زال عند شركة الشحن" يتم حفظها حتى لو DB قديم بـ NULL
+    (effectiveDeliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
 
   console.log(`[PATCH order ${orderId}] parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} noChange=${noChange}`);
 
