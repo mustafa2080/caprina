@@ -285,7 +285,7 @@ function OrderDeliveryRow({
           )}
           {/* sub-status للاستلام الجزئي — الباقي */}
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
-            <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ الباقي في المخزن</p>
+            <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ المرتجع في المخزن</p>
           )}
           {order.deliveryStatus === "partial_received" && (order as any).returnReceived !== 1 && (
             <>
@@ -407,7 +407,7 @@ function OrderDeliveryRow({
         )}
         {/* سبب الإرجاع مباشرة تحت حالة الاستلام */}
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived === 1 && (
-          <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>
+          <p className="text-[10px] text-emerald-600 font-semibold">↩ المرتجع في المخزن</p>
         )}
         {order.deliveryStatus === "partial_received" && (order as any).returnReceived !== 1 && (
           <>
@@ -1032,7 +1032,7 @@ function InvoiceGroupDeliveryRow({
                   </p>
                 ))}
                 {(rep as any).returnReceived === 1 && (
-                  <p className="text-[9px] text-emerald-500 font-semibold">↩ الباقي في المخزن</p>
+                  <p className="text-[9px] text-emerald-500 font-semibold">↩ المرتجع في المخزن</p>
                 )}
                 {(rep as any).returnReceived === 0 && (
                   <p className="text-[9px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
@@ -1072,7 +1072,7 @@ function InvoiceGroupDeliveryRow({
                   </p>
                 )}
                 {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && (
-                  <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ الباقي في المخزن</p>
+                  <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ المرتجع في المخزن</p>
                 )}
                 {displayStatus === "partial_received" && (rep as any).returnReceived !== 1 && (
                   <>
@@ -1223,7 +1223,7 @@ function InvoiceGroupDeliveryRow({
                   ↩ مرتجع: {o.product}
                 </p>
               ))}
-              {(rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>}
+              {(rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ المرتجع في المخزن</p>}
               {(rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>}
             </div>
           )}
@@ -4089,13 +4089,15 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // المرحّلون من بيان سابق — فقط اللي قيمته صفر (ما استلمش حاجة) يظهر في حاوية المرتجعات
+        // المرحّلون من بيان سابق — يظهر في حاوية المرتجعات لتأكيد الاستلام
         const allRolledOver = manifest.orders.filter(o => {
           const note = ((o as any).deliveryNote ?? "");
           return note.includes("مترحّل من بيان سابق") || note.includes("مُرحَّل من بيان");
         });
-        const fullReturnOrders  = allRolledOver.filter(o => (o.partialQuantity ?? 0) === 0);
-        if (fullReturnOrders.length === 0) return null;
+        const rolledOverReturns = allRolledOver.filter(o => 
+          o.deliveryStatus === "returned" || o.deliveryStatus === "partial_received"
+        );
+        if (rolledOverReturns.length === 0) return null;
 
         return (
           <div className="space-y-3 print:hidden">
@@ -4106,11 +4108,11 @@ export default function ShippingManifestPage() {
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
               <h2 className="font-black text-sm text-red-400 tracking-wide">مرتجعات — الرجاء التأكد من استلامها من الشحن</h2>
               <Badge variant="outline" className="border-red-700 bg-red-900/30 text-red-400 text-[10px] mr-auto">
-                {fullReturnOrders.length} طلب
+                {rolledOverReturns.length} طلب
               </Badge>
             </div>
             <div className="divide-y divide-red-900/30">
-              {fullReturnOrders.map((order) => {
+              {rolledOverReturns.map((order) => {
                 const currentReceived = (order as any).returnReceived;
                 return (
                   <div key={order.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
@@ -4123,10 +4125,22 @@ export default function ShippingManifestPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-medium text-foreground/80">{order.product}</span>
                         {(order.color || order.size) && <span className="text-[10px] text-muted-foreground">{[order.color,order.size].filter(Boolean).join(" / ")}</span>}
-                        <Badge variant="outline" className="text-[9px] border-red-700 bg-red-900/20 text-red-400">مرتجع كامل</Badge>
+                        {order.deliveryStatus === "partial_received" ? (
+                          <Badge variant="outline" className="text-[9px] border-teal-700 bg-teal-900/20 text-teal-400">استلام جزئي</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] border-red-700 bg-red-900/20 text-red-400">مرتجع كامل</Badge>
+                        )}
                       </div>
                       <p className="text-[11px] text-red-400 font-semibold">
-                        الكمية المرتجعة: <span className="font-black text-red-300">{order.quantity}</span>
+                        {order.deliveryStatus === "partial_received" ? (
+                          <>
+                            الكمية المرتجعة: <span className="font-black text-red-300">{(order.quantity ?? 0) - (order.partialQuantity ?? 0)}</span> (المستلم: {order.partialQuantity})
+                          </>
+                        ) : (
+                          <>
+                            الكمية المرتجعة: <span className="font-black text-red-300">{order.quantity}</span>
+                          </>
+                        )}
                       </p>
                     </div>
                     {!isLocked && (
