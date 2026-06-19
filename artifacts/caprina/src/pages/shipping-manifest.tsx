@@ -3058,10 +3058,8 @@ export default function ShippingManifestPage() {
   // ─── Search filter — real-time, no popover ────────────────────────────────
   // المنتجات المرحّلة (partial_received + delivery_note يحتوي "مترحّل من بيان سابق") تُخفى من الجدول
   const visibleOrdersForTable = useMemo(() => (manifest?.orders ?? []).filter(o => {
-    const isRolledPartial =
-      o.deliveryStatus === "partial_received" &&
-      ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
-    return !isRolledPartial;
+    const isRolledOver = ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
+    return !isRolledOver;
   }), [manifest?.orders]);
 
   const filteredManifestOrders = useMemo(() => {
@@ -3402,10 +3400,8 @@ export default function ShippingManifestPage() {
   ).length;
   // المنتجات المرحّلة تظهر فقط في حاوية المرتجعات — مش في الجدول
   const visibleOrders = manifest.orders.filter(o => {
-    const isRolledPartial =
-      o.deliveryStatus === "partial_received" &&
-      ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
-    return !isRolledPartial;
+    const isRolledOver = ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
+    return !isRolledOver;
   });
   const groupedManifestOrders = groupManifestOrders(visibleOrders);
   const manifestGroupPriority: Record<string, number> = {
@@ -4091,11 +4087,9 @@ export default function ShippingManifestPage() {
 
       {/* ─── حاوية المرتجعات — الرجاء التأكد من استلامها من الشحن ─── */}
       {(() => {
-        // كل المرحّلين من بيان سابق — سواء partialQuantity = 0 (مرتجع كامل) أو > 0 (استلم جزئي والباقي مرتجع)
+        // كل المرحّلين من بيان سابق — بأي حالة كانت
         const pendingReturnOrders = manifest.orders.filter(
-          o =>
-            o.deliveryStatus === "partial_received" &&
-            ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
+          o => ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
         );
         if (pendingReturnOrders.length === 0) return null;
 
