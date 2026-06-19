@@ -641,9 +641,12 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         eq(shippingManifestOrdersTable.manifestId, id),
         or(
           inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
-          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived))),
-          // partial_received غير مؤكَّد (الكمية الباقية عند الشحن لسه ماترجعتش) → يترحّل للبيان الجديد
-          and(eq(shippingManifestOrdersTable.deliveryStatus, "partial_received"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived)))
+          // returned غير مؤكَّد → يترحّل للبيان الجديد
+          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived)))
+          // partial_received لا يترحّل أبدًا — بيتقفل مع البيان سواء returnReceived=0 أو 1
+          // لو returnReceived=1 → اتعالج فوق في confirmedReturnLinks
+          // لو returnReceived=0 → الكتلة (أ) فوق مش بتعالجه (returnReceived مش 1)،
+          //   بس برضو ميترحلش — هيفضل في البيان الحالي كـ partial_received غير مؤكَّد
         )
       )
     );
