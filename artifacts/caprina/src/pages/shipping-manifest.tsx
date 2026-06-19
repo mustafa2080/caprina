@@ -4094,7 +4094,7 @@ export default function ShippingManifestPage() {
         // لو البيان اتقفل بدون action → يترحّل للبيان الجديد تلقائياً (الـ backend بيعمله)
         const isReturnConfirmed = (o: any) => Number(o.returnReceived) === 1;
         // eslint-disable-next-line react-hooks/rules-of-hooks
-        const [confirmReceiveOrder, setConfirmReceiveOrder] = React.useState<(typeof manifest.orders)[0] | null>(null);
+        const [confirmReceiveOrder, setConfirmReceiveOrder] = useState<(typeof manifest.orders)[0] | null>(null);
 
         const returnedRows = manifest.orders.filter(o =>
           o.deliveryStatus === "returned" && !isReturnConfirmed(o)
