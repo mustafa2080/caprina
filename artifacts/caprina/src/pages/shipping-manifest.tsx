@@ -1025,19 +1025,23 @@ function InvoiceGroupDeliveryRow({
                 <Badge variant="outline" className={`text-[9px] font-bold border ${displayOpt.bg} ${displayOpt.color}`}>
                   {displayOpt.label} ({displayTotalPartialQty}/{totalQty})
                 </Badge>
+                {/* المنتجات اللي اتستلمت (qty > 0) */}
                 {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) > 0).map(o => (
-                  <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[110px]">
-                    ◑ {o.product} ×{displayPartialQtyMap[o.id]}
+                  <p key={o.id} className="text-[9px] text-teal-600 dark:text-teal-400 truncate max-w-[120px] font-semibold">
+                    ✅ {o.product} ×{displayPartialQtyMap[o.id]}
                   </p>
                 ))}
-                {(rep as any).returnReceived === 0 && (
-                  <p className="text-[9px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
-                )}
+                {/* المنتجات اللي كميتها صفر = مرتجعة */}
+                {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) === 0).map(o => (
+                  <p key={o.id} className="text-[9px] text-red-500 dark:text-red-400 truncate max-w-[120px] font-semibold">
+                    ↩ مرتجع: {o.product}
+                  </p>
+                ))}
                 {(rep as any).returnReceived === 1 && (
                   <p className="text-[9px] text-emerald-500 font-semibold">↩ الباقي في المخزن</p>
                 )}
-                {(rep as any).returnReceived !== 1 && (
-                  <p className="text-[9px] text-orange-400 font-semibold">🚚 المرتجع ما زال في شركة الشحن</p>
+                {(rep as any).returnReceived === 0 && (
+                  <p className="text-[9px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>
                 )}
               </div>
             ) : (
@@ -1218,8 +1222,22 @@ function InvoiceGroupDeliveryRow({
                 : "لم يحدد السبب"}
             </p>
           )}
-          {displayStatus === "partial_received" && (rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>}
-          {displayStatus === "partial_received" && (rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>}
+          {displayStatus === "partial_received" && (
+            <div className="flex flex-col gap-0.5">
+              {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) > 0).map(o => (
+                <p key={o.id} className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
+                  ✅ {o.product} ×{displayPartialQtyMap[o.id]}
+                </p>
+              ))}
+              {group.filter(o => (displayPartialQtyMap[o.id] ?? 0) === 0).map(o => (
+                <p key={o.id} className="text-[10px] text-red-500 dark:text-red-400 font-semibold">
+                  ↩ مرتجع: {o.product}
+                </p>
+              ))}
+              {(rep as any).returnReceived === 1 && <p className="text-[10px] text-emerald-600 font-semibold">↩ الباقي في المخزن</p>}
+              {(rep as any).returnReceived === 0 && <p className="text-[10px] text-orange-500 font-semibold">🚚 الباقي عند الشحن</p>}
+            </div>
+          )}
           {/* Action button */}
           {!locked && (
             <div className="flex justify-end">
