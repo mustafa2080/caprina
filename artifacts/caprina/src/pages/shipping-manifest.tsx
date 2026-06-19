@@ -451,7 +451,13 @@ function OrderDeliveryRow({
               <Label className="text-[10px] mb-1 block text-muted-foreground">حالة التسليم</Label>
               <Select
                 value={status}
-                onValueChange={(v) => setStatus(v as DeliveryStatus)}
+                onValueChange={(v) => {
+                  setStatus(v as DeliveryStatus);
+                  // لو اختار partial_received وpartialReturnReceived لسه null، حدده بـ false تلقائياً (ما زال عند شركة الشحن)
+                  if (v === "partial_received" && partialReturnReceived === null) {
+                    setPartialReturnReceived(false);
+                  }
+                }}
               >
                 <SelectTrigger className="h-8 text-xs w-40 bg-background">
                   <SelectValue />
@@ -635,7 +641,8 @@ function OrderDeliveryRow({
                 (needsNote && !note.trim()) ||
                 (needsPartial && (partialQty === "")) ||
                 (needsPartial && parseInt(partialQty) > order.quantity) ||
-                (status === "returned" && returnReceived === null)
+                (status === "returned" && returnReceived === null) ||
+                (status === "partial_received" && partialReturnReceived === null)
               }
             >
               <Save className="w-3 h-3" />
