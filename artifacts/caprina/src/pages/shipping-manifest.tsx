@@ -4111,7 +4111,7 @@ export default function ShippingManifestPage() {
         if (returnContainerRows.length === 0) return null;
 
         return (
-          <div className="space-y-3 print:hidden">
+          <div className="space-y-3">
 
           {/* ── حاوية المرتجع الكامل + قطع الاستلام الجزئي الباقية ── */}
           <Card className="border-red-800/60 bg-red-950/20 overflow-hidden">
@@ -4157,7 +4157,7 @@ export default function ShippingManifestPage() {
                     </div>
                     {/* أزرار تم/لم يتم الاستلام تفضل شغالة حتى لو البيان مقفول —
                         دي بالظبط الوظيفة اللي المفروض تستمر بعد الإغلاق لحد ما تتحسم */}
-                    <div className="flex gap-2 shrink-0">
+                    <div className="flex gap-2 shrink-0 print:hidden">
                       <button type="button"
                         onClick={async () => { try { await manifestsApi.updateOrderDelivery(id, order.id, { deliveryStatus: order.deliveryStatus as any, returnReceived: false }); queryClient.setQueryData(["shipping-manifest", id], (old: any) => old ? { ...old, orders: old.orders.map((o: any) => o.id === order.id ? { ...o, returnReceived: 0 } : o) } : old); refetch(); toast({ title: "تم الحفظ" }); } catch(e:any){console.error(e); toast({ title: "خطأ", description: e?.message ?? String(e), variant: "destructive" });} }}
                         className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold transition-all ${currentReceived===0?"border-amber-500 bg-amber-900/40 text-amber-300 ring-1 ring-amber-500/50":"border-border text-muted-foreground hover:border-amber-600 hover:text-amber-400 hover:bg-amber-900/20"}`}>
