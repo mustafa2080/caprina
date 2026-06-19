@@ -2187,8 +2187,8 @@ function ExportDialog({
       const returnReceived = (o as any).returnReceived == null ? null : Number((o as any).returnReceived);
       if (returnReceived == null) return sum;
       if (o.partialQuantity == null || o.quantity <= 0) return sum;
-      // المرحّل (partialQuantity=0) إيراده صفر — هيرجع المخزن مش مبيع
-      if (o.partialQuantity == null || Number(o.partialQuantity) === 0) return sum;
+      // المرحّل من بيان سابق إيراده صفر — هيرجع المخزن مش مبيع
+      if (((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")) return sum;
       const unitPrice = (o as any).unitPrice != null
         ? Number((o as any).unitPrice)
         : Number(o.totalPrice) / Number(o.quantity);
@@ -3053,14 +3053,14 @@ export default function ShippingManifestPage() {
   });
 
   // ─── Search filter — real-time, no popover ────────────────────────────────
-  // المنتجات المرحّلة (partial_received + returnReceived≠1 + partialQuantity=0) تُخفى من الجدول
-  const visibleOrdersForTable = (manifest?.orders ?? []).filter(o => {
+  // المنتجات المرحّلة (partial_received + delivery_note يحتوي "مترحّل من بيان سابق") تُخفى من الجدول
+  const visibleOrdersForTable = useMemo(() => (manifest?.orders ?? []).filter(o => {
     const isRolledPartial =
       o.deliveryStatus === "partial_received" &&
       Number((o as any).returnReceived) !== 1 &&
-      (o.partialQuantity == null || Number(o.partialQuantity) === 0);
+      ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
     return !isRolledPartial;
-  });
+  }), [manifest?.orders]);
 
   const filteredManifestOrders = useMemo(() => {
     const groups = groupManifestOrders(visibleOrdersForTable);
@@ -3398,12 +3398,12 @@ export default function ShippingManifestPage() {
   const pendingOrders = manifest.orders.filter(
     (o) => o.deliveryStatus === "pending"
   ).length;
-  // المنتجات المرحّلة (partial_received + returnReceived≠1 + partialQuantity=0) تظهر فقط في حاوية المرتجعات — مش في الجدول
+  // المنتجات المرحّلة تظهر فقط في حاوية المرتجعات — مش في الجدول
   const visibleOrders = manifest.orders.filter(o => {
     const isRolledPartial =
       o.deliveryStatus === "partial_received" &&
       Number((o as any).returnReceived) !== 1 &&
-      (o.partialQuantity == null || Number(o.partialQuantity) === 0);
+      ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق");
     return !isRolledPartial;
   });
   const groupedManifestOrders = groupManifestOrders(visibleOrders);
@@ -3451,8 +3451,8 @@ export default function ShippingManifestPage() {
       const returnReceived = (o as any).returnReceived == null ? null : Number((o as any).returnReceived);
       if (returnReceived == null) return sum;
       if (o.partialQuantity == null || o.quantity <= 0) return sum;
-      // المرحّل (partialQuantity=0) إيراده صفر — هيرجع المخزن مش مبيع
-      if (o.partialQuantity == null || Number(o.partialQuantity) === 0) return sum;
+      // المرحّل من بيان سابق إيراده صفر — هيرجع المخزن مش مبيع
+      if (((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")) return sum;
       const unitPrice = (o as any).unitPrice != null
         ? Number((o as any).unitPrice)
         : Number(o.totalPrice) / Number(o.quantity);
@@ -4092,8 +4092,7 @@ export default function ShippingManifestPage() {
           o =>
             o.deliveryStatus === "partial_received" &&
             Number((o as any).returnReceived) !== 1 &&
-            // بس المنتجات اللي العميل مستلمهاش (كمية مستلمة = 0 أو null)
-            (o.partialQuantity == null || Number(o.partialQuantity) === 0)
+            ((o as any).deliveryNote ?? "").includes("مترحّل من بيان سابق")
         );
         if (pendingReturnOrders.length === 0) return null;
 
