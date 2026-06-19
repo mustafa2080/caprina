@@ -4092,15 +4092,17 @@ export default function ShippingManifestPage() {
       {(() => {
         // مرتجع كامل (returned) — يظهر في نفس البيان أو مترحّل، طالما لم يتأكد الاستلام (returnReceived !== 1)
         // لو البيان اتقفل بدون action → يترحّل للبيان الجديد تلقائياً (الـ backend بيعمله)
+        const isReturnConfirmed = (o: any) => Number(o.returnReceived) === 1;
+
         const returnedRows = manifest.orders.filter(o =>
-          o.deliveryStatus === "returned" && (o as any).returnReceived !== 1
+          o.deliveryStatus === "returned" && !isReturnConfirmed(o)
         );
 
         // استلام جزئي وباقي منه عند الشحن — يظهر دايمًا (بيان مفتوح أو مقفول)
         // لحد ما يتحسم بزرار "تم/لم يتم الاستلام"، بغض النظر عن الترحيل
         const partialRemainderRows = manifest.orders.filter(o => {
           if (o.deliveryStatus !== "partial_received") return false;
-          if ((o as any).returnReceived === 1) return false; // اتأكد من استلامه → يختفي
+          if (isReturnConfirmed(o)) return false; // اتأكد من استلامه → يختفي
           const qty = o.quantity ?? 0;
           const pq = o.partialQuantity ?? 0;
           return qty - pq > 0;
@@ -4123,7 +4125,7 @@ export default function ShippingManifestPage() {
             </div>
             <div className="divide-y divide-red-900/30">
               {returnContainerRows.map((order) => {
-                const currentReceived = (order as any).returnReceived;
+                const currentReceived = (order as any).returnReceived == null ? null : Number((order as any).returnReceived);
                 const isPartialRow = order.deliveryStatus === "partial_received";
                 return (
                   <div key={order.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
