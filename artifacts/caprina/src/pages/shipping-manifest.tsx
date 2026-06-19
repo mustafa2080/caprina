@@ -763,7 +763,7 @@ function InvoiceGroupDeliveryRow({
   const displayOpt = deliveryOpt(displayStatus);
 
   const currentGroupReturnReceived = (bulkEditing || pendingSaveRef.current !== null)
-    ? (displayStatus === "returned" ? bulkReturnReceived : partialReturnReceived)
+    ? bulkReturnReceived
     : getGroupReturnReceived(group, displayStatus);
 
   const displayPartialQtyMap: Record<number, number> = Object.fromEntries(
@@ -836,7 +836,7 @@ function InvoiceGroupDeliveryRow({
         partialQtyMap: { ...partialQtyMap },
         perOrderStatus: { ...perOrderStatus },
         bulkStatus,
-        partialReturnReceived,
+        partialReturnReceived: bulkReturnReceived,
       };
       for (const order of group) {
         let finalStatus: DeliveryStatus = bulkStatus;
@@ -890,11 +890,12 @@ function InvoiceGroupDeliveryRow({
       toast({ title: "تم حفظ حالة التسليم للفاتورة كاملها" });
       // نطبق القيم المُرسَلة في الـ state فوراً
       if (pendingSaveRef.current) {
-        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk, partialReturnReceived: savedPartialReturn } = pendingSaveRef.current;
+        const { partialQtyMap: savedQty, perOrderStatus: savedStatus, bulkStatus: savedBulk, partialReturnReceived: savedBulkReturn } = pendingSaveRef.current;
         setPartialQtyMap(savedQty);
         setPerOrderStatus(savedStatus);
         setBulkStatus(savedBulk);
-        setPartialReturnReceived(savedPartialReturn);
+        setBulkReturnReceived(savedBulkReturn);
+        setPartialReturnReceived(savedBulkReturn);
         // لا نمسح pendingSaveRef هنا — يحمي useEffect من override بالقيم القديمة
         // سيُمسح في useEffect لما groupPartialKey يتغير (= server data وصلت فعلاً)
       }
