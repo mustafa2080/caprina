@@ -4071,7 +4071,9 @@ export default function ShippingManifestPage() {
         const pendingReturnOrders = manifest.orders.filter(
           o =>
             o.deliveryStatus === "partial_received" &&
-            (o as any).returnReceived !== 1
+            (o as any).returnReceived !== 1 &&
+            // بس المنتجات اللي العميل مستلمهاش (كمية مستلمة = 0 أو null)
+            (o.partialQuantity === 0 || o.partialQuantity === null || o.partialQuantity === undefined)
         );
         if (pendingReturnOrders.length === 0) return null;
 
