@@ -631,14 +631,17 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     }
     const confirmedReturnIds = new Set(confirmedReturnLinks.map(l => l.orderId));
 
-    // ── ب) الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned/partial غير مؤكَّدة ──
+    // ── ب) الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned غير مؤكَّدة ──
+    // ملحوظة: partial_received اتشال من هنا تمامًا — الاستلام الجزئي مبقاش بيترحّل خالص.
+    // بيتقفل مع البيان زي "مسلَّم" (إيراد الجزء المستلم محسوب بالفعل)، والباقي اللي عند
+    // الشحن بيفضل ظاهر في حاوية المرتجعات (تم/لم يتم الاستلام) لحد ما يتحسم، بغض النظر
+    // عن إغلاق البيان من عدمه.
     const pendingLinks = await db.select().from(shippingManifestOrdersTable).where(
       and(
         eq(shippingManifestOrdersTable.manifestId, id),
         or(
           inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
-          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived))),
-          and(eq(shippingManifestOrdersTable.deliveryStatus, "partial_received"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived)))
+          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived)))
         )
       )
     );
@@ -666,12 +669,10 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         await reverseShipping(buildOrderRef(order), order.quantity, order.id);
       }
 
-      // ── الطلبات الجزئية (partial_received) غير المؤكَّدة ────────────────────
-      // القاعدة الجديدة: المرتجع غير المؤكَّد ميتلمسش مخزونه خالص — يفضل عند
-      // شركة الشحن (نفس وضع الكمية الكاملة) لحد ما يتأكد استلامه فعليًا.
-      // (الكود القديم كان بيرجّع الجزء الباقي للمخزن هنا تلقائيًا — ده اللي تسبب
-      // في المشكلة، فاتفقنا إننا نوقفه)
-      // مفيش حركة مخزون هنا بالمرّة لـ partial_received غير المؤكَّدة.
+      // ── partial_received مبقاش بيوصل للكتلة دي خالص (اتشال من pendingLinks فوق) ──
+      // الاستلام الجزئي بيتقفل مع البيان نهائيًا زي "مسلَّم" بدون أي ترحيل أو حركة مخزون هنا.
+      // الباقي اللي عند الشحن بيفضل ظاهر في حاوية المرتجعات في كل البيانات (مفتوحة أو مقفولة)
+      // لحد ما يتحسم بزرار "تم/لم يتم الاستلام".
 
       // ── رحّل كل الطلبات لبيان جديد ───────────────────────────────────────────
       const newManifestNumber = await generateManifestNumber(updated.shippingCompanyId);
@@ -685,29 +686,26 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       // الطلبات في البيان الجديد:
       //   - مؤجل           → يفضل مؤجل
       //   - مرتجع غير مؤكَّد → يفضل "مرتجع" في حاوية البيان الجديد، علامة "مترحّل" (لمنع تكرار رسوم الشحن)
-      //   - جزئي غير مؤكَّد  → يفضل "استلام جزئي" بنفس partialQuantity، علامة "مترحّل"
       //   - باقي            → pending
       await db.insert(shippingManifestOrdersTable).values(
         safePendingLinks.map((link) => {
           const isDelayed  = link.deliveryStatus === "postponed" || link.deliveryStatus === "delayed";
           const isReturned = link.deliveryStatus === "returned";
-          const isPartial  = link.deliveryStatus === "partial_received";
-          // المرتجع/الجزئي غير المؤكَّد يفضل بنفس حالته — لا تحويل تلقائي ولا حركة مخزون
-          const newStatus  = isDelayed ? link.deliveryStatus : (isReturned || isPartial) ? link.deliveryStatus : "pending";
+          // المرتجع غير المؤكَّد يفضل بنفس حالته — لا تحويل تلقائي ولا حركة مخزون
+          const newStatus  = isDelayed ? link.deliveryStatus : isReturned ? link.deliveryStatus : "pending";
           const rolledNote = "مترحّل من بيان سابق — بانتظار تأكيد الاستلام من شركة الشحن";
-          const newNote    = isDelayed ? link.deliveryNote : (isReturned || isPartial) ? rolledNote : null;
+          const newNote    = isDelayed ? link.deliveryNote : isReturned ? rolledNote : null;
           return {
             manifestId:     newManifest.id,
             orderId:        link.orderId,
             deliveryStatus: newStatus as any,
             deliveryNote:   newNote,
             deliveredAt:    null,
-            // الجزئي المترحّل يحافظ على partialQuantity عشان نعرف الكمية المتبقية المرتجعة
-            partialQuantity: isPartial ? link.partialQuantity : null,
+            partialQuantity: null,
             // غير مؤكَّد دايمًا (لو كان مؤكَّد كان هيتقفل في كتلة confirmedReturnLinks فوق)
-            returnReceived:  (isReturned || isPartial) ? 0 : null,
+            returnReceived:  isReturned ? 0 : null,
             // علامة داخلية: هل ده مترحّل من بيان سابق؟ تُستخدم في الفاتورة المالية لمنع تكرار رسوم الشحن
-            ...( (isReturned || isPartial) ? { rolledOver: true } : {} ),
+            ...( isReturned ? { rolledOver: true } : {} ),
             addedAt:         new Date(),
           };
         })
@@ -721,40 +719,25 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       // قبل ما نوصل هنا أصلاً)
 
       // ── الطلبات المرحّلة: لسه عند شركة الشحن فعليًا → processToShipping تسجل to_shipping بالبيان الجديد ──
-      // الطلبات returned/partial_received غير المؤكَّدة: لسه في حالة "غير مؤكَّد" — برضو لسه عند الشحن منطقيًا
+      // الطلبات returned غير المؤكَّدة: لسه في حالة "غير مؤكَّد" — برضو لسه عند الشحن منطقيًا
       // فمفيش داعي لحركة processToShipping تانية (الحركة الأصلية لسه قايمة من البيان الأول)
       const returnedIdsForShipping = new Set(safePendingLinks.filter((l) => l.deliveryStatus === "returned").map((l) => l.orderId));
-      const partialIdsForShipping = new Set(safePendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId));
       for (const order of pendingOrders) {
-        if (!returnedIdsForShipping.has(order.id) && !partialIdsForShipping.has(order.id)) {
+        if (!returnedIdsForShipping.has(order.id)) {
           await processToShipping(buildOrderRef(order), order.quantity, order.id);
         }
       }
 
-      // تحديث ordersTable: المرتجع/الجزئي غير المؤكَّد يفضل بنفس حالته (returned/partial_received) في الجدول
+      // تحديث ordersTable: المرتجع غير المؤكَّد يفضل بنفس حالته (returned) في الجدول
       const returnedIds = safePendingLinks
         .filter((l) => l.deliveryStatus === "returned")
         .map((l) => l.orderId);
-      const partialIds = safePendingLinks.filter((l) => l.deliveryStatus === "partial_received").map((l) => l.orderId);
-      const nonPartialNonReturnedIds = allPendingIds.filter((oid) => !returnedIds.includes(oid) && !partialIds.includes(oid));
+      const nonReturnedIds = allPendingIds.filter((oid) => !returnedIds.includes(oid));
 
-      if (nonPartialNonReturnedIds.length > 0) {
+      if (nonReturnedIds.length > 0) {
         await db.update(ordersTable)
           .set({ status: "in_shipping", shippingCompanyId: updated.shippingCompanyId, partialQuantity: null })
-          .where(inArray(ordersTable.id, nonPartialNonReturnedIds));
-      }
-      // partial_received غير مؤكَّد → يفضل partial_received في ordersTable (لسه منتظر تأكيد)
-      if (partialIds.length > 0) {
-        for (const link of safePendingLinks.filter(l => l.deliveryStatus === "partial_received")) {
-          await db.update(ordersTable)
-            .set({
-              status: "partial_received",
-              shippingCompanyId: updated.shippingCompanyId,
-              partialQuantity: link.partialQuantity,
-              returnReceived: 0,
-            })
-            .where(eq(ordersTable.id, link.orderId));
-        }
+          .where(inArray(ordersTable.id, nonReturnedIds));
       }
       if (returnedIds.length > 0) {
         await db.update(ordersTable)
@@ -767,7 +750,6 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         postponedCount: safePendingLinks.filter((l) => l.deliveryStatus === "postponed").length,
         pendingCount: safePendingLinks.filter((l) => l.deliveryStatus === "pending" || l.deliveryStatus === "in_shipping").length,
         returnedInShippingCount: safePendingLinks.filter((l) => l.deliveryStatus === "returned").length,
-        partialInShippingCount: safePendingLinks.filter((l) => l.deliveryStatus === "partial_received").length,
       };
     }
   }
@@ -1029,6 +1011,12 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   // حساب القيمة القديمة لـ partialReturnReceived بشكل صريح
   const oldPartialReturnReceivedBool = link.returnReceived == null ? null : Number(link.returnReceived) === 1 ? true : false;
 
+  // القيمة الفعلية الواردة من الطلب — تدعم الزرارين من حاوية المرتجعات (returnReceived)
+  // أو من الـ edit form القديم (partialReturnReceived). نفضّل أي واحد منهم اتبعت فعليًا (!== undefined)؛
+  // لو الاتنين undefined يبقى المستخدم مش بيغيّر هذا الحقل خالص.
+  const effectivePartialReturnReceived: boolean | null | undefined =
+    returnReceived !== undefined ? returnReceived : partialReturnReceived;
+
   // استخدم deliveryStatus مباشرة بدون ترحيل لـ pending حتى نحافظ على حالة الاستلام الجزئي للمنتجات المرفوضة
   const effectiveDeliveryStatus = deliveryStatus;
 
@@ -1037,10 +1025,9 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     (effectiveDeliveryStatus !== "returned" || returnReceived === null || (Number(oldReturnReceived) === 1) === returnReceived) &&
     // partial_received: الكمية لم تتغير
     (effectiveDeliveryStatus !== "partial_received" || parsedPartialQty === oldPartialQtyNum) &&
-    // partial_received: partialReturnReceived لم يتغير
-    // ملاحظة: null (غير محدد) ≠ false (صراحة "ما زال عند الشحن") — لازم يعتبر تغيير
-    // عشان المستخدم لما يختار صراحة "ما زال عند شركة الشحن" يتم حفظها حتى لو DB قديم بـ NULL
-    (effectiveDeliveryStatus !== "partial_received" || partialReturnReceived === oldPartialReturnReceivedBool);
+    // partial_received: القيمة الفعلية لم تتغير
+    // ملاحظة: undefined (الحقل مش متبعت خالص) ≠ تغيير — لكن null أو false المتبعتين بصراحة لازم يتفحصوا
+    (effectiveDeliveryStatus !== "partial_received" || effectivePartialReturnReceived === undefined || effectivePartialReturnReceived === oldPartialReturnReceivedBool);
 
   console.log(`[PATCH order ${orderId}] parsedPartialQty=${parsedPartialQty} oldPartialQtyNum=${oldPartialQtyNum} noChange=${noChange}`);
 
@@ -1072,8 +1059,13 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       // → الجزء المرتجع (الباقي) يرجع المخزن فورًا في اللحظة دي.
       // وعند قفل البيان، الطلب ده بيتقفل نهائيًا بدون ترحيل (المخزون اتحرك بالفعل).
       // لو partialReturnReceived=false (لسه عند الشحن) → الكمية الكاملة تفضل OUT/to_shipping.
-      const newPartialQty = parsedPartialQty!;
-      const isReturnConfirmedNow = partialReturnReceived === true;
+      // لو الزرار في الحاوية ما بعتش partialQuantity، نستخدم الكمية الموجودة في DB
+      const newPartialQty = parsedPartialQty ?? oldPartialQtyNum ?? 0;
+      // دعم الزرارين من حاوية المرتجعات (returnReceived) أو من الـ edit form القديم (partialReturnReceived)
+      // لو الاتنين undefined (مش متبعتين) → نحافظ على القيمة القديمة بدل اعتبارها false بالغلط
+      const isReturnConfirmedNow = effectivePartialReturnReceived === undefined
+        ? oldPartialReturnReceivedBool === true
+        : effectivePartialReturnReceived === true;
 
       // لو كان فيه حركة IN قديمة (من تأكيد سابق أرجع جزء للمخزن) → اعكسها الأول
       // عشان نعيد ضبط المخزون للحالة الجديدة بشكل صحيح
@@ -1180,8 +1172,10 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
     ...(deliveryNote !== undefined ? { deliveryNote: deliveryNote ?? null } : {}),
     partialQuantity: deliveryStatus === "partial_received" && parsedPartialQty != null ? parsedPartialQty : null,
     deliveredAt: isDelivered ? new Date() : null,
-    ...(deliveryStatus === "partial_received"
-      ? { returnReceived: (partialReturnReceived ?? false) ? 1 : 0 }
+    ...(deliveryStatus === "partial_received" && returnReceived != null
+      ? { returnReceived: returnReceived ? 1 : 0 }
+      : deliveryStatus === "partial_received" && partialReturnReceived != null
+      ? { returnReceived: partialReturnReceived ? 1 : 0 }
       : {}),
     ...(deliveryStatus === "returned" && returnReceived != null
       ? { returnReceived: returnReceived ? 1 : 0 }
@@ -1202,7 +1196,12 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
   const orderUpdate: Record<string, unknown> = { status: newOrderStatus };
   if (deliveryStatus === "partial_received" && parsedPartialQty != null) orderUpdate.partialQuantity = parsedPartialQty;
   if (deliveryStatus === "partial_received") {
-    orderUpdate.returnReceived = (partialReturnReceived ?? false) ? 1 : 0;
+    // دعم الزرارين من حاوية المرتجعات (returnReceived) أو من الـ edit form القديم (partialReturnReceived)
+    // لو الاتنين undefined → نحافظ على القيمة القديمة بدل ما نصفرها بالغلط
+    const effectiveForSave = effectivePartialReturnReceived !== undefined
+      ? effectivePartialReturnReceived
+      : oldPartialReturnReceivedBool;
+    orderUpdate.returnReceived = effectiveForSave ? 1 : 0;
   }
   if (deliveryStatus === "returned" && returnReceived != null) orderUpdate.returnReceived = returnReceived ? 1 : 0;
   else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") orderUpdate.returnReceived = null;
@@ -1334,6 +1333,7 @@ router.patch("/shipping-manifests/:id/orders/:orderId", async (req, res): Promis
       const sou: Record<string, unknown> = { status: STATUS_MAP[deliveryStatus] ?? "in_shipping" };
       // لا نحدث partialQuantity للـ siblings — كل طلب بيتبعت بكميته الخاصة في call منفصل
       if (deliveryStatus === "returned" && returnReceived != null) sou.returnReceived = returnReceived ? 1 : 0;
+      else if (deliveryStatus === "partial_received" && returnReceived != null) sou.returnReceived = returnReceived ? 1 : 0;
       else if (deliveryStatus === "partial_received" && partialReturnReceived != null) sou.returnReceived = partialReturnReceived ? 1 : 0;
       else if (deliveryStatus !== "returned" && deliveryStatus !== "partial_received") sou.returnReceived = null;
       await db.update(ordersTable).set(sou).where(eq(ordersTable.id, sib.mo.orderId));
