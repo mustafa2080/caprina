@@ -2518,6 +2518,128 @@ function ExportDialog({
     }
     ws2.views = [{ state: "frozen", ySplit: 3, rightToLeft: true }];
 
+    // ── Sheet 3: المرتجعات ──────────────────────────────────────────────────
+    const returnRows = manifest.orders.filter(o =>
+      o.deliveryStatus === "returned" ||
+      (o.deliveryStatus === "partial_received" && ((o.quantity ?? 0) - ((o as any).partialQuantity ?? 0)) > 0)
+    );
+
+    if (returnRows.length > 0) {
+      const ws3 = workbook.addWorksheet("المرتجعات", { views: [{ state: "frozen", ySplit: 5, rightToLeft: true }] });
+      ws3.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
+      ws3.pageMargins = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.35, header: 0.15, footer: 0.15 };
+      ws3.columns = [
+        { key: "idx",       width: 6  },
+        { key: "invoice",   width: 18 },
+        { key: "customer",  width: 22 },
+        { key: "phone",     width: 16 },
+        { key: "product",   width: 30 },
+        { key: "type",      width: 14 },
+        { key: "delivered", width: 14 },
+        { key: "returned",  width: 14 },
+        { key: "status",    width: 18 },
+        { key: "confirm",   width: 12 },
+      ];
+
+      // Row 1 — brand
+      ws3.mergeCells("A1:J1");
+      setCell(ws3.getCell("A1"), `${brandName}${brandTagline ? `  ·  ${brandTagline}` : ""}`, {
+        fill: C.bg, font: { bold: true, size: 16, color: { argb: C.gold } },
+        align: { horizontal: "center", vertical: "middle" },
+      });
+      ws3.getRow(1).height = 28;
+
+      // Row 2 — title
+      ws3.mergeCells("A2:J2");
+      setCell(ws3.getCell("A2"), `المرتجعات — بيان ${manifest.manifestNumber}   |   ${manifest.companyName}   |   ${manifestDate}`, {
+        fill: "FF7F1D1D", font: { bold: true, size: 12, color: { argb: C.white } },
+        align: { horizontal: "center", vertical: "middle" },
+      });
+      ws3.getRow(2).height = 24;
+
+      // Row 3 — note
+      const totalRetQty = returnRows.reduce((sum, o) => {
+        const isP = o.deliveryStatus === "partial_received";
+        return sum + (isP ? (o.quantity ?? 0) - ((o as any).partialQuantity ?? 0) : (o.quantity ?? 0));
+      }, 0);
+      ws3.mergeCells("A3:J3");
+      setCell(ws3.getCell("A3"), `⚠  يرجى التأكد من استلام جميع المرتجعات — إجمالي ${returnRows.length} طلبية · ${totalRetQty} قطعة`, {
+        fill: "FFFFF7ED", font: { bold: true, size: 10, color: { argb: "FF92400E" } },
+        align: { horizontal: "center", vertical: "middle" },
+      });
+      ws3.getRow(3).height = 20;
+
+      // Row 4 — spacer
+      ws3.mergeCells("A4:J4");
+      setCell(ws3.getCell("A4"), "", { fill: "FFFEE2E2" });
+      ws3.getRow(4).height = 6;
+
+      // Row 5 — headers
+      const retHeaders = ["#", "رقم الفاتورة", "اسم العميل", "الهاتف", "المنتج / المواصفات", "النوع", "المُستلَم", "المرتجع", "الحالة الحالية", "استُلم ✓"];
+      const retHeaderRow = ws3.getRow(5);
+      retHeaderRow.values = retHeaders;
+      retHeaderRow.height = 24;
+      retHeaderRow.eachCell(cell => {
+        setCell(cell, cell.value, {
+          fill: "FFB91C1C",
+          font: { bold: true, color: { argb: C.white }, size: 10 },
+          align: { horizontal: "center", vertical: "middle" },
+          border: "FF7F1D1D",
+        });
+      });
+
+      // Data rows
+      returnRows.forEach((order, idx) => {
+        const isP = order.deliveryStatus === "partial_received";
+        const totalQty    = order.quantity ?? 0;
+        const deliveredQty = isP ? ((order as any).partialQuantity ?? 0) : 0;
+        const returnedQty  = isP ? totalQty - deliveredQty : totalQty;
+        const rr = (order as any).returnReceived;
+        const rrLabel = rr === 1 ? "✓ في المخزن" : rr === 0 ? "🚚 عند الشحن" : "⏳ لم يُحدَّد";
+        const rrColor  = rr === 1 ? C.green : rr === 0 ? C.amber : C.gray;
+        const variant  = [order.color, order.size].filter(Boolean).join(" / ");
+        const productText = variant ? `${order.product} (${variant})` : order.product;
+        const invoiceNum = (order as any).invoiceNumber?.trim() || `#${String(order.id).padStart(4, "0")}`;
+        const even = idx % 2 === 0;
+
+        const row = ws3.getRow(idx + 6);
+        row.height = 28;
+
+        setCell(row.getCell(1),  idx + 1,      { fill: even ? C.white : C.offWhite, font: { color: { argb: C.gray } },    align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(2),  invoiceNum,   { fill: even ? C.white : C.offWhite, font: { bold: true, color: { argb: C.blue } }, align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(3),  order.customerName, { fill: even ? C.white : C.offWhite, font: { bold: true, color: { argb: C.darkText } }, align: { horizontal: "right", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(4),  order.phone ?? "—", { fill: even ? C.white : C.offWhite, font: { color: { argb: C.darkText } }, align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(5),  productText,  { fill: even ? C.white : C.offWhite, font: { color: { argb: C.darkText } }, align: { horizontal: "right", vertical: "middle", wrapText: true }, border: "FFFCA5A5" });
+        setCell(row.getCell(6),  isP ? "جزئي" : "مرتجع كامل", {
+          fill: isP ? C.tealBg : C.redBg,
+          font: { bold: true, color: { argb: isP ? C.teal : C.red } },
+          align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5",
+        });
+        setCell(row.getCell(7),  deliveredQty || "—", { fill: deliveredQty ? C.greenBg : even ? C.white : C.offWhite, font: { bold: true, color: { argb: C.green } }, align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(8),  returnedQty,  { fill: C.redBg, font: { bold: true, color: { argb: C.red } }, align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(9),  rrLabel,      { fill: even ? C.white : C.offWhite, font: { bold: true, color: { argb: rrColor } }, align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+        setCell(row.getCell(10), "",           { fill: even ? C.white : C.offWhite, align: { horizontal: "center", vertical: "middle" }, border: "FFFCA5A5" });
+      });
+
+      // Footer totals row
+      const retTotalRow = ws3.getRow(returnRows.length + 6);
+      retTotalRow.height = 24;
+      const totalDeliveredQty = returnRows.reduce((s, o) => s + (o.deliveryStatus === "partial_received" ? ((o as any).partialQuantity ?? 0) : 0), 0);
+      setCell(retTotalRow.getCell(1),  "الإجمالي", { fill: "FFFEE2E2", font: { bold: true, color: { argb: "FF7F1D1D" }, size: 11 }, align: { horizontal: "center", vertical: "middle" }, border: "FFB91C1C" });
+      ws3.mergeCells(`B${returnRows.length + 6}:F${returnRows.length + 6}`);
+      setCell(retTotalRow.getCell(2),  `${returnRows.length} طلبية`, { fill: "FFFEE2E2", font: { bold: true, color: { argb: "FF7F1D1D" } }, align: { horizontal: "center", vertical: "middle" }, border: "FFB91C1C" });
+      setCell(retTotalRow.getCell(7),  totalDeliveredQty || "—", { fill: "FFD1FAE5", font: { bold: true, color: { argb: C.green }, size: 11 }, align: { horizontal: "center", vertical: "middle" }, border: "FFB91C1C" });
+      setCell(retTotalRow.getCell(8),  totalRetQty, { fill: C.redBg, font: { bold: true, color: { argb: C.red }, size: 11 }, align: { horizontal: "center", vertical: "middle" }, border: "FFB91C1C" });
+      setCell(retTotalRow.getCell(9),  "", { fill: "FFFEE2E2", border: "FFB91C1C" });
+      setCell(retTotalRow.getCell(10), "", { fill: "FFFEE2E2", border: "FFB91C1C" });
+
+      ws3.eachRow(row => {
+        row.eachCell(cell => {
+          if (!cell.alignment) cell.alignment = { horizontal: "right", vertical: "middle" };
+        });
+      });
+    }
+
     // ── sheet styling ───────────────────────────────────────────────────────
     ws1.eachRow((row) => {
       row.eachCell((cell) => {
