@@ -2147,9 +2147,11 @@ function groupManifestOrders(orders: ManifestOrder[]) {
 function ExportDialog({
   manifest,
   onClose,
+  onPrint,
 }: {
   manifest: ShippingManifestDetail;
   onClose: () => void;
+  onPrint: () => void;
 }) {
   const s = manifest.stats;
   const effectiveShipping = manifest.manualShippingCost ?? s.totalShippingCost;
@@ -2541,7 +2543,7 @@ function ExportDialog({
   // ── PDF Export (via print) ──────────────────────────────────────────────────
   const exportPDF = () => {
     onClose();
-    setTimeout(() => window.print(), 150);
+    setTimeout(() => onPrint(), 150);
   };
 
   // stats for preview
@@ -4528,6 +4530,7 @@ export default function ShippingManifestPage() {
         <ExportDialog
           manifest={manifest}
           onClose={() => setShowExportDialog(false)}
+          onPrint={handlePrint}
         />
       )}
 
