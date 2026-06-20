@@ -1,13 +1,43 @@
 import { Router } from "express";
 import ExcelJS from "exceljs";
 import { db, cashRegistersTable, cashTransactionsTable, shippingFinancialInvoicesTable, shippingCompaniesTable, shippingManifestsTable, CREDIT_TYPES, DEBIT_TYPES } from "@workspace/db";
-import { eq, desc, sql, and, gte, lte, ne, inArray, isNull } from "drizzle-orm";
+import { eq, desc, asc, sql, and, gte, lte, ne, inArray, isNull } from "drizzle-orm";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
 const creditSql = sql.raw([...CREDIT_TYPES].map(t => `'${t}'`).join(","));
 const debitSql  = sql.raw([...DEBIT_TYPES].map(t => `'${t}'`).join(","));
 
 export const cashRegistersRouter = Router();
+
+// ─── إعادة حساب الأرصدة (balanceBefore/balanceAfter) لكل حركات خزنة معينة
+// بترتيب التسلسل الصحيح (تاريخ، وبعدين id كمعيار ثانوي)، وتحديث رصيد
+// الخزنة الحالي ليطابق آخر balanceAfter فعلي. تُستخدم بعد أي تعديل/حذف حركة.
+async function recalcRegisterBalances(registerId: number) {
+  const allTx = await db.select().from(cashTransactionsTable)
+    .where(eq(cashTransactionsTable.registerId, registerId))
+    .orderBy(asc(cashTransactionsTable.transactionDate), asc(cashTransactionsTable.id));
+
+  let running = 0; // الرصيد الافتتاحي يُستنتج من أول حركة (balanceBefore الأصلي لأول حركة لو موجود، أو 0)
+  if (allTx.length > 0) {
+    running = parseFloat(allTx[0].balanceBefore ?? "0");
+  }
+
+  for (const t of allTx) {
+    const amt = parseFloat(t.amount ?? "0");
+    const isCredit = CREDIT_TYPES.includes(t.type as any);
+    const before = running;
+    const after = isCredit ? before + amt : before - amt;
+    await db.update(cashTransactionsTable)
+      .set({ balanceBefore: String(before), balanceAfter: String(after) })
+      .where(eq(cashTransactionsTable.id, t.id));
+    running = after;
+  }
+
+  await db.update(cashRegistersTable)
+    .set({ balance: String(Math.max(0, running)), updatedAt: new Date() })
+    .where(eq(cashRegistersTable.id, registerId));
+}
+
 
 const TX_LABELS_AR: Record<string, string> = {
   deposit: "إيداع", withdrawal: "سحب", order_collected: "تحصيل طلب",
@@ -397,6 +427,8 @@ cashRegistersRouter.patch("/transactions/:id", async (req, res) => {
     if (transactionDate)   updates.transactionDate = new Date(transactionDate);
 
     await db.update(cashTransactionsTable).set(updates).where(eq(cashTransactionsTable.id, txId));
+    // إعادة حساب أرصدة كل حركات الخزنة بعد التعديل، وتحديث رصيد الخزنة الحالي
+    await recalcRegisterBalances(tx.registerId);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: "فشل تعديل الحركة" }); }
 });
@@ -408,18 +440,9 @@ cashRegistersRouter.delete("/transactions/:id", async (req, res) => {
     const [tx] = await db.select().from(cashTransactionsTable).where(eq(cashTransactionsTable.id, txId));
     if (!tx) return res.status(404).json({ error: "الحركة مش موجودة" });
 
-    // نرجع الرصيد للخزنة
-    const [reg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, tx.registerId));
-    if (reg) {
-      const currentBalance = parseFloat(reg.balance ?? "0");
-      const txAmount = parseFloat(tx.amount ?? "0");
-      const isCredit = CREDIT_TYPES.includes(tx.type as any);
-      // لو كانت حركة دخل نشيلها من الرصيد، لو خروج نرجعها
-      const newBalance = isCredit ? currentBalance - txAmount : currentBalance + txAmount;
-      await db.update(cashRegistersTable).set({ balance: String(Math.max(0, newBalance)), updatedAt: new Date() }).where(eq(cashRegistersTable.id, tx.registerId));
-    }
-
     await db.delete(cashTransactionsTable).where(eq(cashTransactionsTable.id, txId));
+    // إعادة حساب أرصدة باقي حركات الخزنة بعد الحذف، وتحديث رصيد الخزنة الحالي
+    await recalcRegisterBalances(tx.registerId);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: "فشل حذف الحركة" }); }
 });
