@@ -590,15 +590,15 @@ export default function FinanceCashPage() {
                 </div>
                 {/* ── ديسكتوب: جدول ── */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-xs" style={{ tableLayout: "fixed" }}>
+                  <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed" }}>
                     <colgroup>
-                      <col style={{ width: "9%" }} />
-                      <col style={{ width: "13%" }} />
                       <col style={{ width: "8%" }} />
                       <col style={{ width: "12%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "28%" }} />
                       <col style={{ width: "12%" }} />
-                      <col style={{ width: "26%" }} />
-                      <col style={{ width: "10%" }} />
                       <col style={{ width: "10%" }} />
                     </colgroup>
                     <thead>
@@ -612,13 +612,13 @@ export default function FinanceCashPage() {
                           { key: "desc",   label: "ملاحظة",     filterKey: "",     options: []              },
                           { key: "by",     label: "بواسطة",     filterKey: "by",   options: colOptions.by   },
                           { key: "actions",label: "",           filterKey: "",     options: []              },
-                        ].map(col => (
-                          <th key={col.key} className={`text-right p-3 text-xs font-semibold tracking-wide overflow-hidden ${col.key === "by" ? "hidden lg:table-cell" : ""}`}
+                        ].map((col, ci) => (
+                          <th key={col.key} className={`text-right px-3 py-3 text-xs font-semibold tracking-wide overflow-hidden align-top ${col.key === "by" ? "hidden lg:table-cell" : ""} ${ci<7?"border-l border-border/30":""}`}
                             style={{ color: "hsl(var(--muted-foreground))" }}>
                             <div className="flex flex-col gap-1.5">
-                              <span className="flex items-center gap-1">
+                              <span className="flex items-center gap-1 whitespace-nowrap">
                                 {col.label}
-                                {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60"/>}
+                                {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60 shrink-0"/>}
                               </span>
                               {colFilterActive && col.filterKey && col.options.length > 0 && (
                                 <select
@@ -644,24 +644,24 @@ export default function FinanceCashPage() {
                         const lbl = TX_LABELS[tx.type];
                         return (
                           <tr key={tx.id} className={`group border-b border-border/20 transition-colors hover:bg-muted/30 ${i%2===0?"bg-transparent":"bg-muted/10"}`}>
-                            <td className="p-3 text-muted-foreground overflow-hidden whitespace-nowrap text-[11px]">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</td>
-                            <td className="p-3 overflow-hidden"><span className={`font-semibold truncate block ${lbl?.color??""}`}>{lbl?.label??tx.type}</span></td>
-                            <td className="p-3 overflow-hidden">
+                            <td className="px-3 py-3.5 text-muted-foreground overflow-hidden whitespace-nowrap text-[11px] align-top border-l border-border/15">{new Date(tx.transactionDate).toLocaleDateString("ar-EG")}</td>
+                            <td className="px-3 py-3.5 overflow-hidden align-top border-l border-border/15"><span className={`font-semibold truncate block ${lbl?.color??""}`}>{lbl?.label??tx.type}</span></td>
+                            <td className="px-3 py-3.5 overflow-hidden align-top border-l border-border/15">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${isIn?"bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400":"bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400"}`}>
                                 {isIn?<ArrowUpCircle className="w-2.5 h-2.5"/>:<ArrowDownCircle className="w-2.5 h-2.5"/>}
                                 {isIn?"دخل":"خروج"}
                               </span>
                             </td>
-                            <td className={`p-3 font-bold tabular-nums text-left whitespace-nowrap overflow-hidden ${isIn?"text-emerald-600":"text-rose-600"}`}>{isIn?"+":"-"}{fmt(tx.amount)}</td>
-                            <td className="p-3 text-muted-foreground tabular-nums text-left whitespace-nowrap overflow-hidden">{fmt(tx.balanceAfter)}</td>
-                            <td className="p-3 text-muted-foreground overflow-hidden">
-                              <div className="flex flex-col gap-0.5 min-w-0">
+                            <td className={`px-3 py-3.5 font-bold tabular-nums text-left whitespace-nowrap overflow-hidden align-top border-l border-border/15 ${isIn?"text-emerald-600":"text-rose-600"}`}>{isIn?"+":"-"}{fmt(tx.amount)}</td>
+                            <td className="px-3 py-3.5 text-muted-foreground tabular-nums text-left whitespace-nowrap overflow-hidden align-top border-l border-border/15">{fmt(tx.balanceAfter)}</td>
+                            <td className="px-3 py-3.5 text-muted-foreground overflow-hidden align-top border-l border-border/15">
+                              <div className="flex flex-col gap-1 min-w-0">
                                 <span className="truncate block" title={tx.description ?? ""}>{tx.description ?? "—"}</span>
-                                {tx.referenceNumber && <span className="text-[10px] text-muted-foreground/60 truncate block" title={tx.referenceNumber}>#{tx.referenceNumber}</span>}
+                                {tx.referenceNumber && <span className="text-[10px] text-muted-foreground/50 truncate block" title={tx.referenceNumber}>#{tx.referenceNumber}</span>}
                               </div>
                             </td>
-                            <td className="p-3 text-muted-foreground hidden lg:table-cell overflow-hidden"><span className="truncate block">{tx.createdByName??""}</span></td>
-                            <td className="p-3 overflow-hidden">
+                            <td className="px-3 py-3.5 text-muted-foreground hidden lg:table-cell overflow-hidden align-top border-l border-border/15"><span className="truncate block">{tx.createdByName??""}</span></td>
+                            <td className="px-3 py-3.5 overflow-hidden align-top">
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => { setSelectedTx(tx); setEditTxForm({ type: tx.type, amount: tx.amount, description: tx.description ?? "", referenceNumber: tx.referenceNumber ?? "", transactionDate: tx.transactionDate.slice(0,10) }); setEditTxOpen(true); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-3 h-3"/></button>
                                 <button onClick={() => { if (confirm("حذف هذه الحركة نهائياً؟")) deleteTxMut.mutate(tx.id); }} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 text-muted-foreground hover:text-rose-500 transition-colors"><Trash2 className="w-3 h-3"/></button>
