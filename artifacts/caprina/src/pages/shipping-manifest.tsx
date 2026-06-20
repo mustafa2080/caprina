@@ -3359,6 +3359,19 @@ export default function ShippingManifestPage() {
     .mp-total-lbl { font-size:8pt; color:#64748b; margin-bottom:1mm; font-weight:700; }
     .mp-total-val { font-size:13pt; font-weight:900; color:#111; }
     .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
+    /* ── Returns Section ── */
+    .mp-returns-section { margin-top:5mm; page-break-inside:avoid; }
+    .mp-returns-header { display:flex; align-items:center; gap:3mm; background:#7f1d1d; color:#fff; padding:2.5mm 4mm; border-radius:2mm 2mm 0 0; }
+    .mp-returns-title { font-size:11pt; font-weight:900; flex:1; }
+    .mp-returns-badge { font-size:8pt; font-weight:700; background:rgba(255,255,255,0.2); padding:0.5mm 3mm; border-radius:5mm; border:1px solid rgba(255,255,255,0.3); }
+    .mp-returns-table { width:100%; border-collapse:collapse; font-size:9pt; border:2px solid #b91c1c; border-top:none; }
+    .mp-returns-table th { background:#fee2e2; color:#7f1d1d; font-weight:800; font-size:8.5pt; padding:2mm 3mm; text-align:right; border:1.5px solid #fca5a5; }
+    .mp-returns-table td { padding:2.5mm 3mm; border:1.5px solid #fca5a5; vertical-align:middle; }
+    .mp-returns-table tr:nth-child(even) td { background:#fff5f5; }
+    .mp-returns-tfoot td { background:#fee2e2 !important; font-weight:800; color:#7f1d1d; border-top:2px solid #b91c1c; }
+    .mp-rt-full { color:#dc2626; font-weight:800; background:#fee2e2; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8pt; white-space:nowrap; border:1px solid #fca5a5; }
+    .mp-rt-part { color:#0f766e; font-weight:800; background:#ccfbf1; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8pt; white-space:nowrap; border:1px solid #99f6e4; }
+    .mp-checkbox { display:inline-block; width:5mm; height:5mm; border:1.5px solid #9ca3af; border-radius:1mm; vertical-align:middle; }
     /* ── Footer ── */
     .mp-footer { border-top:1.5px solid #e2e8f0; padding-top:4mm; margin-top:5mm; display:flex; justify-content:space-between; align-items:flex-end; }
     .mp-watermark { font-size:7.5pt; color:#cbd5e1; text-align:center; }
@@ -3570,6 +3583,91 @@ export default function ShippingManifestPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Returns section — يظهر في الطباعة فقط لو في مرتجعات ─── */}
+      {(() => {
+        const isReturnConfirmed = (o: any) => Number(o.returnReceived) === 1;
+        const printReturnRows = manifest.orders.filter(o =>
+          (o.deliveryStatus === "returned" && !isReturnConfirmed(o)) ||
+          (o.deliveryStatus === "partial_received" && !isReturnConfirmed(o) && ((o.quantity ?? 0) - (o.partialQuantity ?? 0)) > 0)
+        );
+        if (printReturnRows.length === 0) return null;
+        const totalReturnedQty = printReturnRows.reduce((sum, o) => {
+          const isP = o.deliveryStatus === "partial_received";
+          return sum + (isP ? (o.quantity ?? 0) - (o.partialQuantity ?? 0) : (o.quantity ?? 0));
+        }, 0);
+        const totalDeliveredQty = printReturnRows.reduce((sum, o) =>
+          sum + (o.deliveryStatus === "partial_received" ? (o.partialQuantity ?? 0) : 0), 0);
+        return (
+          <div className="mp-returns-section">
+            <div className="mp-returns-header">
+              <span style={{ fontSize: "12pt" }}>↩</span>
+              <span className="mp-returns-title">المرتجعات — يرجى التأكد من الاستلام</span>
+              <span className="mp-returns-badge">{printReturnRows.length} طلبية — {totalReturnedQty} قطعة</span>
+            </div>
+            <table className="mp-returns-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "4%" }}>#</th>
+                  <th style={{ width: "16%" }}>العميل</th>
+                  <th style={{ width: "11%" }}>الهاتف</th>
+                  <th style={{ width: "13%" }}>رقم الفاتورة</th>
+                  <th style={{ width: "24%" }}>المنتج / المواصفات</th>
+                  <th style={{ width: "7%", textAlign: "center" }}>النوع</th>
+                  <th style={{ width: "7%", textAlign: "center" }}>المُستلَم</th>
+                  <th style={{ width: "7%", textAlign: "center" }}>المرتجع</th>
+                  <th style={{ width: "11%", textAlign: "center" }}>الحالة الحالية</th>
+                  <th style={{ width: "7%", textAlign: "center" }}>استُلم ✓</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printReturnRows.map((order, idx) => {
+                  const isP = order.deliveryStatus === "partial_received";
+                  const totalQty = order.quantity ?? 0;
+                  const deliveredQty = isP ? (order.partialQuantity ?? 0) : 0;
+                  const returnedQty = isP ? totalQty - deliveredQty : totalQty;
+                  const rr = (order as any).returnReceived;
+                  const variant = [order.color, order.size].filter(Boolean).join(" / ");
+                  return (
+                    <tr key={order.id}>
+                      <td style={{ color: "#9ca3af", fontFamily: "monospace", fontSize: "8pt", textAlign: "center" }}>{idx + 1}</td>
+                      <td style={{ fontWeight: 700 }}>{order.customerName}</td>
+                      <td style={{ direction: "ltr", textAlign: "right", color: "#374151" }}>{order.phone ?? "—"}</td>
+                      <td style={{ color: "#374151", fontSize: "8.5pt" }}>{(order as any).invoiceNumber?.trim() || `#${order.id.toString().padStart(4,"0")}`}</td>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{order.product}</span>
+                        {variant && <span style={{ color: "#6b7280", fontSize: "8pt" }}> ({variant})</span>}
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span className={isP ? "mp-rt-part" : "mp-rt-full"}>{isP ? "جزئي" : "مرتجع"}</span>
+                      </td>
+                      <td style={{ textAlign: "center", fontWeight: 700, color: "#15803d" }}>{deliveredQty || "—"}</td>
+                      <td style={{ textAlign: "center", fontWeight: 800, color: "#dc2626" }}>{returnedQty}</td>
+                      <td style={{ textAlign: "center", fontSize: "8pt", fontWeight: 700,
+                        color: rr === 1 ? "#15803d" : rr === 0 ? "#b45309" : "#6b7280" }}>
+                        {rr === 1 ? "✓ في المخزن" : rr === 0 ? "🚚 عند الشحن" : "⏳ لم يُحدَّد"}
+                      </td>
+                      <td style={{ textAlign: "center" }}><span className="mp-checkbox" /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="mp-returns-tfoot">
+                  <td colSpan={6} style={{ textAlign: "right" }}>الإجمالي</td>
+                  <td style={{ textAlign: "center", color: "#15803d" }}>{totalDeliveredQty || "—"}</td>
+                  <td style={{ textAlign: "center", color: "#dc2626" }}>{totalReturnedQty}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+            <div style={{ marginTop: "3mm", padding: "2mm 4mm", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "1mm", fontSize: "8pt", color: "rgba(154,52,18,1)", display: "flex", alignItems: "center", gap: "2mm" }}>
+              <span style={{ fontWeight: 900 }}>⚠</span>
+              <span>يرجى التأكد من استلام جميع المرتجعات المذكورة أعلاه وتوقيع خانة "استُلم ✓" لكل منها عند الاستلام الفعلي.</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ─── Footer ─── */}
       <div className="mp-footer">
@@ -4546,6 +4644,18 @@ export default function ShippingManifestPage() {
     .mp-total-lbl { font-size:8pt; color:#64748b; margin-bottom:1mm; font-weight:700; }
     .mp-total-val { font-size:13pt; font-weight:900; color:#111; }
     .mp-total-orange { color:#d97706; } .mp-total-green { color:#15803d; } .mp-total-blue { color:#1d4ed8; }
+    .mp-returns-section { margin-top:5mm; page-break-inside:avoid; }
+    .mp-returns-header { display:flex; align-items:center; gap:3mm; background:#7f1d1d; color:#fff; padding:2.5mm 4mm; border-radius:2mm 2mm 0 0; }
+    .mp-returns-title { font-size:11pt; font-weight:900; flex:1; }
+    .mp-returns-badge { font-size:8pt; font-weight:700; background:rgba(255,255,255,0.2); padding:0.5mm 3mm; border-radius:5mm; border:1px solid rgba(255,255,255,0.3); }
+    .mp-returns-table { width:100%; border-collapse:collapse; font-size:9pt; border:2px solid #b91c1c; border-top:none; }
+    .mp-returns-table th { background:#fee2e2; color:#7f1d1d; font-weight:800; font-size:8.5pt; padding:2mm 3mm; text-align:right; border:1.5px solid #fca5a5; }
+    .mp-returns-table td { padding:2.5mm 3mm; border:1.5px solid #fca5a5; vertical-align:middle; }
+    .mp-returns-table tr:nth-child(even) td { background:#fff5f5; }
+    .mp-returns-tfoot td { background:#fee2e2 !important; font-weight:800; color:#7f1d1d; border-top:2px solid #b91c1c; }
+    .mp-rt-full { color:#dc2626; font-weight:800; background:#fee2e2; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8pt; white-space:nowrap; border:1px solid #fca5a5; }
+    .mp-rt-part { color:#0f766e; font-weight:800; background:#ccfbf1; padding:0.5mm 2.5mm; border-radius:1mm; font-size:8pt; white-space:nowrap; border:1px solid #99f6e4; }
+    .mp-checkbox { display:inline-block; width:5mm; height:5mm; border:1.5px solid #9ca3af; border-radius:1mm; vertical-align:middle; }
     .mp-footer { border-top:1.5px solid #e2e8f0; padding-top:4mm; margin-top:5mm; display:flex; justify-content:space-between; align-items:flex-end; }
     .mp-watermark { font-size:7.5pt; color:#cbd5e1; text-align:center; }
     .mp-sig { min-width:50mm; text-align:center; }
