@@ -595,10 +595,10 @@ export default function FinanceCashPage() {
                       <col style={{ width: "8%" }} />
                       <col style={{ width: "12%" }} />
                       <col style={{ width: "8%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "28%" }} />
                       <col style={{ width: "12%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "24%" }} />
+                      <col style={{ width: "14%" }} />
                       <col style={{ width: "10%" }} />
                     </colgroup>
                     <thead>
@@ -613,9 +613,9 @@ export default function FinanceCashPage() {
                           { key: "by",     label: "بواسطة",     filterKey: "by",   options: colOptions.by   },
                           { key: "actions",label: "",           filterKey: "",     options: []              },
                         ].map((col, ci) => (
-                          <th key={col.key} className={`text-right px-3 py-3 text-xs font-semibold tracking-wide overflow-hidden align-top ${col.key === "by" ? "hidden lg:table-cell" : ""} ${ci<7?"border-l border-border/30":""}`}
+                          <th key={col.key} className={`${col.key==="amount"||col.key==="after"?"text-left":"text-right"} px-3 py-3 text-xs font-semibold tracking-wide overflow-hidden align-top ${col.key === "by" ? "hidden lg:table-cell" : ""} ${ci<7?"border-l border-border/30":""}`}
                             style={{ color: "hsl(var(--muted-foreground))" }}>
-                            <div className="flex flex-col gap-1.5">
+                            <div className={`flex flex-col gap-1.5 ${col.key==="amount"||col.key==="after"?"items-end":""}`}>
                               <span className="flex items-center gap-1 whitespace-nowrap">
                                 {col.label}
                                 {colFilterActive && col.filterKey && <Filter className="w-2.5 h-2.5 text-primary opacity-60 shrink-0"/>}
@@ -654,7 +654,7 @@ export default function FinanceCashPage() {
                             </td>
                             <td className={`px-3 py-3.5 font-bold tabular-nums text-left whitespace-nowrap overflow-hidden align-top border-l border-border/15 ${isIn?"text-emerald-600":"text-rose-600"}`}>{isIn?"+":"-"}{fmt(tx.amount)}</td>
                             <td className="px-3 py-3.5 text-muted-foreground tabular-nums text-left whitespace-nowrap overflow-hidden align-top border-l border-border/15">{fmt(tx.balanceAfter)}</td>
-                            <td className="px-3 py-3.5 text-muted-foreground overflow-hidden align-top border-l border-border/15">
+                            <td className="px-3 py-3.5 pr-4 pl-4 text-muted-foreground overflow-hidden align-top border-l border-border/15">
                               <div className="flex flex-col gap-1 min-w-0">
                                 <span className="truncate block" title={tx.description ?? ""}>{tx.description ?? "—"}</span>
                                 {tx.referenceNumber && <span className="text-[10px] text-muted-foreground/50 truncate block" title={tx.referenceNumber}>#{tx.referenceNumber}</span>}
