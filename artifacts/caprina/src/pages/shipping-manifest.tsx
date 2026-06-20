@@ -3588,8 +3588,8 @@ export default function ShippingManifestPage() {
       {(() => {
         const isReturnConfirmed = (o: any) => Number(o.returnReceived) === 1;
         const printReturnRows = manifest.orders.filter(o =>
-          (o.deliveryStatus === "returned" && !isReturnConfirmed(o)) ||
-          (o.deliveryStatus === "partial_received" && !isReturnConfirmed(o) && ((o.quantity ?? 0) - (o.partialQuantity ?? 0)) > 0)
+          o.deliveryStatus === "returned" ||
+          (o.deliveryStatus === "partial_received" && ((o.quantity ?? 0) - (o.partialQuantity ?? 0)) > 0)
         );
         if (printReturnRows.length === 0) return null;
         const totalReturnedQty = printReturnRows.reduce((sum, o) => {
