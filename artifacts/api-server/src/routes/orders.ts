@@ -162,8 +162,8 @@ router.get("/orders/inventory-shortage", async (req, res): Promise<void> => {
   res.json({
     items,
     summary: {
-      totalPendingOrders: pendingOrders.length,
-      totalDistinctProducts: items.length,
+      totalPendingOrders: items.length,
+      totalDistinctProducts: new Set(items.map(i => i.product)).size,
       totalQty: items.reduce((s, i) => s + i.totalQty, 0),
       totalRevenue: items.reduce((s, i) => s + i.totalRevenue, 0),
     },

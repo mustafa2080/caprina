@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-type SortKey = "qty" | "orders" | "revenue" | "name";
+type SortKey = "qty" | "orders" | "revenue" | "name" | "color" | "size";
 type SortDir = "desc" | "asc";
 
 const formatCurrency = (n: number) =>
@@ -190,6 +190,8 @@ export default function InventoryShortagePage() {
       if (sortKey === "orders")  d = a.orderCount - b.orderCount;
       if (sortKey === "revenue") d = a.totalRevenue - b.totalRevenue;
       if (sortKey === "name")    d = a.product.localeCompare(b.product, "ar");
+      if (sortKey === "color")   d = (a.color ?? "").localeCompare(b.color ?? "", "ar");
+      if (sortKey === "size")    d = (a.size ?? "").localeCompare(b.size ?? "", "ar");
       return sortDir === "desc" ? -d : d;
     });
   }, [data?.items, fProduct, fColor, fSize, fQty, fOrders, fCustomers, fRevenue, sortKey, sortDir]);
@@ -314,9 +316,9 @@ export default function InventoryShortagePage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <SummaryCard label="منتجات مختلفة" value={summary?.totalDistinctProducts ?? 0} color="rgb(239,68,68)" />
+        <SummaryCard label="منتجات مختلفة" value={summary?.totalDistinctProducts ?? 0} sub="منتج" color="rgb(239,68,68)" />
         <SummaryCard label="إجمالي الكميات" value={summary?.totalQty ?? 0} sub="قطعة مطلوبة" color="rgb(249,115,22)" />
-        <SummaryCard label="طلبات معلقة" value={summary?.totalPendingOrders ?? 0} color="rgb(234,179,8)" />
+        <SummaryCard label="طلبات معلقة" value={summary?.totalPendingOrders ?? 0} sub="طلب" color="rgb(234,179,8)" />
         <SummaryCard label="إجمالي الإيرادات" value={formatCurrency(summary?.totalRevenue ?? 0)} sub="قيمة الطلبات" color="rgb(59,130,246)" />
       </div>
 
@@ -345,10 +347,20 @@ export default function InventoryShortagePage() {
                   </th>
 
                   {/* اللون */}
-                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">اللون</th>
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
+                    <button onClick={() => toggleSort("color")} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">
+                      اللون
+                      <span className="opacity-50">{sortKey==="color" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
+                    </button>
+                  </th>
 
                   {/* المقاس */}
-                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">المقاس</th>
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
+                    <button onClick={() => toggleSort("size")} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">
+                      المقاس
+                      <span className="opacity-50">{sortKey==="size" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
+                    </button>
+                  </th>
 
                   {/* الكمية */}
                   <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
@@ -475,7 +487,7 @@ export default function InventoryShortagePage() {
 
       {filtered.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {filtered.length} منتج • {filtered.reduce((s,i) => s+i.totalQty, 0)} قطعة — اضغط على أي صف لعرض تفاصيل العملاء
+          {filtered.length} طلب • {filtered.reduce((s,i) => s+i.totalQty, 0)} قطعة — اضغط على أي صف لعرض تفاصيل العملاء
         </p>
       )}
     </div>
