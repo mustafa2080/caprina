@@ -42,8 +42,6 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
     ? "rgb(249,115,22)"
     : "rgb(234,179,8)";
 
-  const variantLabel = [item.color, item.size].filter(Boolean).join(" / ");
-
   return (
     <>
       <tr
@@ -54,12 +52,13 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
           <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
         </td>
         <td className="py-3 px-4">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-bold text-sm text-foreground">{item.product}</span>
-            {variantLabel && (
-              <span className="text-[10px] font-semibold text-primary/70">{variantLabel}</span>
-            )}
-          </div>
+          <span className="font-bold text-sm text-foreground">{item.product}</span>
+        </td>
+        <td className="py-3 px-4 text-center text-sm font-semibold text-muted-foreground">
+          {item.color || "—"}
+        </td>
+        <td className="py-3 px-4 text-center text-sm font-semibold text-muted-foreground">
+          {item.size || "—"}
         </td>
         <td className="py-3 px-4 text-center">
           <span
@@ -93,7 +92,7 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
       </tr>
       {expanded && (
         <tr className="bg-muted/5">
-          <td colSpan={7} className="px-6 pb-3 pt-2">
+          <td colSpan={9} className="px-6 pb-3 pt-2">
             <div className="rounded-xl border border-border/40 overflow-hidden">
               <table className="w-full text-xs" dir="rtl">
                 <thead>
@@ -137,6 +136,8 @@ export default function InventoryShortagePage() {
   const [showFilter, setShowFilter] = useState(false);
   // فلتر لكل عمود
   const [fProduct, setFProduct]   = useState("");
+  const [fColor, setFColor]       = useState("");
+  const [fSize, setFSize]         = useState("");
   const [fQty, setFQty]           = useState("");
   const [fOrders, setFOrders]     = useState("");
   const [fCustomers, setFCustomers] = useState("");
@@ -156,6 +157,8 @@ export default function InventoryShortagePage() {
     const items = data?.items ?? [];
     return {
       products:  Array.from(new Set(items.map(i => i.product))).sort((a,b) => a.localeCompare(b,"ar")),
+      colors:    Array.from(new Set(items.map(i => i.color).filter((v): v is string => !!v))).sort((a,b) => a.localeCompare(b,"ar")),
+      sizes:     Array.from(new Set(items.map(i => i.size).filter((v): v is string => !!v))).sort((a,b) => a.localeCompare(b,"ar")),
       qtys:      Array.from(new Set(items.map(i => String(i.totalQty)))).sort((a,b) => Number(a)-Number(b)),
       orders:    Array.from(new Set(items.map(i => String(i.orderCount)))).sort((a,b) => Number(a)-Number(b)),
       customers: Array.from(new Set(items.map(i => String(i.customerCount)))).sort((a,b) => Number(a)-Number(b)),
@@ -163,9 +166,9 @@ export default function InventoryShortagePage() {
     };
   }, [data?.items]);
 
-  const hasActiveFilter = fProduct || fQty || fOrders || fCustomers || fRevenue;
+  const hasActiveFilter = fProduct || fColor || fSize || fQty || fOrders || fCustomers || fRevenue;
 
-  const clearFilters = () => { setFProduct(""); setFQty(""); setFOrders(""); setFCustomers(""); setFRevenue(""); };
+  const clearFilters = () => { setFProduct(""); setFColor(""); setFSize(""); setFQty(""); setFOrders(""); setFCustomers(""); setFRevenue(""); };
 
   const toggleFilter = () => {
     if (showFilter && hasActiveFilter) clearFilters();
@@ -175,6 +178,8 @@ export default function InventoryShortagePage() {
   const filtered = useMemo(() => {
     let items = data?.items ?? [];
     if (fProduct)   items = items.filter(i => i.product === fProduct);
+    if (fColor)     items = items.filter(i => i.color === fColor);
+    if (fSize)      items = items.filter(i => i.size === fSize);
     if (fQty)       items = items.filter(i => String(i.totalQty) === fQty);
     if (fOrders)    items = items.filter(i => String(i.orderCount) === fOrders);
     if (fCustomers) items = items.filter(i => String(i.customerCount) === fCustomers);
@@ -187,7 +192,7 @@ export default function InventoryShortagePage() {
       if (sortKey === "name")    d = a.product.localeCompare(b.product, "ar");
       return sortDir === "desc" ? -d : d;
     });
-  }, [data?.items, fProduct, fQty, fOrders, fCustomers, fRevenue, sortKey, sortDir]);
+  }, [data?.items, fProduct, fColor, fSize, fQty, fOrders, fCustomers, fRevenue, sortKey, sortDir]);
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(d => d === "desc" ? "asc" : "desc");
@@ -219,8 +224,6 @@ export default function InventoryShortagePage() {
         .high { color: #dc2626; background: #fee2e2; }
         .med  { color: #ea580c; background: #ffedd5; }
         .low  { color: #ca8a04; background: #fef9c3; }
-        .customers-list { font-size: 10px; color: #555; margin-top: 4px; }
-        .customers-list span { display: block; padding: 1px 0; }
         @media print { body { padding: 12px; } }
       </style>
     </head><body>`);
@@ -237,21 +240,17 @@ export default function InventoryShortagePage() {
 
     // جدول
     win.document.write(`<table><thead><tr>
-      <th>#</th><th>المنتج</th><th>اللون / المقاس</th><th>الكمية المطلوبة</th><th>عدد الطلبات</th><th>العملاء</th>
+      <th>#</th><th>المنتج</th><th>اللون</th><th>المقاس</th><th>الكمية المطلوبة</th>
     </tr></thead><tbody>`);
 
     filtered.forEach((item, idx) => {
       const qClass = item.totalQty >= 10 ? "high" : item.totalQty >= 5 ? "med" : "low";
-      const customers = item.customers
-        .map(c => `<span>• ${c.customerName} (${c.quantity} قطعة)${c.phone ? " — " + c.phone : ""}</span>`)
-        .join("");
       win.document.write(`<tr>
         <td>${idx + 1}</td>
         <td><strong>${item.product}</strong></td>
-        <td>${[item.color, item.size].filter(Boolean).join(" / ") || "—"}</td>
+        <td>${item.color || "—"}</td>
+        <td>${item.size || "—"}</td>
         <td><span class="qty-badge ${qClass}">${item.totalQty}</span></td>
-        <td>${item.orderCount}</td>
-        <td><div class="customers-list">${customers}</div></td>
       </tr>`);
     });
 
@@ -302,7 +301,7 @@ export default function InventoryShortagePage() {
             {showFilter ? (hasActiveFilter ? "إلغاء الفلتر" : "إخفاء الفلتر") : "إنشاء فلتر"}
             {hasActiveFilter && !showFilter && (
               <span className="bg-primary text-primary-foreground text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                {[fProduct,fQty,fOrders,fCustomers,fRevenue].filter(Boolean).length}
+                {[fProduct,fColor,fSize,fQty,fOrders,fCustomers,fRevenue].filter(Boolean).length}
               </span>
             )}
           </Button>
@@ -344,6 +343,12 @@ export default function InventoryShortagePage() {
                       <span className="opacity-50">{sortKey==="name" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
                     </button>
                   </th>
+
+                  {/* اللون */}
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">اللون</th>
+
+                  {/* المقاس */}
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">المقاس</th>
 
                   {/* الكمية */}
                   <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
@@ -396,6 +401,24 @@ export default function InventoryShortagePage() {
                       </select>
                     </td>
 
+                    {/* فلتر اللون */}
+                    <td className="px-2 py-1.5">
+                      <select value={fColor} onChange={e => setFColor(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fColor ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل الألوان</option>
+                        {uniq.colors.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </td>
+
+                    {/* فلتر المقاس */}
+                    <td className="px-2 py-1.5">
+                      <select value={fSize} onChange={e => setFSize(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fSize ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل المقاسات</option>
+                        {uniq.sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+
                     {/* فلتر الكمية */}
                     <td className="px-2 py-1.5">
                       <select value={fQty} onChange={e => setFQty(e.target.value)}
@@ -438,7 +461,7 @@ export default function InventoryShortagePage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">لا توجد نتائج مطابقة للفلتر</td></tr>
+                  <tr><td colSpan={9} className="py-12 text-center text-sm text-muted-foreground">لا توجد نتائج مطابقة للفلتر</td></tr>
                 ) : (
                   filtered.map((item, idx) => (
                     <ShortageRow key={`${item.product}||${item.color ?? ""}||${item.size ?? ""}`} item={item} index={idx} />
