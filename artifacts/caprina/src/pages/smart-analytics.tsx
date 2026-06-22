@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { analyticsApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
+import { analyticsApi, ordersApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
 import { apiFetch } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Brain, Star, Archive, RotateCcw, TrendingDown, TrendingUp,
   AlertTriangle, Clock, Package, ArrowUpRight, Zap, ChevronDown, Globe,
+  X, Download, ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -57,17 +58,232 @@ function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-muted/60 rounded ${className}`} />;
 }
 
+// ─── Source Orders Modal ──────────────────────────────────────────────────────
+const STATUS_AR: Record<string, string> = {
+  pending: "قيد الانتظار", warehouse_ready: "قيد الشحن بالمخزن",
+  in_shipping: "قيد الشحن", received: "استلم",
+  delayed: "مؤجل", returned: "مرتجع", partial_received: "استلم جزئي",
+};
+const STATUS_COLOR: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+  warehouse_ready: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400",
+  in_shipping: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400",
+  received: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+  delayed: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+  returned: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+  partial_received: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400",
+};
+const fc2 = (n: number | null | undefined) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n) || 0);
+
+function exportToExcel(orders: any[], sourceLabel: string) {
+  // بناء CSV احترافي لرفعه على ميتا / فيسبوك
+  const cols = [
+    { key: "phone",       header: "phone_number" },
+    { key: "customerName",header: "first_name" },
+    { key: "city",        header: "city" },
+    { key: "product",     header: "product" },
+    { key: "color",       header: "color" },
+    { key: "size",        header: "size" },
+    { key: "quantity",    header: "quantity" },
+    { key: "totalPrice",  header: "order_value" },
+    { key: "status",      header: "status" },
+    { key: "adCampaign",  header: "ad_campaign" },
+    { key: "invoiceNumber",header: "invoice_number" },
+    { key: "createdAt",   header: "created_at" },
+    { key: "notes",       header: "notes" },
+  ];
+  const header = cols.map(c => c.header).join(",");
+  const rows = orders.map(o => cols.map(c => {
+    let v = o[c.key] ?? "";
+    if (c.key === "status") v = STATUS_AR[v] ?? v;
+    if (c.key === "phone") v = String(v).replace(/\D/g, ""); // أرقام فقط للميتا
+    if (c.key === "createdAt") v = new Date(v).toLocaleDateString("ar-EG");
+    if (c.key === "totalPrice") v = Number(v).toFixed(2);
+    return `"${String(v).replace(/"/g, '""')}"`;
+  }).join(","));
+  const csv = "\uFEFF" + [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `orders-${sourceLabel}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function SourceOrdersModal({ source, onClose }: { source: string; onClose: () => void }) {
+  const meta = getMeta(source);
+  const [search, setSearch] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["orders-by-source", source],
+    queryFn: () => ordersApi.bySource(source),
+    staleTime: 60_000,
+  });
+
+  const orders = data?.orders ?? [];
+  const filtered = useMemo(() => {
+    if (!search.trim()) return orders;
+    const q = search.toLowerCase();
+    return orders.filter((o: any) =>
+      (o.customerName ?? "").toLowerCase().includes(q) ||
+      (o.phone ?? "").includes(q) ||
+      (o.product ?? "").toLowerCase().includes(q) ||
+      (o.city ?? "").toLowerCase().includes(q)
+    );
+  }, [orders, search]);
+
+  // إغلاق بـ Escape
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative z-10 w-full max-w-5xl max-h-[90vh] flex flex-col bg-background border border-border rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+          <div className="flex items-center gap-3">
+            <meta.icon style={{ color: meta.iconColor, fontSize: "1.8rem" }} />
+            <div>
+              <h2 className="font-black text-lg">{meta.label}</h2>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? "جاري التحميل..." : `${filtered.length} طلب`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportToExcel(filtered, meta.label)}
+              disabled={!filtered.length}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              تصدير CSV للميتا
+            </button>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 py-3 border-b border-border/50">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="ابحث بالاسم أو الهاتف أو المنتج أو المدينة..."
+            className="w-full h-9 px-3 text-sm bg-muted/30 border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
+              <Package className="w-10 h-10 opacity-20" />
+              <p className="text-sm">{search ? "لا توجد نتائج" : "لا توجد طلبات لهذه المنصة"}</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs" dir="rtl">
+              <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                <tr className="border-b border-border">
+                  <th className="py-2.5 px-3 text-right font-semibold text-muted-foreground">#</th>
+                  <th className="py-2.5 px-3 text-right font-semibold text-muted-foreground">العميل</th>
+                  <th className="py-2.5 px-3 text-right font-semibold text-muted-foreground">الهاتف</th>
+                  <th className="py-2.5 px-3 text-right font-semibold text-muted-foreground">المدينة</th>
+                  <th className="py-2.5 px-3 text-right font-semibold text-muted-foreground">المنتج</th>
+                  <th className="py-2.5 px-3 text-center font-semibold text-muted-foreground">الكمية</th>
+                  <th className="py-2.5 px-3 text-center font-semibold text-muted-foreground">الإجمالي</th>
+                  <th className="py-2.5 px-3 text-right font-semibold text-muted-foreground">الحملة</th>
+                  <th className="py-2.5 px-3 text-center font-semibold text-muted-foreground">الحالة</th>
+                  <th className="py-2.5 px-3 text-center font-semibold text-muted-foreground">التاريخ</th>
+                  <th className="py-2.5 px-3 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((o: any) => (
+                  <tr key={o.id} className="border-b border-border/40 hover:bg-muted/10 transition-colors">
+                    <td className="py-2 px-3 font-mono text-muted-foreground">#{String(o.id).padStart(4,"0")}</td>
+                    <td className="py-2 px-3 font-semibold">{o.customerName}</td>
+                    <td className="py-2 px-3 text-muted-foreground font-mono">{o.phone ?? "—"}</td>
+                    <td className="py-2 px-3 text-muted-foreground">{o.city ?? "—"}</td>
+                    <td className="py-2 px-3">
+                      <span className="font-semibold">{o.product}</span>
+                      {(o.color || o.size) && (
+                        <span className="text-primary/70 mr-1">{[o.color, o.size].filter(Boolean).join("/")}</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-center font-bold">{o.quantity}</td>
+                    <td className="py-2 px-3 text-center font-bold text-primary">{fc2((o.totalPrice ?? 0) + (o.shippingCost ?? 0))}</td>
+                    <td className="py-2 px-3 text-muted-foreground max-w-[120px] truncate">{o.adCampaign ?? "—"}</td>
+                    <td className="py-2 px-3 text-center">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-bold ${STATUS_COLOR[o.status] ?? "bg-muted text-muted-foreground"}`}>
+                        {STATUS_AR[o.status] ?? o.status}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-center text-muted-foreground whitespace-nowrap">
+                      {new Date(o.createdAt).toLocaleDateString("ar-EG")}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <a href={`/orders/${o.id}`} target="_blank" rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer summary */}
+        {!isLoading && filtered.length > 0 && (() => {
+          const delivered = filtered.filter((o: any) => o.status === "received").length;
+          const returned = filtered.filter((o: any) => o.status === "returned").length;
+          const totalRev = filtered.reduce((s: number, o: any) => s + (Number(o.totalPrice) || 0) + (Number(o.shippingCost) || 0), 0);
+          return (
+            <div className="border-t border-border px-5 py-3 flex flex-wrap gap-4 items-center bg-muted/10 text-xs">
+              <span className="text-muted-foreground">إجمالي: <span className="font-black text-foreground">{filtered.length}</span> طلب</span>
+              <span className="text-muted-foreground">مُسلَّم: <span className="font-black text-emerald-500">{delivered}</span></span>
+              <span className="text-muted-foreground">مرتجع: <span className="font-black text-red-400">{returned}</span></span>
+              <span className="text-muted-foreground">إجمالي الإيرادات: <span className="font-black text-primary">{fc2(totalRev)}</span></span>
+              <span className="text-muted-foreground mr-auto">معدل التسليم: <span className="font-black text-emerald-500">{filtered.length > 0 ? Math.round(delivered / filtered.length * 100) : 0}%</span></span>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
 // ─── 1. Ad Attribution ────────────────────────────────────────────────────────
 function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSource: AdSourceStat | null; breakdown: AdSourceStat[]; showProfit: boolean }) {
   const maxVal = Math.max(...breakdown.map(s => showProfit ? Math.abs(s.profit) : s.revenue), 1);
   const best = bestSource ? getMeta(bestSource.source) : null;
+  const [activeSource, setActiveSource] = useState<string | null>(null);
 
   return (
     <div>
-      <SectionHeader icon={Zap} title="أفضل منصة إعلانية" subtitle={showProfit ? "صافي الربح الحقيقي لكل قناة تسويقية" : "إيرادات كل قناة تسويقية"} color="text-amber-500 dark:text-amber-400" />
+      <SectionHeader icon={Zap} title="أفضل منصة إعلانية" subtitle={showProfit ? "صافي الربح الحقيقي لكل قناة تسويقية — اضغط على منصة لعرض طلباتها" : "إيرادات كل قناة تسويقية — اضغط على منصة لعرض طلباتها"} color="text-amber-500 dark:text-amber-400" />
 
       {bestSource && best && (
-        <div className={`mb-4 rounded-xl border-2 ${best.border} ${best.bg} p-4 flex flex-col sm:flex-row sm:items-center gap-4`}>
+        <button
+          onClick={() => setActiveSource(bestSource.source)}
+          className={`w-full mb-4 rounded-xl border-2 ${best.border} ${best.bg} p-4 flex flex-col sm:flex-row sm:items-center gap-4 text-right hover:opacity-90 transition-opacity cursor-pointer`}
+        >
           <div className="flex items-center gap-3 flex-1">
             <best.icon style={{ color: best.iconColor, fontSize: "2.5rem" }} />
             <div>
@@ -88,7 +304,7 @@ function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSourc
               <p className="text-lg font-bold text-primary">{fc(bestSource.revenue)}</p>
             </div>
           </div>
-        </div>
+        </button>
       )}
 
       <div className="space-y-2">
@@ -96,7 +312,11 @@ function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSourc
           const meta = getMeta(s.source);
           const barPct = Math.max(0, Math.round(((showProfit ? Math.abs(s.profit) : s.revenue) / maxVal) * 100));
           return (
-            <div key={s.source} className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-card border border-border">
+            <button
+              key={s.source}
+              onClick={() => setActiveSource(s.source)}
+              className="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg bg-card border border-border hover:border-primary/40 hover:bg-muted/10 transition-colors cursor-pointer text-right"
+            >
               <meta.icon style={{ color: meta.iconColor, fontSize: "1.4rem", flexShrink: 0 }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
@@ -117,15 +337,21 @@ function AdAttributionSection({ bestSource, breakdown, showProfit }: { bestSourc
                   <span className="text-[10px] text-muted-foreground">{fn(s.orders)} طلب</span>
                   <span className="text-[10px] text-muted-foreground">{s.returnRate}% مرتجع</span>
                   {showProfit && <span className="text-[10px] text-muted-foreground">إيرادات: {fc(s.revenue)}</span>}
+                  <span className="text-[10px] text-primary/70 mr-auto">← اضغط لعرض الطلبات</span>
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
         {breakdown.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-6">لا توجد بيانات إعلانية بعد</p>
         )}
       </div>
+
+      {/* Modal */}
+      {activeSource && (
+        <SourceOrdersModal source={activeSource} onClose={() => setActiveSource(null)} />
+      )}
     </div>
   );
 }
