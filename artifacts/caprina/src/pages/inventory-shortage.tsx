@@ -1,13 +1,17 @@
 import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Package, Printer, Search, ChevronDown, ChevronUp, AlertTriangle, RefreshCw } from "lucide-react";
+import { Package, Printer, Search, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Flame, TrendingUp, Minus } from "lucide-react";
 import { ordersApi } from "@/lib/api";
 import type { InventoryShortageItem } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+type UrgencyFilter = "all" | "high" | "medium" | "low";
+type SortKey = "qty" | "orders" | "revenue" | "name";
+type SortDir = "desc" | "asc";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
@@ -133,6 +137,9 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
 // ── الصفحة الرئيسية ───────────────────────────────────────────────────────────
 export default function InventoryShortagePage() {
   const [search, setSearch] = useState("");
+  const [urgency, setUrgency] = useState<UrgencyFilter>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("qty");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -144,13 +151,33 @@ export default function InventoryShortagePage() {
   const filtered = useMemo(() => {
     if (!data?.items) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return data.items;
-    return data.items.filter(item =>
-      item.product.toLowerCase().includes(q) ||
-      (item.color ?? "").toLowerCase().includes(q) ||
-      (item.size ?? "").toLowerCase().includes(q)
-    );
-  }, [data?.items, search]);
+
+    let items = data.items.filter(item => {
+      // فلتر نص
+      if (q && !(
+        item.product.toLowerCase().includes(q) ||
+        (item.color ?? "").toLowerCase().includes(q) ||
+        (item.size ?? "").toLowerCase().includes(q)
+      )) return false;
+      // فلتر إلحاحية
+      if (urgency === "high"   && item.totalQty < 10) return false;
+      if (urgency === "medium" && (item.totalQty < 5 || item.totalQty >= 10)) return false;
+      if (urgency === "low"    && item.totalQty >= 5) return false;
+      return true;
+    });
+
+    // ترتيب
+    items = [...items].sort((a, b) => {
+      let diff = 0;
+      if (sortKey === "qty")     diff = a.totalQty - b.totalQty;
+      if (sortKey === "orders")  diff = a.orderCount - b.orderCount;
+      if (sortKey === "revenue") diff = a.totalRevenue - b.totalRevenue;
+      if (sortKey === "name")    diff = a.product.localeCompare(b.product, "ar");
+      return sortDir === "desc" ? -diff : diff;
+    });
+
+    return items;
+  }, [data?.items, search, urgency, sortKey, sortDir]);
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -294,15 +321,100 @@ export default function InventoryShortagePage() {
         />
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="ابحث بالمنتج أو اللون أو المقاس..."
-          className="pr-9 bg-card text-sm h-10 border-border/50"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* ── شريط الفلاتر الاحترافي ── */}
+      <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-3 space-y-3">
+        {/* صف أول: بحث + زر مسح */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="ابحث بالمنتج أو اللون أو المقاس..."
+              className="pr-9 bg-background/60 text-sm h-9 border-border/40 rounded-xl"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          {(search || urgency !== "all" || sortKey !== "qty" || sortDir !== "desc") && (
+            <button
+              onClick={() => { setSearch(""); setUrgency("all"); setSortKey("qty"); setSortDir("desc"); }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border/40 rounded-xl px-3 h-9 transition-colors bg-background/60 hover:bg-muted/20 whitespace-nowrap"
+            >
+              <X className="w-3.5 h-3.5" />
+              مسح الفلاتر
+            </button>
+          )}
+        </div>
+
+        {/* صف ثاني: فلتر إلحاحية + ترتيب */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* أيقونة */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span className="font-semibold">الإلحاحية:</span>
+          </div>
+
+          {/* أزرار إلحاحية */}
+          {([
+            { key: "all",    label: "الكل",     icon: null,      active: "bg-foreground text-background", idle: "bg-muted/30 text-muted-foreground hover:bg-muted/60" },
+            { key: "high",   label: "عالي ≥10", icon: <Flame className="w-3 h-3" />,      active: "bg-red-500 text-white shadow-red-500/30 shadow-md", idle: "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 hover:bg-red-100 dark:hover:bg-red-900/30" },
+            { key: "medium", label: "متوسط ≥5", icon: <TrendingUp className="w-3 h-3" />, active: "bg-orange-500 text-white shadow-orange-500/30 shadow-md", idle: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/40 hover:bg-orange-100 dark:hover:bg-orange-900/30" },
+            { key: "low",    label: "منخفض <5", icon: <Minus className="w-3 h-3" />,      active: "bg-yellow-500 text-white shadow-yellow-500/30 shadow-md", idle: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800/40 hover:bg-yellow-100 dark:hover:bg-yellow-900/30" },
+          ] as const).map(btn => (
+            <button
+              key={btn.key}
+              onClick={() => setUrgency(btn.key as UrgencyFilter)}
+              className={`flex items-center gap-1 text-xs font-bold px-3 h-7 rounded-xl transition-all duration-200 ${urgency === btn.key ? btn.active : btn.idle}`}
+            >
+              {btn.icon}
+              {btn.label}
+            </button>
+          ))}
+
+          {/* فاصل */}
+          <div className="w-px h-5 bg-border/50 mx-1 hidden sm:block" />
+
+          {/* ترتيب حسب */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            <span className="font-semibold">ترتيب:</span>
+          </div>
+
+          {([
+            { key: "qty",     label: "الكمية" },
+            { key: "orders",  label: "الطلبات" },
+            { key: "revenue", label: "الإيرادات" },
+            { key: "name",    label: "الاسم" },
+          ] as const).map(s => (
+            <button
+              key={s.key}
+              onClick={() => {
+                if (sortKey === s.key) setSortDir(d => d === "desc" ? "asc" : "desc");
+                else { setSortKey(s.key); setSortDir("desc"); }
+              }}
+              className={`flex items-center gap-1 text-xs font-bold px-3 h-7 rounded-xl border transition-all duration-200 ${
+                sortKey === s.key
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
+                  : "bg-background/60 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
+              }`}
+            >
+              {s.label}
+              {sortKey === s.key && (
+                <span className="text-[10px] opacity-80">{sortDir === "desc" ? "↓" : "↑"}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* صف ثالث: نتائج الفلتر */}
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/30 pt-2">
+          <span>
+            عرض <span className="font-bold text-foreground">{filtered.length}</span> من <span className="font-bold">{data?.items?.length ?? 0}</span> منتج
+            {urgency !== "all" && <span className="mr-1 text-primary">• {urgency === "high" ? "إلحاحية عالية" : urgency === "medium" ? "إلحاحية متوسطة" : "إلحاحية منخفضة"}</span>}
+          </span>
+          <span>
+            {filtered.reduce((s, i) => s + i.totalQty, 0)} قطعة مطلوبة
+          </span>
+        </div>
       </div>
 
       {/* Table */}
