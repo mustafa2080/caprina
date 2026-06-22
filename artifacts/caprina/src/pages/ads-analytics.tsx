@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { teamAnalyticsApi, type CampaignStats } from "@/lib/api";
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
+const fmt = (n: number | string | null | undefined) =>
+  new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(Number(n) || 0);
 const fmtNum = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 const fmtPct = (n: number) => `${n}%`;
 
@@ -120,10 +120,10 @@ function SourceSummary({ campaigns }: { campaigns: CampaignStats[] }) {
   const bySource: Record<string, { total: number; revenue: number; profit: number; delivered: number }> = {};
   for (const c of campaigns) {
     if (!bySource[c.adSource]) bySource[c.adSource] = { total: 0, revenue: 0, profit: 0, delivered: 0 };
-    bySource[c.adSource].total += c.total;
-    bySource[c.adSource].revenue += c.revenue;
-    bySource[c.adSource].profit += c.profit;
-    bySource[c.adSource].delivered += c.delivered;
+    bySource[c.adSource].total += (Number(c.total) || 0);
+    bySource[c.adSource].revenue += (Number(c.revenue) || 0);
+    bySource[c.adSource].profit += (Number(c.profit) || 0);
+    bySource[c.adSource].delivered += (Number(c.delivered) || 0);
   }
   const maxRev = Math.max(...Object.values(bySource).map(v => v.revenue), 1);
 
@@ -181,11 +181,11 @@ export default function AdsAnalyticsPage() {
 
   const totals = campaigns.reduce(
     (acc, c) => ({
-      orders: acc.orders + c.total,
-      revenue: acc.revenue + c.revenue,
-      cost: acc.cost + c.cost,
-      profit: acc.profit + c.profit,
-      delivered: acc.delivered + c.delivered,
+      orders: acc.orders + (Number(c.total) || 0),
+      revenue: acc.revenue + (Number(c.revenue) || 0),
+      cost: acc.cost + (Number(c.cost) || 0),
+      profit: acc.profit + (Number(c.profit) || 0),
+      delivered: acc.delivered + (Number(c.delivered) || 0),
     }),
     { orders: 0, revenue: 0, cost: 0, profit: 0, delivered: 0 }
   );
