@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Package, Printer, Search, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Flame, TrendingUp, Minus } from "lucide-react";
+import { Package, Printer, Search, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Flame, TrendingUp, Minus, Users, DollarSign, BoxSelect } from "lucide-react";
 import { ordersApi } from "@/lib/api";
 import type { InventoryShortageItem } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-type UrgencyFilter = "all" | "high" | "medium" | "low";
+type PriorityFilter = "all" | "high" | "medium" | "low";
+type CustomersFilter = "all" | "one" | "few" | "many";
+type ValueFilter = "all" | "low" | "mid" | "high";
 type SortKey = "qty" | "orders" | "revenue" | "name";
 type SortDir = "desc" | "asc";
 
@@ -136,10 +138,13 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
 
 // ── الصفحة الرئيسية ───────────────────────────────────────────────────────────
 export default function InventoryShortagePage() {
-  const [search, setSearch] = useState("");
-  const [urgency, setUrgency] = useState<UrgencyFilter>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("qty");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [search, setSearch]           = useState("");
+  const [priority, setPriority]       = useState<PriorityFilter>("all");
+  const [productFilter, setProduct]   = useState<string>("all");
+  const [customersF, setCustomers]    = useState<CustomersFilter>("all");
+  const [valueF, setValue]            = useState<ValueFilter>("all");
+  const [sortKey, setSortKey]         = useState<SortKey>("qty");
+  const [sortDir, setSortDir]         = useState<SortDir>("desc");
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -148,25 +153,40 @@ export default function InventoryShortagePage() {
     staleTime: 30_000,
   });
 
+  // قائمة أسماء المنتجات الفريدة
+  const productNames = useMemo(() => {
+    if (!data?.items) return [];
+    return Array.from(new Set(data.items.map(i => i.product))).sort((a, b) => a.localeCompare(b, "ar"));
+  }, [data?.items]);
+
   const filtered = useMemo(() => {
     if (!data?.items) return [];
     const q = search.trim().toLowerCase();
 
     let items = data.items.filter(item => {
-      // فلتر نص
+      // بحث نصي
       if (q && !(
         item.product.toLowerCase().includes(q) ||
         (item.color ?? "").toLowerCase().includes(q) ||
         (item.size ?? "").toLowerCase().includes(q)
       )) return false;
-      // فلتر إلحاحية
-      if (urgency === "high"   && item.totalQty < 10) return false;
-      if (urgency === "medium" && (item.totalQty < 5 || item.totalQty >= 10)) return false;
-      if (urgency === "low"    && item.totalQty >= 5) return false;
+      // فلتر الأولوية (حسب الكمية)
+      if (priority === "high"   && item.totalQty < 10) return false;
+      if (priority === "medium" && (item.totalQty < 5 || item.totalQty >= 10)) return false;
+      if (priority === "low"    && item.totalQty >= 5) return false;
+      // فلتر المنتج
+      if (productFilter !== "all" && item.product !== productFilter) return false;
+      // فلتر عدد العملاء
+      if (customersF === "one"  && item.customerCount !== 1) return false;
+      if (customersF === "few"  && (item.customerCount < 2 || item.customerCount > 3)) return false;
+      if (customersF === "many" && item.customerCount < 4) return false;
+      // فلتر القيمة
+      if (valueF === "low"  && item.totalRevenue >= 500) return false;
+      if (valueF === "mid"  && (item.totalRevenue < 500 || item.totalRevenue >= 2000)) return false;
+      if (valueF === "high" && item.totalRevenue < 2000) return false;
       return true;
     });
 
-    // ترتيب
     items = [...items].sort((a, b) => {
       let diff = 0;
       if (sortKey === "qty")     diff = a.totalQty - b.totalQty;
@@ -177,7 +197,10 @@ export default function InventoryShortagePage() {
     });
 
     return items;
-  }, [data?.items, search, urgency, sortKey, sortDir]);
+  }, [data?.items, search, priority, productFilter, customersF, valueF, sortKey, sortDir]);
+
+  const hasFilters = search || priority !== "all" || productFilter !== "all" || customersF !== "all" || valueF !== "all" || sortKey !== "qty" || sortDir !== "desc";
+  const clearAll = () => { setSearch(""); setPriority("all"); setProduct("all"); setCustomers("all"); setValue("all"); setSortKey("qty"); setSortDir("desc"); };
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -321,9 +344,10 @@ export default function InventoryShortagePage() {
         />
       </div>
 
-      {/* ── شريط الفلاتر الاحترافي ── */}
-      <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-3 space-y-3">
-        {/* صف أول: بحث + زر مسح */}
+      {/* ── شريط الفلاتر ── */}
+      <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-4 space-y-3">
+
+        {/* صف 1: بحث + مسح */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -334,87 +358,149 @@ export default function InventoryShortagePage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          {(search || urgency !== "all" || sortKey !== "qty" || sortDir !== "desc") && (
+          {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setUrgency("all"); setSortKey("qty"); setSortDir("desc"); }}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border/40 rounded-xl px-3 h-9 transition-colors bg-background/60 hover:bg-muted/20 whitespace-nowrap"
+              onClick={clearAll}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border/40 rounded-xl px-3 h-9 transition-colors bg-background/60 hover:bg-muted/20 whitespace-nowrap"
             >
               <X className="w-3.5 h-3.5" />
-              مسح الفلاتر
+              مسح الكل
             </button>
           )}
         </div>
 
-        {/* صف ثاني: فلتر إلحاحية + ترتيب */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* أيقونة */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span className="font-semibold">الإلحاحية:</span>
+        {/* صف 2: الفلاتر الـ 4 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+
+          {/* 1. الأولوية */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
+              <Flame className="w-3.5 h-3.5" />
+              الأولوية
+            </div>
+            <div className="flex gap-1">
+              {([
+                { k: "all",    l: "الكل"    },
+                { k: "high",   l: "🔴 عاجل ≥10" },
+                { k: "medium", l: "🟠 متوسط"    },
+                { k: "low",    l: "🟡 قليل <5"  },
+              ] as const).map(b => (
+                <button key={b.k} onClick={() => setPriority(b.k)}
+                  className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-150 ${
+                    priority === b.k
+                      ? b.k === "high"   ? "bg-red-500 text-white"
+                      : b.k === "medium" ? "bg-orange-500 text-white"
+                      : b.k === "low"    ? "bg-yellow-500 text-white"
+                      : "bg-foreground text-background"
+                      : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
+                  }`}>
+                  {b.l}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* أزرار إلحاحية */}
-          {([
-            { key: "all",    label: "الكل",     icon: null,      active: "bg-foreground text-background", idle: "bg-muted/30 text-muted-foreground hover:bg-muted/60" },
-            { key: "high",   label: "عالي ≥10", icon: <Flame className="w-3 h-3" />,      active: "bg-red-500 text-white shadow-red-500/30 shadow-md", idle: "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 hover:bg-red-100 dark:hover:bg-red-900/30" },
-            { key: "medium", label: "متوسط ≥5", icon: <TrendingUp className="w-3 h-3" />, active: "bg-orange-500 text-white shadow-orange-500/30 shadow-md", idle: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/40 hover:bg-orange-100 dark:hover:bg-orange-900/30" },
-            { key: "low",    label: "منخفض <5", icon: <Minus className="w-3 h-3" />,      active: "bg-yellow-500 text-white shadow-yellow-500/30 shadow-md", idle: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800/40 hover:bg-yellow-100 dark:hover:bg-yellow-900/30" },
-          ] as const).map(btn => (
-            <button
-              key={btn.key}
-              onClick={() => setUrgency(btn.key as UrgencyFilter)}
-              className={`flex items-center gap-1 text-xs font-bold px-3 h-7 rounded-xl transition-all duration-200 ${urgency === btn.key ? btn.active : btn.idle}`}
+          {/* 2. المنتج */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
+              <BoxSelect className="w-3.5 h-3.5" />
+              المنتج
+            </div>
+            <select
+              value={productFilter}
+              onChange={e => setProduct(e.target.value)}
+              className="w-full h-9 text-xs rounded-xl border border-border/40 bg-background/60 px-3 focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
             >
-              {btn.icon}
-              {btn.label}
-            </button>
-          ))}
-
-          {/* فاصل */}
-          <div className="w-px h-5 bg-border/50 mx-1 hidden sm:block" />
-
-          {/* ترتيب حسب */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            <span className="font-semibold">ترتيب:</span>
+              <option value="all">كل المنتجات</option>
+              {productNames.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
           </div>
 
-          {([
-            { key: "qty",     label: "الكمية" },
-            { key: "orders",  label: "الطلبات" },
-            { key: "revenue", label: "الإيرادات" },
-            { key: "name",    label: "الاسم" },
-          ] as const).map(s => (
-            <button
-              key={s.key}
-              onClick={() => {
-                if (sortKey === s.key) setSortDir(d => d === "desc" ? "asc" : "desc");
-                else { setSortKey(s.key); setSortDir("desc"); }
-              }}
-              className={`flex items-center gap-1 text-xs font-bold px-3 h-7 rounded-xl border transition-all duration-200 ${
-                sortKey === s.key
-                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                  : "bg-background/60 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
-              }`}
-            >
-              {s.label}
-              {sortKey === s.key && (
-                <span className="text-[10px] opacity-80">{sortDir === "desc" ? "↓" : "↑"}</span>
-              )}
-            </button>
-          ))}
+          {/* 3. عدد العملاء */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
+              <Users className="w-3.5 h-3.5" />
+              عدد العملاء
+            </div>
+            <div className="flex gap-1">
+              {([
+                { k: "all",  l: "الكل"  },
+                { k: "one",  l: "عميل ١" },
+                { k: "few",  l: "2-3"   },
+                { k: "many", l: "+4"    },
+              ] as const).map(b => (
+                <button key={b.k} onClick={() => setCustomers(b.k)}
+                  className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-150 ${
+                    customersF === b.k
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
+                  }`}>
+                  {b.l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. القيمة */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
+              <DollarSign className="w-3.5 h-3.5" />
+              قيمة الطلبات
+            </div>
+            <div className="flex gap-1">
+              {([
+                { k: "all",  l: "الكل"     },
+                { k: "low",  l: "< 500"   },
+                { k: "mid",  l: "500-2k"  },
+                { k: "high", l: "+2000"   },
+              ] as const).map(b => (
+                <button key={b.k} onClick={() => setValue(b.k)}
+                  className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-150 ${
+                    valueF === b.k
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
+                  }`}>
+                  {b.l}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
 
-        {/* صف ثالث: نتائج الفلتر */}
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/30 pt-2">
-          <span>
-            عرض <span className="font-bold text-foreground">{filtered.length}</span> من <span className="font-bold">{data?.items?.length ?? 0}</span> منتج
-            {urgency !== "all" && <span className="mr-1 text-primary">• {urgency === "high" ? "إلحاحية عالية" : urgency === "medium" ? "إلحاحية متوسطة" : "إلحاحية منخفضة"}</span>}
-          </span>
-          <span>
-            {filtered.reduce((s, i) => s + i.totalQty, 0)} قطعة مطلوبة
-          </span>
+        {/* صف 3: ترتيب + نتائج */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/30 pt-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              <span className="font-bold">ترتيب حسب:</span>
+            </div>
+            {([
+              { k: "qty",     l: "الكمية"   },
+              { k: "orders",  l: "الطلبات"  },
+              { k: "revenue", l: "القيمة"   },
+              { k: "name",    l: "الاسم"    },
+            ] as const).map(s => (
+              <button key={s.k}
+                onClick={() => { if (sortKey === s.k) setSortDir(d => d === "desc" ? "asc" : "desc"); else { setSortKey(s.k); setSortDir("desc"); } }}
+                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 h-7 rounded-lg border transition-all duration-150 ${
+                  sortKey === s.k
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background/60 text-muted-foreground border-border/40 hover:text-foreground"
+                }`}>
+                {s.l}
+                {sortKey === s.k && <span className="opacity-80">{sortDir === "desc" ? "↓" : "↑"}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            <span className="font-bold text-foreground">{filtered.length}</span> منتج •{" "}
+            <span className="font-bold text-foreground">{filtered.reduce((s, i) => s + i.totalQty, 0)}</span> قطعة مطلوبة
+          </div>
         </div>
+
       </div>
 
       {/* Table */}
