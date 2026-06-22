@@ -83,7 +83,6 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
 // ─── Inventory Shortage (نواقص المخزن — جرد الطلبات قيد الانتظار) ───────────────
 router.get("/orders/inventory-shortage", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-
   const conditions: any[] = [
     isNull(ordersTable.deletedAt),
     eq(ordersTable.status, "pending"),
@@ -169,6 +168,50 @@ router.get("/orders/inventory-shortage", async (req, res): Promise<void> => {
       totalRevenue: items.reduce((s, i) => s + i.totalRevenue, 0),
     },
   });
+});
+
+// ─── Orders By Ad Source ──────────────────────────────────────────────────────
+router.get("/orders/by-source", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const { source } = req.query as { source?: string };
+  if (!source) { res.status(400).json({ error: "source مطلوب" }); return; }
+
+  const conditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
+  // null/empty adSource يتعامل معاه كـ "organic"
+  if (source === "organic") {
+    conditions.push(or(eq(ordersTable.adSource, "organic"), isNull(ordersTable.adSource), eq(ordersTable.adSource, "")));
+  } else {
+    conditions.push(eq(ordersTable.adSource, source));
+  }
+
+  const orders = await db
+    .select({
+      id: ordersTable.id,
+      invoiceNumber: ordersTable.invoiceNumber,
+      customerName: ordersTable.customerName,
+      phone: ordersTable.phone,
+      city: ordersTable.city,
+      product: ordersTable.product,
+      color: ordersTable.color,
+      size: ordersTable.size,
+      quantity: ordersTable.quantity,
+      unitPrice: ordersTable.unitPrice,
+      totalPrice: ordersTable.totalPrice,
+      shippingCost: ordersTable.shippingCost,
+      costPrice: ordersTable.costPrice,
+      status: ordersTable.status,
+      adSource: ordersTable.adSource,
+      adCampaign: ordersTable.adCampaign,
+      createdByName: ordersTable.createdByName,
+      notes: ordersTable.notes,
+      createdAt: ordersTable.createdAt,
+    })
+    .from(ordersTable)
+    .where(and(...conditions))
+    .orderBy(desc(ordersTable.createdAt));
+
+  res.json({ orders, total: orders.length });
 });
 
 // ─── My Orders (طلبات الموظف الحالي من الـ token) ──────────────────────────────

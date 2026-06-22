@@ -662,6 +662,7 @@ export const ordersApi = {
   restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
   inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
   inventoryShortage: () => apiFetch<InventoryShortageResponse>("/orders/inventory-shortage"),
+  bySource: (source: string) => apiFetch<{ orders: any[]; total: number }>(`/orders/by-source?source=${encodeURIComponent(source)}`),
   byInvoice: (invoiceNumber: string) =>
     apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
   batchCreate: (data: BatchCreateOrderBody) =>

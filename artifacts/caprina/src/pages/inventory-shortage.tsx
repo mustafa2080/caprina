@@ -1,17 +1,13 @@
 import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Package, Printer, Search, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, SlidersHorizontal, ArrowUpDown, X, Flame, TrendingUp, Minus, Users, DollarSign, BoxSelect } from "lucide-react";
+import { Package, Printer, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, ListFilter, X } from "lucide-react";
 import { ordersApi } from "@/lib/api";
 import type { InventoryShortageItem } from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-type PriorityFilter = "all" | "high" | "medium" | "low";
-type CustomersFilter = "all" | "one" | "few" | "many";
-type ValueFilter = "all" | "low" | "mid" | "high";
 type SortKey = "qty" | "orders" | "revenue" | "name";
 type SortDir = "desc" | "asc";
 
@@ -138,13 +134,15 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
 
 // ── الصفحة الرئيسية ───────────────────────────────────────────────────────────
 export default function InventoryShortagePage() {
-  const [search, setSearch]           = useState("");
-  const [priority, setPriority]       = useState<PriorityFilter>("all");
-  const [productFilter, setProduct]   = useState<string>("all");
-  const [customersF, setCustomers]    = useState<CustomersFilter>("all");
-  const [valueF, setValue]            = useState<ValueFilter>("all");
-  const [sortKey, setSortKey]         = useState<SortKey>("qty");
-  const [sortDir, setSortDir]         = useState<SortDir>("desc");
+  const [showFilter, setShowFilter] = useState(false);
+  // فلتر لكل عمود
+  const [fProduct, setFProduct]   = useState("");
+  const [fQty, setFQty]           = useState("");
+  const [fOrders, setFOrders]     = useState("");
+  const [fCustomers, setFCustomers] = useState("");
+  const [fRevenue, setFRevenue]   = useState("");
+  const [sortKey, setSortKey]     = useState<SortKey>("qty");
+  const [sortDir, setSortDir]     = useState<SortDir>("desc");
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -153,54 +151,48 @@ export default function InventoryShortagePage() {
     staleTime: 30_000,
   });
 
-  // قائمة أسماء المنتجات الفريدة
-  const productNames = useMemo(() => {
-    if (!data?.items) return [];
-    return Array.from(new Set(data.items.map(i => i.product))).sort((a, b) => a.localeCompare(b, "ar"));
+  // القيم الفريدة لكل عمود للـ dropdown
+  const uniq = useMemo(() => {
+    const items = data?.items ?? [];
+    return {
+      products:  Array.from(new Set(items.map(i => i.product))).sort((a,b) => a.localeCompare(b,"ar")),
+      qtys:      Array.from(new Set(items.map(i => String(i.totalQty)))).sort((a,b) => Number(a)-Number(b)),
+      orders:    Array.from(new Set(items.map(i => String(i.orderCount)))).sort((a,b) => Number(a)-Number(b)),
+      customers: Array.from(new Set(items.map(i => String(i.customerCount)))).sort((a,b) => Number(a)-Number(b)),
+      revenues:  Array.from(new Set(items.map(i => formatCurrency(i.totalRevenue)))),
+    };
   }, [data?.items]);
 
+  const hasActiveFilter = fProduct || fQty || fOrders || fCustomers || fRevenue;
+
+  const clearFilters = () => { setFProduct(""); setFQty(""); setFOrders(""); setFCustomers(""); setFRevenue(""); };
+
+  const toggleFilter = () => {
+    if (showFilter && hasActiveFilter) clearFilters();
+    setShowFilter(v => !v);
+  };
+
   const filtered = useMemo(() => {
-    if (!data?.items) return [];
-    const q = search.trim().toLowerCase();
-
-    let items = data.items.filter(item => {
-      // بحث نصي
-      if (q && !(
-        item.product.toLowerCase().includes(q) ||
-        (item.color ?? "").toLowerCase().includes(q) ||
-        (item.size ?? "").toLowerCase().includes(q)
-      )) return false;
-      // فلتر الأولوية (حسب الكمية)
-      if (priority === "high"   && item.totalQty < 10) return false;
-      if (priority === "medium" && (item.totalQty < 5 || item.totalQty >= 10)) return false;
-      if (priority === "low"    && item.totalQty >= 5) return false;
-      // فلتر المنتج
-      if (productFilter !== "all" && item.product !== productFilter) return false;
-      // فلتر عدد العملاء
-      if (customersF === "one"  && item.customerCount !== 1) return false;
-      if (customersF === "few"  && (item.customerCount < 2 || item.customerCount > 3)) return false;
-      if (customersF === "many" && item.customerCount < 4) return false;
-      // فلتر القيمة
-      if (valueF === "low"  && item.totalRevenue >= 500) return false;
-      if (valueF === "mid"  && (item.totalRevenue < 500 || item.totalRevenue >= 2000)) return false;
-      if (valueF === "high" && item.totalRevenue < 2000) return false;
-      return true;
+    let items = data?.items ?? [];
+    if (fProduct)   items = items.filter(i => i.product === fProduct);
+    if (fQty)       items = items.filter(i => String(i.totalQty) === fQty);
+    if (fOrders)    items = items.filter(i => String(i.orderCount) === fOrders);
+    if (fCustomers) items = items.filter(i => String(i.customerCount) === fCustomers);
+    if (fRevenue)   items = items.filter(i => formatCurrency(i.totalRevenue) === fRevenue);
+    return [...items].sort((a, b) => {
+      let d = 0;
+      if (sortKey === "qty")     d = a.totalQty - b.totalQty;
+      if (sortKey === "orders")  d = a.orderCount - b.orderCount;
+      if (sortKey === "revenue") d = a.totalRevenue - b.totalRevenue;
+      if (sortKey === "name")    d = a.product.localeCompare(b.product, "ar");
+      return sortDir === "desc" ? -d : d;
     });
+  }, [data?.items, fProduct, fQty, fOrders, fCustomers, fRevenue, sortKey, sortDir]);
 
-    items = [...items].sort((a, b) => {
-      let diff = 0;
-      if (sortKey === "qty")     diff = a.totalQty - b.totalQty;
-      if (sortKey === "orders")  diff = a.orderCount - b.orderCount;
-      if (sortKey === "revenue") diff = a.totalRevenue - b.totalRevenue;
-      if (sortKey === "name")    diff = a.product.localeCompare(b.product, "ar");
-      return sortDir === "desc" ? -diff : diff;
-    });
-
-    return items;
-  }, [data?.items, search, priority, productFilter, customersF, valueF, sortKey, sortDir]);
-
-  const hasFilters = search || priority !== "all" || productFilter !== "all" || customersF !== "all" || valueF !== "all" || sortKey !== "qty" || sortDir !== "desc";
-  const clearAll = () => { setSearch(""); setPriority("all"); setProduct("all"); setCustomers("all"); setValue("all"); setSortKey("qty"); setSortDir("desc"); };
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortKey(k); setSortDir("desc"); }
+  };
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -296,22 +288,25 @@ export default function InventoryShortagePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs h-9"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
             تحديث
           </Button>
           <Button
             size="sm"
-            className="gap-1.5 text-xs h-9 bg-primary text-primary-foreground"
-            onClick={handlePrint}
-            disabled={!filtered.length}
+            onClick={toggleFilter}
+            className={`gap-1.5 text-xs h-9 transition-colors ${showFilter ? "bg-primary text-primary-foreground" : "bg-muted/40 text-foreground hover:bg-muted/70 border border-border"}`}
+            variant="outline"
           >
+            <ListFilter className="w-3.5 h-3.5" />
+            {showFilter ? (hasActiveFilter ? "إلغاء الفلتر" : "إخفاء الفلتر") : "إنشاء فلتر"}
+            {hasActiveFilter && !showFilter && (
+              <span className="bg-primary text-primary-foreground text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                {[fProduct,fQty,fOrders,fCustomers,fRevenue].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
+          <Button size="sm" className="gap-1.5 text-xs h-9 bg-primary text-primary-foreground" onClick={handlePrint} disabled={!filtered.length}>
             <Printer className="w-3.5 h-3.5" />
             طباعة
           </Button>
@@ -320,223 +315,135 @@ export default function InventoryShortagePage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <SummaryCard
-          label="منتجات مختلفة"
-          value={summary?.totalDistinctProducts ?? 0}
-          color="rgb(239,68,68)"
-        />
-        <SummaryCard
-          label="إجمالي الكميات"
-          value={summary?.totalQty ?? 0}
-          sub="قطعة مطلوبة"
-          color="rgb(249,115,22)"
-        />
-        <SummaryCard
-          label="طلبات معلقة"
-          value={summary?.totalPendingOrders ?? 0}
-          color="rgb(234,179,8)"
-        />
-        <SummaryCard
-          label="إجمالي الإيرادات"
-          value={formatCurrency(summary?.totalRevenue ?? 0)}
-          sub="قيمة الطلبات"
-          color="rgb(59,130,246)"
-        />
-      </div>
-
-      {/* ── شريط الفلاتر ── */}
-      <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-4 space-y-3">
-
-        {/* صف 1: بحث + مسح */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="ابحث بالمنتج أو اللون أو المقاس..."
-              className="pr-9 bg-background/60 text-sm h-9 border-border/40 rounded-xl"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          {hasFilters && (
-            <button
-              onClick={clearAll}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border/40 rounded-xl px-3 h-9 transition-colors bg-background/60 hover:bg-muted/20 whitespace-nowrap"
-            >
-              <X className="w-3.5 h-3.5" />
-              مسح الكل
-            </button>
-          )}
-        </div>
-
-        {/* صف 2: الفلاتر الـ 4 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-
-          {/* 1. الأولوية */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
-              <Flame className="w-3.5 h-3.5" />
-              الأولوية
-            </div>
-            <div className="flex gap-1">
-              {([
-                { k: "all",    l: "الكل"    },
-                { k: "high",   l: "🔴 عاجل ≥10" },
-                { k: "medium", l: "🟠 متوسط"    },
-                { k: "low",    l: "🟡 قليل <5"  },
-              ] as const).map(b => (
-                <button key={b.k} onClick={() => setPriority(b.k)}
-                  className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-150 ${
-                    priority === b.k
-                      ? b.k === "high"   ? "bg-red-500 text-white"
-                      : b.k === "medium" ? "bg-orange-500 text-white"
-                      : b.k === "low"    ? "bg-yellow-500 text-white"
-                      : "bg-foreground text-background"
-                      : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
-                  }`}>
-                  {b.l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 2. المنتج */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
-              <BoxSelect className="w-3.5 h-3.5" />
-              المنتج
-            </div>
-            <select
-              value={productFilter}
-              onChange={e => setProduct(e.target.value)}
-              className="w-full h-9 text-xs rounded-xl border border-border/40 bg-background/60 px-3 focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
-            >
-              <option value="all">كل المنتجات</option>
-              {productNames.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* 3. عدد العملاء */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
-              <Users className="w-3.5 h-3.5" />
-              عدد العملاء
-            </div>
-            <div className="flex gap-1">
-              {([
-                { k: "all",  l: "الكل"  },
-                { k: "one",  l: "عميل ١" },
-                { k: "few",  l: "2-3"   },
-                { k: "many", l: "+4"    },
-              ] as const).map(b => (
-                <button key={b.k} onClick={() => setCustomers(b.k)}
-                  className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-150 ${
-                    customersF === b.k
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
-                  }`}>
-                  {b.l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 4. القيمة */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-1">
-              <DollarSign className="w-3.5 h-3.5" />
-              قيمة الطلبات
-            </div>
-            <div className="flex gap-1">
-              {([
-                { k: "all",  l: "الكل"     },
-                { k: "low",  l: "< 500"   },
-                { k: "mid",  l: "500-2k"  },
-                { k: "high", l: "+2000"   },
-              ] as const).map(b => (
-                <button key={b.k} onClick={() => setValue(b.k)}
-                  className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-150 ${
-                    valueF === b.k
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
-                  }`}>
-                  {b.l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* صف 3: ترتيب + نتائج */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/30 pt-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <ArrowUpDown className="w-3.5 h-3.5" />
-              <span className="font-bold">ترتيب حسب:</span>
-            </div>
-            {([
-              { k: "qty",     l: "الكمية"   },
-              { k: "orders",  l: "الطلبات"  },
-              { k: "revenue", l: "القيمة"   },
-              { k: "name",    l: "الاسم"    },
-            ] as const).map(s => (
-              <button key={s.k}
-                onClick={() => { if (sortKey === s.k) setSortDir(d => d === "desc" ? "asc" : "desc"); else { setSortKey(s.k); setSortDir("desc"); } }}
-                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 h-7 rounded-lg border transition-all duration-150 ${
-                  sortKey === s.k
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background/60 text-muted-foreground border-border/40 hover:text-foreground"
-                }`}>
-                {s.l}
-                {sortKey === s.k && <span className="opacity-80">{sortDir === "desc" ? "↓" : "↑"}</span>}
-              </button>
-            ))}
-          </div>
-          <div className="text-[11px] text-muted-foreground">
-            <span className="font-bold text-foreground">{filtered.length}</span> منتج •{" "}
-            <span className="font-bold text-foreground">{filtered.reduce((s, i) => s + i.totalQty, 0)}</span> قطعة مطلوبة
-          </div>
-        </div>
-
+        <SummaryCard label="منتجات مختلفة" value={summary?.totalDistinctProducts ?? 0} color="rgb(239,68,68)" />
+        <SummaryCard label="إجمالي الكميات" value={summary?.totalQty ?? 0} sub="قطعة مطلوبة" color="rgb(249,115,22)" />
+        <SummaryCard label="طلبات معلقة" value={summary?.totalPendingOrders ?? 0} color="rgb(234,179,8)" />
+        <SummaryCard label="إجمالي الإيرادات" value={formatCurrency(summary?.totalRevenue ?? 0)} sub="قيمة الطلبات" color="rgb(59,130,246)" />
       </div>
 
       {/* Table */}
       <Card className="border-border overflow-hidden" ref={printRef}>
-        {filtered.length === 0 ? (
+        {filtered.length === 0 && !hasActiveFilter ? (
           <div className="py-16 text-center">
             <Package className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-semibold">
-              {search ? "لا توجد نتائج للبحث" : "لا توجد طلبات قيد الانتظار 🎉"}
-            </p>
-            {!search && (
-              <p className="text-xs text-muted-foreground mt-1">كل الطلبات تمت معالجتها</p>
-            )}
+            <p className="text-muted-foreground font-semibold">لا توجد طلبات قيد الانتظار 🎉</p>
+            <p className="text-xs text-muted-foreground mt-1">كل الطلبات تمت معالجتها</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm" dir="rtl">
               <thead>
+                {/* ── Row 1: عناوين الأعمدة ── */}
                 <tr className="border-b border-border bg-muted/10">
                   <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold w-12">#</th>
-                  <th className="py-3 px-4 text-right text-xs text-muted-foreground font-semibold">المنتج</th>
-                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">الكمية المطلوبة</th>
-                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">عدد الطلبات</th>
+
+                  {/* المنتج */}
+                  <th className="py-3 px-4 text-right text-xs text-muted-foreground font-semibold">
+                    <button onClick={() => toggleSort("name")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      المنتج
+                      <span className="opacity-50">{sortKey==="name" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
+                    </button>
+                  </th>
+
+                  {/* الكمية */}
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
+                    <button onClick={() => toggleSort("qty")} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">
+                      الكمية المطلوبة
+                      <span className="opacity-50">{sortKey==="qty" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
+                    </button>
+                  </th>
+
+                  {/* الطلبات */}
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
+                    <button onClick={() => toggleSort("orders")} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">
+                      عدد الطلبات
+                      <span className="opacity-50">{sortKey==="orders" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
+                    </button>
+                  </th>
+
+                  {/* العملاء */}
                   <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">العملاء</th>
-                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">قيمة الطلبات</th>
+
+                  {/* القيمة */}
+                  <th className="py-3 px-4 text-center text-xs text-muted-foreground font-semibold">
+                    <button onClick={() => toggleSort("revenue")} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">
+                      قيمة الطلبات
+                      <span className="opacity-50">{sortKey==="revenue" ? (sortDir==="desc"?"↓":"↑") : "↕"}</span>
+                    </button>
+                  </th>
+
                   <th className="py-3 px-4 w-10"></th>
                 </tr>
+
+                {/* ── Row 2: فلاتر الأعمدة (Excel-style) ── */}
+                {showFilter && (
+                  <tr className="border-b-2 border-primary/30 bg-primary/5">
+                    <td className="px-2 py-1.5 text-center">
+                      {hasActiveFilter && (
+                        <button onClick={clearFilters} title="مسح كل الفلاتر"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors mx-auto">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+
+                    {/* فلتر المنتج */}
+                    <td className="px-2 py-1.5">
+                      <select value={fProduct} onChange={e => setFProduct(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fProduct ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل المنتجات</option>
+                        {uniq.products.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </td>
+
+                    {/* فلتر الكمية */}
+                    <td className="px-2 py-1.5">
+                      <select value={fQty} onChange={e => setFQty(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fQty ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل الكميات</option>
+                        {uniq.qtys.map(v => <option key={v} value={v}>{v} قطعة</option>)}
+                      </select>
+                    </td>
+
+                    {/* فلتر الطلبات */}
+                    <td className="px-2 py-1.5">
+                      <select value={fOrders} onChange={e => setFOrders(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fOrders ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل الطلبات</option>
+                        {uniq.orders.map(v => <option key={v} value={v}>{v} طلب</option>)}
+                      </select>
+                    </td>
+
+                    {/* فلتر العملاء */}
+                    <td className="px-2 py-1.5">
+                      <select value={fCustomers} onChange={e => setFCustomers(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fCustomers ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل العملاء</option>
+                        {uniq.customers.map(v => <option key={v} value={v}>{v} عميل</option>)}
+                      </select>
+                    </td>
+
+                    {/* فلتر القيمة */}
+                    <td className="px-2 py-1.5">
+                      <select value={fRevenue} onChange={e => setFRevenue(e.target.value)}
+                        className={`w-full h-7 text-xs rounded-lg border px-2 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${fRevenue ? "border-primary bg-primary/5 font-bold" : "border-border/50 bg-background/80"}`}>
+                        <option value="">كل القيم</option>
+                        {uniq.revenues.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </td>
+
+                    <td></td>
+                  </tr>
+                )}
               </thead>
               <tbody>
-                {filtered.map((item, idx) => (
-                  <ShortageRow
-                    key={`${item.product}||${item.color ?? ""}||${item.size ?? ""}`}
-                    item={item}
-                    index={idx}
-                  />
-                ))}
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">لا توجد نتائج مطابقة للفلتر</td></tr>
+                ) : (
+                  filtered.map((item, idx) => (
+                    <ShortageRow key={`${item.product}||${item.color ?? ""}||${item.size ?? ""}`} item={item} index={idx} />
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -545,7 +452,7 @@ export default function InventoryShortagePage() {
 
       {filtered.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          إجمالي {filtered.length} منتج — اضغط على أي صف لعرض تفاصيل العملاء
+          {filtered.length} منتج • {filtered.reduce((s,i) => s+i.totalQty, 0)} قطعة — اضغط على أي صف لعرض تفاصيل العملاء
         </p>
       )}
     </div>
