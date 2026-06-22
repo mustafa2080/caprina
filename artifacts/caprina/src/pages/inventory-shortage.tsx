@@ -211,22 +211,22 @@ export default function InventoryShortagePage() {
       <title>نواقص المخزن</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 24px; color: #111; background: #fff; direction: rtl; }
-        h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; color: #1a1a1a; }
-        .subtitle { font-size: 11px; color: #666; margin-bottom: 20px; }
-        .summary { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-        .sum-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 12px 18px; min-width: 140px; }
-        .sum-card .label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
-        .sum-card .val { font-size: 24px; font-weight: 900; color: #1a1a1a; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 28px; color: #111; background: #fff; direction: rtl; }
+        h1 { font-size: 30px; font-weight: 900; margin-bottom: 6px; color: #1a1a1a; }
+        .subtitle { font-size: 14px; color: #666; margin-bottom: 24px; }
+        .summary { display: flex; gap: 18px; margin-bottom: 24px; flex-wrap: wrap; }
+        .sum-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px 22px; min-width: 160px; }
+        .sum-card .label { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
+        .sum-card .val { font-size: 30px; font-weight: 900; color: #1a1a1a; }
+        table { width: 100%; border-collapse: collapse; font-size: 18px; }
         thead tr { background: #f1f3f5; }
-        th { padding: 10px 12px; text-align: right; font-weight: 700; color: #444; border-bottom: 2px solid #dee2e6; font-size: 11px; }
-        td { padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
-        .qty-badge { display: inline-block; min-width: 36px; text-align: center; font-weight: 900; font-size: 15px; padding: 2px 8px; border-radius: 8px; }
+        th { padding: 14px 16px; text-align: right; font-weight: 700; color: #444; border-bottom: 2px solid #dee2e6; font-size: 16px; }
+        td { padding: 13px 16px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .qty-badge { display: inline-block; min-width: 44px; text-align: center; font-weight: 900; font-size: 20px; padding: 3px 10px; border-radius: 8px; }
         .high { color: #dc2626; background: #fee2e2; }
         .med  { color: #ea580c; background: #ffedd5; }
         .low  { color: #ca8a04; background: #fef9c3; }
-        @media print { body { padding: 12px; } }
+        @media print { body { padding: 16px; } }
       </style>
     </head><body>`);
 
