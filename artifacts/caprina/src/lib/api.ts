@@ -655,6 +655,23 @@ export interface InventoryShortageResponse {
   summary: InventoryShortageSummary;
 }
 
+// مقارنة النواقص بالمخزن
+export interface ShortageVsStockItem {
+  product: string;
+  color: string | null;
+  size: string | null;
+  needed: number;    // مطلوب من الطلبات المعلقة
+  available: number; // متاح في المخزن
+  gap: number;       // الكمية الناقصة (0 لو يكفي)
+  isCritical: boolean;
+  status: "ok" | "partial" | "none"; // ok=يكفي, partial=ناقص جزئي, none=مفيش خالص
+}
+
+export interface ShortageVsStockResponse {
+  items: ShortageVsStockItem[];
+  criticalCount: number;
+}
+
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
@@ -662,7 +679,13 @@ export const ordersApi = {
   restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
   inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
   inventoryShortage: () => apiFetch<InventoryShortageResponse>("/orders/inventory-shortage"),
-  bySource: (source: string) => apiFetch<{ orders: any[]; total: number }>(`/orders/by-source?source=${encodeURIComponent(source)}`),
+  shortageVsStock: () => apiFetch<ShortageVsStockResponse>("/orders/shortage-vs-stock"),
+  bySource: (source: string, dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams({ source });
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    return apiFetch<{ orders: any[]; total: number }>(`/orders/by-source?${params.toString()}`);
+  },
   byInvoice: (invoiceNumber: string) =>
     apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
   batchCreate: (data: BatchCreateOrderBody) =>

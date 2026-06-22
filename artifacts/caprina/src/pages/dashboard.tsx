@@ -16,7 +16,7 @@ import {
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi, shippingApi, manifestsApi, teamAnalyticsApi, type TeamMemberExtStats,
-  employeeApi, usersApi,
+  employeeApi, usersApi, ordersApi, type ShortageVsStockItem,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -706,6 +706,14 @@ export default function Dashboard() {
     enabled: isAdmin,
   });
 
+  // ── تحليل نواقص المخزن vs المتاح ──
+  const { data: shortageVsStock } = useQuery({
+    queryKey: ["shortage-vs-stock"],
+    queryFn: ordersApi.shortageVsStock,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const { data: cashRegisters } = useQuery({
     queryKey: ["cash-registers-list"],
     queryFn: cashRegistersApi.list,
@@ -901,6 +909,146 @@ export default function Dashboard() {
                 متابعة الشحنات ←
               </button>
             </Link>
+          </div>
+        );
+      })()}
+
+      {/* === تحليل ذكي: نواقص المخزن vs المتاح === */}
+      {shortageVsStock && shortageVsStock.criticalCount > 0 && (() => {
+        const critical = shortageVsStock.items.filter(i => i.isCritical);
+        const noneItems  = critical.filter(i => i.status === "none");    // مخزون فاضي خالص
+        const partialItems = critical.filter(i => i.status === "partial"); // موجود بس مش كافي
+        const totalGap = critical.reduce((s, i) => s + i.gap, 0);
+        const isEmergency = noneItems.length > 0;
+
+        return (
+          <div className={`rounded-xl border overflow-hidden ${
+            isEmergency
+              ? "border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950/30"
+              : "border-amber-400 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20"
+          }`}>
+            {/* ── شريط العنوان ── */}
+            <div className={`flex items-center gap-2 px-3 py-2.5 border-b ${
+              isEmergency
+                ? "border-red-300 dark:border-red-800 bg-red-100/60 dark:bg-red-900/30"
+                : "border-amber-300 dark:border-amber-800/40 bg-amber-100/40 dark:bg-amber-900/15"
+            }`}>
+              {/* اللمبة الوامضة */}
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isEmergency ? "bg-red-500" : "bg-amber-500"
+                }`} />
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                  isEmergency ? "bg-red-600" : "bg-amber-500"
+                }`} />
+              </span>
+              <p className={`text-xs sm:text-sm font-black flex-1 min-w-0 ${
+                isEmergency ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
+              }`}>
+                {isEmergency
+                  ? `⚠️ تحذير عاجل — ${noneItems.length} منتج مخزونه فاضي خالص!`
+                  : `📦 تنبيه — المخزون لا يكفي لتغطية ${shortageVsStock.criticalCount} طلب`
+                }
+              </p>
+              {/* عدد الناقص الإجمالي */}
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                isEmergency
+                  ? "bg-red-600 text-white"
+                  : "bg-amber-500 text-white"
+              }`}>
+                ناقص {totalGap} قطعة
+              </span>
+              <Link href="/inventory-shortage" className="shrink-0">
+                <button className={`text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
+                  isEmergency
+                    ? "bg-red-600 hover:bg-red-500 text-white"
+                    : "bg-amber-500 hover:bg-amber-400 text-white"
+                }`}>
+                  النواقص ←
+                </button>
+              </Link>
+            </div>
+
+            {/* ── قائمة المنتجات الحرجة ── */}
+            <div className="p-3 space-y-1.5">
+              {critical.slice(0, 5).map((item, idx) => (
+                <div key={idx} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 border ${
+                  item.status === "none"
+                    ? "bg-red-100/60 dark:bg-red-900/20 border-red-200 dark:border-red-800/40"
+                    : "bg-amber-50 dark:bg-amber-900/10 border-amber-200/60 dark:border-amber-800/30"
+                }`}>
+                  {/* أيقونة الحالة */}
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm ${
+                    item.status === "none"
+                      ? "bg-red-200 dark:bg-red-800/40"
+                      : "bg-amber-200/70 dark:bg-amber-800/30"
+                  }`}>
+                    {item.status === "none" ? "🚫" : "⚡"}
+                  </div>
+
+                  {/* اسم المنتج + التوليفة */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black truncate">{item.product}</p>
+                    {(item.color || item.size) && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {[item.color, item.size].filter(Boolean).join(" / ")}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* الأرقام */}
+                  <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                    {/* المطلوب */}
+                    <div className="text-center">
+                      <p className="font-black text-foreground">{item.needed}</p>
+                      <p className="text-muted-foreground">مطلوب</p>
+                    </div>
+                    {/* سهم المقارنة */}
+                    <span className="text-muted-foreground/40 text-xs">→</span>
+                    {/* المتاح */}
+                    <div className="text-center">
+                      <p className={`font-black ${item.available === 0 ? "text-red-500" : "text-amber-500"}`}>
+                        {item.available}
+                      </p>
+                      <p className="text-muted-foreground">متاح</p>
+                    </div>
+                    {/* الناقص */}
+                    <div className={`text-center px-2 py-0.5 rounded-md ${
+                      item.status === "none"
+                        ? "bg-red-200 dark:bg-red-900/40"
+                        : "bg-amber-200/60 dark:bg-amber-900/30"
+                    }`}>
+                      <p className={`font-black text-xs ${
+                        item.status === "none" ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
+                      }`}>
+                        -{item.gap}
+                      </p>
+                      <p className="text-muted-foreground text-[9px]">ناقص</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* لو في أكثر من 5 */}
+              {critical.length > 5 && (
+                <Link href="/inventory-shortage">
+                  <p className={`text-center text-[10px] font-bold py-1.5 rounded-lg cursor-pointer hover:opacity-80 transition-opacity ${
+                    isEmergency ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                  }`}>
+                    +{critical.length - 5} منتجات أخرى تحتاج توفير ←
+                  </p>
+                </Link>
+              )}
+
+              {/* ملاحظة سريعة */}
+              <div className={`text-[9px] sm:text-[10px] pt-1 border-t flex gap-3 flex-wrap ${
+                isEmergency ? "border-red-200 dark:border-red-800/30 text-red-600/70 dark:text-red-400/60" : "border-amber-200/60 dark:border-amber-800/20 text-amber-600/70 dark:text-amber-400/60"
+              }`}>
+                {noneItems.length > 0 && <span>🚫 <strong>{noneItems.length}</strong> منتج مخزونه فاضي</span>}
+                {partialItems.length > 0 && <span>⚡ <strong>{partialItems.length}</strong> منتج مخزونه ناقص</span>}
+                <span className="mr-auto opacity-70">اطلب البضاعة قبل تجهيز الطلبات</span>
+              </div>
+            </div>
           </div>
         );
       })()}

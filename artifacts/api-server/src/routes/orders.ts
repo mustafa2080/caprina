@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, like, or, gte, lte, and, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm";
-import { db, ordersTable, productsTable, productVariantsTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
+import { db, ordersTable, productsTable, productVariantsTable, warehouseStockTable, shippingManifestOrdersTable, shippingManifestsTable, shippingCompaniesTable, inventoryMovementsTable, cashRegistersTable, cashTransactionsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,
@@ -170,10 +170,92 @@ router.get("/orders/inventory-shortage", async (req, res): Promise<void> => {
   });
 });
 
+// ─── Inventory Shortage vs Stock Analysis (مقارنة النواقص بالمخزن) ───────────
+router.get("/orders/shortage-vs-stock", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const conditions: any[] = [
+    isNull(ordersTable.deletedAt),
+    eq(ordersTable.status, "pending"),
+  ];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
+
+  // 1) جلب الطلبات المعلقة
+  const pendingOrders = await db
+    .select({
+      product: ordersTable.product,
+      color: ordersTable.color,
+      size: ordersTable.size,
+      quantity: ordersTable.quantity,
+    })
+    .from(ordersTable)
+    .where(and(...conditions));
+
+  // 2) تجميع الكميات المطلوبة حسب منتج+لون+مقاس
+  const neededMap = new Map<string, { product: string; color: string | null; size: string | null; needed: number }>();
+  for (const o of pendingOrders) {
+    const key = `${o.product}||${o.color ?? ""}||${o.size ?? ""}`;
+    if (!neededMap.has(key)) neededMap.set(key, { product: o.product, color: o.color, size: o.size, needed: 0 });
+    neededMap.get(key)!.needed += o.quantity;
+  }
+
+  if (neededMap.size === 0) { res.json({ items: [], criticalCount: 0 }); return; }
+
+  // 3) جلب المتاح في المخزن من product_variants (المطابق بـ color+size)
+  const variantStockRows = await db
+    .select({
+      productName: productsTable.name,
+      color: productVariantsTable.color,
+      size: productVariantsTable.size,
+      totalQuantity: productVariantsTable.totalQuantity,
+      reservedQuantity: productVariantsTable.reservedQuantity,
+      soldQuantity: productVariantsTable.soldQuantity,
+    })
+    .from(productVariantsTable)
+    .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+    .where(
+      tenantId !== null
+        ? eq(productsTable.tenantId, tenantId)
+        : sql`1=1`
+    );
+
+  // خريطة المتاح: productName||color||size → availableQty
+  const stockMap = new Map<string, number>();
+  for (const row of variantStockRows) {
+    const key = `${row.productName}||${row.color ?? ""}||${row.size ?? ""}`;
+    const available = Math.max(0, (row.totalQuantity ?? 0) - (row.reservedQuantity ?? 0) - (row.soldQuantity ?? 0));
+    stockMap.set(key, (stockMap.get(key) ?? 0) + available);
+  }
+
+  // 4) بناء النتيجة: مقارنة المطلوب بالمتاح
+  const items = Array.from(neededMap.values()).map(({ product, color, size, needed }) => {
+    const key = `${product}||${color ?? ""}||${size ?? ""}`;
+    const available = stockMap.get(key) ?? 0;
+    const gap = needed - available; // السالب = يكفي، الموجب = ناقص
+    return {
+      product,
+      color,
+      size,
+      needed,
+      available,
+      gap: Math.max(0, gap), // الكمية الناقصة الفعلية (0 لو يكفي)
+      isCritical: gap > 0,
+      status: gap > 0 ? (available === 0 ? "none" : "partial") : "ok",
+      // none = مفيش خالص، partial = موجود بس مش كافي، ok = يكفي
+    };
+  });
+
+  // ترتيب: الأكثر حرجاً أولاً (gap أكبر)
+  items.sort((a, b) => b.gap - a.gap || b.needed - a.needed);
+
+  const criticalCount = items.filter(i => i.isCritical).length;
+
+  res.json({ items, criticalCount });
+});
+
 // ─── Orders By Ad Source ──────────────────────────────────────────────────────
 router.get("/orders/by-source", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const { source } = req.query as { source?: string };
+  const { source, dateFrom, dateTo } = req.query as { source?: string; dateFrom?: string; dateTo?: string };
   if (!source) { res.status(400).json({ error: "source مطلوب" }); return; }
 
   const conditions: any[] = [isNull(ordersTable.deletedAt)];
@@ -183,6 +265,12 @@ router.get("/orders/by-source", async (req, res): Promise<void> => {
     conditions.push(or(eq(ordersTable.adSource, "organic"), isNull(ordersTable.adSource), eq(ordersTable.adSource, "")));
   } else {
     conditions.push(eq(ordersTable.adSource, source));
+  }
+  if (dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(dateFrom)));
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setHours(23, 59, 59, 999);
+    conditions.push(lte(ordersTable.createdAt, to));
   }
 
   const orders = await db
