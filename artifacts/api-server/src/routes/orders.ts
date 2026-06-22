@@ -80,6 +80,97 @@ router.get("/orders/stats", async (req, res): Promise<void> => {
   });
 });
 
+// ─── Inventory Shortage (نواقص المخزن — جرد الطلبات قيد الانتظار) ───────────────
+router.get("/orders/inventory-shortage", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+
+  const conditions: any[] = [
+    isNull(ordersTable.deletedAt),
+    eq(ordersTable.status, "pending"),
+  ];
+  if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
+
+  const pendingOrders = await db
+    .select({
+      id: ordersTable.id,
+      customerName: ordersTable.customerName,
+      phone: ordersTable.phone,
+      product: ordersTable.product,
+      color: ordersTable.color,
+      size: ordersTable.size,
+      quantity: ordersTable.quantity,
+      unitPrice: ordersTable.unitPrice,
+      totalPrice: ordersTable.totalPrice,
+      shippingCost: ordersTable.shippingCost,
+      invoiceNumber: ordersTable.invoiceNumber,
+      createdAt: ordersTable.createdAt,
+    })
+    .from(ordersTable)
+    .where(and(...conditions))
+    .orderBy(desc(ordersTable.createdAt));
+
+  // تجميع حسب المنتج + اللون + المقاس
+  const grouped = new Map<string, {
+    product: string;
+    color: string | null;
+    size: string | null;
+    totalQty: number;
+    orderCount: number;
+    customerCount: number;
+    customers: Array<{ id: number; customerName: string; phone: string | null; quantity: number; invoiceNumber: string | null; createdAt: Date }>;
+    unitPrice: number;
+    totalRevenue: number;
+  }>();
+
+  for (const o of pendingOrders) {
+    const key = `${o.product}||${o.color ?? ""}||${o.size ?? ""}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        product: o.product,
+        color: o.color,
+        size: o.size,
+        totalQty: 0,
+        orderCount: 0,
+        customerCount: 0,
+        customers: [],
+        unitPrice: o.unitPrice,
+        totalRevenue: 0,
+      });
+    }
+    const entry = grouped.get(key)!;
+    entry.totalQty += o.quantity;
+    entry.orderCount += 1;
+    entry.totalRevenue += o.totalPrice + (o.shippingCost ?? 0);
+    entry.customers.push({
+      id: o.id,
+      customerName: o.customerName,
+      phone: o.phone,
+      quantity: o.quantity,
+      invoiceNumber: o.invoiceNumber,
+      createdAt: o.createdAt,
+    });
+  }
+
+  // حساب عدد العملاء الفريدين لكل مجموعة
+  const items = Array.from(grouped.values()).map(g => ({
+    ...g,
+    customerCount: g.customers.length,
+  }));
+
+  // ترتيب تنازلي حسب الكمية الإجمالية
+  items.sort((a, b) => b.totalQty - a.totalQty);
+
+  res.json({
+    items,
+    summary: {
+      totalPendingOrders: pendingOrders.length,
+      totalDistinctProducts: items.length,
+      totalQty: items.reduce((s, i) => s + i.totalQty, 0),
+      totalRevenue: items.reduce((s, i) => s + i.totalRevenue, 0),
+    },
+  });
+});
+
 // ─── My Orders (طلبات الموظف الحالي من الـ token) ──────────────────────────────
 router.get("/orders/my-orders", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);

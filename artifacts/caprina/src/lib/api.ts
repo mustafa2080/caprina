@@ -622,12 +622,46 @@ export interface OrdersFilterParams {
   amountMax?: string;
 }
 
+export interface InventoryShortageCustomer {
+  id: number;
+  customerName: string;
+  phone: string | null;
+  quantity: number;
+  invoiceNumber: string | null;
+  createdAt: string;
+}
+
+export interface InventoryShortageItem {
+  product: string;
+  color: string | null;
+  size: string | null;
+  totalQty: number;
+  orderCount: number;
+  customerCount: number;
+  customers: InventoryShortageCustomer[];
+  unitPrice: number;
+  totalRevenue: number;
+}
+
+export interface InventoryShortageSummary {
+  totalPendingOrders: number;
+  totalDistinctProducts: number;
+  totalQty: number;
+  totalRevenue: number;
+}
+
+export interface InventoryShortageResponse {
+  items: InventoryShortageItem[];
+  summary: InventoryShortageSummary;
+}
+
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
   archived: () => apiFetch<any[]>("/orders/archived"),
   restore: (id: number) => apiFetch<any>(`/orders/${id}/restore`, { method: "POST" }),
   inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
+  inventoryShortage: () => apiFetch<InventoryShortageResponse>("/orders/inventory-shortage"),
   byInvoice: (invoiceNumber: string) =>
     apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
   batchCreate: (data: BatchCreateOrderBody) =>
