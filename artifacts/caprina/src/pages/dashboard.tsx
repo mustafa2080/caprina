@@ -571,6 +571,7 @@ export default function Dashboard() {
   const canSeeTeam          = isAdmin || can("dashboard.team");
   const [period, setPeriod] = useState<Period>("today");
   const [showDamagedModal, setShowDamagedModal] = useState(false);
+  const [showShortageModal, setShowShortageModal] = useState(false);
   const [clientPeriod, setClientPeriod] = useState<"thisWeek" | "lastWeek" | "thisMonth">("thisWeek");
   const { data: summary } = useGetOrdersSummary({
     query: { queryKey: ["orders-summary"], staleTime: 60_000, refetchOnWindowFocus: false, refetchInterval: 120_000 },
@@ -916,140 +917,240 @@ export default function Dashboard() {
       {/* === تحليل ذكي: نواقص المخزن vs المتاح === */}
       {shortageVsStock && shortageVsStock.criticalCount > 0 && (() => {
         const critical = shortageVsStock.items.filter(i => i.isCritical);
-        const noneItems  = critical.filter(i => i.status === "none");    // مخزون فاضي خالص
-        const partialItems = critical.filter(i => i.status === "partial"); // موجود بس مش كافي
-        const totalGap = critical.reduce((s, i) => s + i.gap, 0);
-        const isEmergency = noneItems.length > 0;
+        const noneItems    = critical.filter(i => i.status === "none");
+        const partialItems = critical.filter(i => i.status === "partial");
+        const totalGap     = critical.reduce((s, i) => s + i.gap, 0);
+        const isEmergency  = noneItems.length > 0;
+        const preview      = critical.slice(0, 3); // أول 3 فقط في الداشبورد
 
         return (
-          <div className={`rounded-xl border overflow-hidden ${
-            isEmergency
-              ? "border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950/30"
-              : "border-amber-400 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20"
-          }`}>
-            {/* ── شريط العنوان ── */}
-            <div className={`flex items-center gap-2 px-3 py-2.5 border-b ${
+          <>
+            {/* ── البطاقة الملخصة ── */}
+            <div className={`rounded-xl border overflow-hidden ${
               isEmergency
-                ? "border-red-300 dark:border-red-800 bg-red-100/60 dark:bg-red-900/30"
-                : "border-amber-300 dark:border-amber-800/40 bg-amber-100/40 dark:bg-amber-900/15"
+                ? "border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950/30"
+                : "border-amber-400 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20"
             }`}>
-              {/* اللمبة الوامضة */}
-              <span className="relative flex h-3 w-3 shrink-0">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  isEmergency ? "bg-red-500" : "bg-amber-500"
-                }`} />
-                <span className={`relative inline-flex rounded-full h-3 w-3 ${
-                  isEmergency ? "bg-red-600" : "bg-amber-500"
-                }`} />
-              </span>
-              <p className={`text-xs sm:text-sm font-black flex-1 min-w-0 ${
-                isEmergency ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
-              }`}>
-                {isEmergency
-                  ? `⚠️ تحذير عاجل — ${noneItems.length} منتج مخزونه فاضي خالص!`
-                  : `📦 تنبيه — المخزون لا يكفي لتغطية ${shortageVsStock.criticalCount} طلب`
-                }
-              </p>
-              {/* عدد الناقص الإجمالي */}
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+              {/* شريط العنوان */}
+              <div className={`flex items-center gap-2 px-3 py-2.5 border-b ${
                 isEmergency
-                  ? "bg-red-600 text-white"
-                  : "bg-amber-500 text-white"
+                  ? "border-red-300 dark:border-red-800 bg-red-100/60 dark:bg-red-900/30"
+                  : "border-amber-300 dark:border-amber-800/40 bg-amber-100/40 dark:bg-amber-900/15"
               }`}>
-                ناقص {totalGap} قطعة
-              </span>
-              <Link href="/inventory-shortage" className="shrink-0">
-                <button className={`text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
-                  isEmergency
-                    ? "bg-red-600 hover:bg-red-500 text-white"
-                    : "bg-amber-500 hover:bg-amber-400 text-white"
+                {/* اللمبة الوامضة */}
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isEmergency ? "bg-red-500" : "bg-amber-500"}`} />
+                  <span className={`relative inline-flex rounded-full h-3 w-3 ${isEmergency ? "bg-red-600" : "bg-amber-500"}`} />
+                </span>
+                <p className={`text-xs sm:text-sm font-black flex-1 min-w-0 ${isEmergency ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  {isEmergency
+                    ? `⚠️ تحذير عاجل — ${noneItems.length} منتج مخزونه فاضي خالص!`
+                    : `📦 تنبيه — المخزون لا يكفي لتغطية ${shortageVsStock.criticalCount} طلب`}
+                </p>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${isEmergency ? "bg-red-600 text-white" : "bg-amber-500 text-white"}`}>
+                  ناقص {totalGap} قطعة
+                </span>
+              </div>
+
+              {/* أول 3 منتجات preview */}
+              <div className="p-3 space-y-1.5">
+                {preview.map((item, idx) => (
+                  <div key={idx} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 border ${
+                    item.status === "none"
+                      ? "bg-red-100/60 dark:bg-red-900/20 border-red-200 dark:border-red-800/40"
+                      : "bg-amber-50 dark:bg-amber-900/10 border-amber-200/60 dark:border-amber-800/30"
+                  }`}>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm ${
+                      item.status === "none" ? "bg-red-200 dark:bg-red-800/40" : "bg-amber-200/70 dark:bg-amber-800/30"
+                    }`}>
+                      {item.status === "none" ? "🚫" : "⚡"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black truncate">{item.product}</p>
+                      {(item.color || item.size) && (
+                        <p className="text-[10px] text-muted-foreground">{[item.color, item.size].filter(Boolean).join(" / ")}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                      <div className="text-center">
+                        <p className="font-black text-foreground">{item.needed}</p>
+                        <p className="text-muted-foreground">مطلوب</p>
+                      </div>
+                      <span className="text-muted-foreground/40">→</span>
+                      <div className="text-center">
+                        <p className={`font-black ${item.available === 0 ? "text-red-500" : "text-amber-500"}`}>{item.available}</p>
+                        <p className="text-muted-foreground">متاح</p>
+                      </div>
+                      <div className={`text-center px-2 py-0.5 rounded-md ${item.status === "none" ? "bg-red-200 dark:bg-red-900/40" : "bg-amber-200/60 dark:bg-amber-900/30"}`}>
+                        <p className={`font-black text-xs ${item.status === "none" ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>-{item.gap}</p>
+                        <p className="text-muted-foreground text-[9px]">ناقص</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* زرار "عرض الكل" لو في أكثر من 3 */}
+                {critical.length > 3 && (
+                  <button
+                    onClick={() => setShowShortageModal(true)}
+                    className={`w-full text-center text-[10px] font-bold py-2 rounded-lg border border-dashed transition-all hover:opacity-80 ${
+                      isEmergency
+                        ? "border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-100/40 dark:hover:bg-red-900/20"
+                        : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-100/40 dark:hover:bg-amber-900/20"
+                    }`}
+                  >
+                    عرض كل المنتجات الناقصة ({critical.length}) ↓
+                  </button>
+                )}
+
+                {/* ملاحظة */}
+                <div className={`text-[9px] sm:text-[10px] pt-1 border-t flex gap-3 flex-wrap ${
+                  isEmergency ? "border-red-200 dark:border-red-800/30 text-red-600/70 dark:text-red-400/60" : "border-amber-200/60 dark:border-amber-800/20 text-amber-600/70 dark:text-amber-400/60"
                 }`}>
-                  النواقص ←
-                </button>
-              </Link>
+                  {noneItems.length > 0 && <span>🚫 <strong>{noneItems.length}</strong> منتج مخزونه فاضي</span>}
+                  {partialItems.length > 0 && <span>⚡ <strong>{partialItems.length}</strong> منتج مخزونه ناقص</span>}
+                  <span className="mr-auto opacity-70">اطلب البضاعة قبل تجهيز الطلبات</span>
+                </div>
+              </div>
             </div>
 
-            {/* ── قائمة المنتجات الحرجة ── */}
-            <div className="p-3 space-y-1.5">
-              {critical.slice(0, 5).map((item, idx) => (
-                <div key={idx} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 border ${
-                  item.status === "none"
-                    ? "bg-red-100/60 dark:bg-red-900/20 border-red-200 dark:border-red-800/40"
-                    : "bg-amber-50 dark:bg-amber-900/10 border-amber-200/60 dark:border-amber-800/30"
+            {/* ── Modal: كل المنتجات الناقصة ── */}
+            {showShortageModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowShortageModal(false)} />
+                <div className={`relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${
+                  isEmergency
+                    ? "bg-card border-red-300 dark:border-red-800"
+                    : "bg-card border-amber-300 dark:border-amber-700"
                 }`}>
-                  {/* أيقونة الحالة */}
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm ${
-                    item.status === "none"
-                      ? "bg-red-200 dark:bg-red-800/40"
-                      : "bg-amber-200/70 dark:bg-amber-800/30"
+                  {/* Header */}
+                  <div className={`flex items-center gap-3 px-4 py-3 border-b ${
+                    isEmergency
+                      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                      : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40"
                   }`}>
-                    {item.status === "none" ? "🚫" : "⚡"}
+                    <span className="relative flex h-3 w-3 shrink-0">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isEmergency ? "bg-red-500" : "bg-amber-500"}`} />
+                      <span className={`relative inline-flex rounded-full h-3 w-3 ${isEmergency ? "bg-red-600" : "bg-amber-500"}`} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-black ${isEmergency ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                        تقرير نواقص المخزن
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {critical.length} منتج يحتاج توفير • إجمالي الناقص: {totalGap} قطعة
+                      </p>
+                    </div>
+                    {/* ملخص سريع */}
+                    <div className="flex gap-2 shrink-0">
+                      {noneItems.length > 0 && (
+                        <span className="text-[9px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">
+                          🚫 {noneItems.length} فاضي
+                        </span>
+                      )}
+                      {partialItems.length > 0 && (
+                        <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                          ⚡ {partialItems.length} ناقص
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowShortageModal(false)}
+                      className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4 text-muted-foreground" />
+                    </button>
                   </div>
 
-                  {/* اسم المنتج + التوليفة */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black truncate">{item.product}</p>
-                    {(item.color || item.size) && (
-                      <p className="text-[10px] text-muted-foreground">
-                        {[item.color, item.size].filter(Boolean).join(" / ")}
-                      </p>
+                  {/* قائمة كل المنتجات */}
+                  <div className="overflow-y-auto flex-1 p-3 space-y-2">
+                    {/* فاضي خالص أولاً */}
+                    {noneItems.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-black text-red-600 dark:text-red-400 px-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                          مخزون فاضي خالص — يجب التوفير فوراً
+                        </p>
+                        {noneItems.map((item, idx) => (
+                          <div key={`none-${idx}`} className="flex items-center gap-3 rounded-xl px-4 py-3 border bg-red-50/80 dark:bg-red-900/15 border-red-200 dark:border-red-800/40">
+                            <span className="text-lg shrink-0">🚫</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black">{item.product}</p>
+                              {(item.color || item.size) && (
+                                <p className="text-xs text-muted-foreground">{[item.color, item.size].filter(Boolean).join(" / ")}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 text-xs">
+                              <div className="text-center">
+                                <p className="font-black text-red-600 dark:text-red-400 text-base">{item.needed}</p>
+                                <p className="text-muted-foreground text-[9px]">مطلوب</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="font-black text-muted-foreground text-base">0</p>
+                                <p className="text-muted-foreground text-[9px]">متاح</p>
+                              </div>
+                              <div className="text-center bg-red-200 dark:bg-red-900/50 px-3 py-1 rounded-lg">
+                                <p className="font-black text-red-700 dark:text-red-300 text-base">-{item.gap}</p>
+                                <p className="text-muted-foreground text-[9px]">وفّر</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ناقص جزئي */}
+                    {partialItems.length > 0 && (
+                      <div className="space-y-1.5 mt-2">
+                        <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 px-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
+                          مخزون ناقص — يحتاج تكملة
+                        </p>
+                        {partialItems.map((item, idx) => (
+                          <div key={`partial-${idx}`} className="flex items-center gap-3 rounded-xl px-4 py-3 border bg-amber-50/60 dark:bg-amber-900/10 border-amber-200/70 dark:border-amber-800/30">
+                            <span className="text-lg shrink-0">⚡</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black">{item.product}</p>
+                              {(item.color || item.size) && (
+                                <p className="text-xs text-muted-foreground">{[item.color, item.size].filter(Boolean).join(" / ")}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 text-xs">
+                              <div className="text-center">
+                                <p className="font-black text-foreground text-base">{item.needed}</p>
+                                <p className="text-muted-foreground text-[9px]">مطلوب</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="font-black text-amber-500 text-base">{item.available}</p>
+                                <p className="text-muted-foreground text-[9px]">متاح</p>
+                              </div>
+                              <div className="text-center bg-amber-200/70 dark:bg-amber-900/40 px-3 py-1 rounded-lg">
+                                <p className="font-black text-amber-700 dark:text-amber-300 text-base">-{item.gap}</p>
+                                <p className="text-muted-foreground text-[9px]">وفّر</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {/* الأرقام */}
-                  <div className="flex items-center gap-2 shrink-0 text-[10px]">
-                    {/* المطلوب */}
-                    <div className="text-center">
-                      <p className="font-black text-foreground">{item.needed}</p>
-                      <p className="text-muted-foreground">مطلوب</p>
-                    </div>
-                    {/* سهم المقارنة */}
-                    <span className="text-muted-foreground/40 text-xs">→</span>
-                    {/* المتاح */}
-                    <div className="text-center">
-                      <p className={`font-black ${item.available === 0 ? "text-red-500" : "text-amber-500"}`}>
-                        {item.available}
-                      </p>
-                      <p className="text-muted-foreground">متاح</p>
-                    </div>
-                    {/* الناقص */}
-                    <div className={`text-center px-2 py-0.5 rounded-md ${
-                      item.status === "none"
-                        ? "bg-red-200 dark:bg-red-900/40"
-                        : "bg-amber-200/60 dark:bg-amber-900/30"
-                    }`}>
-                      <p className={`font-black text-xs ${
-                        item.status === "none" ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
-                      }`}>
-                        -{item.gap}
-                      </p>
-                      <p className="text-muted-foreground text-[9px]">ناقص</p>
-                    </div>
+                  {/* Footer */}
+                  <div className="px-4 py-3 border-t border-border bg-muted/10 flex items-center justify-between gap-3">
+                    <p className="text-[10px] text-muted-foreground">
+                      إجمالي القطع المطلوب توفيرها: <span className={`font-black text-xs ${isEmergency ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>{totalGap} قطعة</span>
+                    </p>
+                    <button
+                      onClick={() => setShowShortageModal(false)}
+                      className="text-xs font-bold px-4 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                    >
+                      إغلاق
+                    </button>
                   </div>
                 </div>
-              ))}
-
-              {/* لو في أكثر من 5 */}
-              {critical.length > 5 && (
-                <Link href="/inventory-shortage">
-                  <p className={`text-center text-[10px] font-bold py-1.5 rounded-lg cursor-pointer hover:opacity-80 transition-opacity ${
-                    isEmergency ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
-                  }`}>
-                    +{critical.length - 5} منتجات أخرى تحتاج توفير ←
-                  </p>
-                </Link>
-              )}
-
-              {/* ملاحظة سريعة */}
-              <div className={`text-[9px] sm:text-[10px] pt-1 border-t flex gap-3 flex-wrap ${
-                isEmergency ? "border-red-200 dark:border-red-800/30 text-red-600/70 dark:text-red-400/60" : "border-amber-200/60 dark:border-amber-800/20 text-amber-600/70 dark:text-amber-400/60"
-              }`}>
-                {noneItems.length > 0 && <span>🚫 <strong>{noneItems.length}</strong> منتج مخزونه فاضي</span>}
-                {partialItems.length > 0 && <span>⚡ <strong>{partialItems.length}</strong> منتج مخزونه ناقص</span>}
-                <span className="mr-auto opacity-70">اطلب البضاعة قبل تجهيز الطلبات</span>
               </div>
-            </div>
-          </div>
+            )}
+          </>
         );
       })()}
 
