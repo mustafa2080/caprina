@@ -562,6 +562,266 @@ function DashShippingCompanyRow({ company, allStats, allManifests, canViewFinanc
   );
 }
 
+// ─── ShortageModal Component ──────────────────────────────────────────────────
+type SortKey = "product" | "needed" | "available" | "gap";
+type SortDir = "asc" | "desc";
+type FilterStatus = "all" | "none" | "partial";
+
+function ShortageModal({
+  isEmergency, critical, noneItems, partialItems, totalGap, onClose,
+}: {
+  isEmergency: boolean;
+  critical: ShortageVsStockItem[];
+  noneItems: ShortageVsStockItem[];
+  partialItems: ShortageVsStockItem[];
+  totalGap: number;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("gap");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const accentRed   = isEmergency;
+  const hdrBg       = accentRed ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40";
+  const accentText  = accentRed ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
+  const accentBorder= accentRed ? "bg-card border-red-300 dark:border-red-800" : "bg-card border-amber-300 dark:border-amber-700";
+
+  // ── فلترة + ترتيب ──
+  const filtered = critical
+    .filter(i => {
+      const matchSearch = !search || i.product.includes(search) || (i.color ?? "").includes(search) || (i.size ?? "").includes(search);
+      const matchStatus = filterStatus === "all" || i.status === filterStatus;
+      return matchSearch && matchStatus;
+    })
+    .sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (sortKey === "product") return dir * a.product.localeCompare(b.product, "ar");
+      if (sortKey === "needed")  return dir * (a.needed - b.needed);
+      if (sortKey === "available") return dir * (a.available - b.available);
+      return dir * (a.gap - b.gap);
+    });
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("desc"); }
+  };
+
+  const sortArrow = (key: SortKey) => sortKey === key ? (sortDir === "desc" ? " ↓" : " ↑") : "";
+
+  // ── طباعة ──
+  const handlePrint = () => {
+    const now = new Date().toLocaleString("ar-EG");
+    const rows = filtered.map((item, i) => `
+      <tr style="background:${i % 2 === 0 ? "#fff" : "#f9fafb"}">
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:15px;font-weight:700">${item.product}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:15px;color:#6b7280">${item.size ?? "—"}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:15px;color:#6b7280">${item.color ?? "—"}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:800;color:#111">${item.needed}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:800;color:${item.available === 0 ? "#dc2626" : "#f59e0b"}">${item.available}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:900;color:${item.status === "none" ? "#dc2626" : "#d97706"}">-${item.gap}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:center">
+          <span style="background:${item.status === "none" ? "#fee2e2" : "#fef3c7"};color:${item.status === "none" ? "#dc2626" : "#d97706"};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:800">
+            ${item.status === "none" ? "🚫 فاضي" : "⚡ ناقص"}
+          </span>
+        </td>
+      </tr>`).join("");
+
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<title>تقرير نواقص المخزن</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Cairo',sans-serif; background:#fff; color:#111; direction:rtl; }
+  @media print {
+    @page { margin:15mm; size:A4 portrait; }
+    .no-print { display:none !important; }
+  }
+</style>
+</head>
+<body>
+<div style="padding:24px 32px">
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid ${accentRed ? "#dc2626" : "#f59e0b"}">
+    <div>
+      <h1 style="font-size:26px;font-weight:900;color:${accentRed ? "#dc2626" : "#d97706"}">📦 تقرير نواقص المخزن</h1>
+      <p style="font-size:13px;color:#6b7280;margin-top:4px">تاريخ الطباعة: ${now}</p>
+    </div>
+    <div style="text-align:left">
+      <div style="display:flex;gap:12px">
+        ${noneItems.length > 0 ? `<span style="background:#fee2e2;color:#dc2626;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:800">🚫 ${noneItems.length} فاضي خالص</span>` : ""}
+        ${partialItems.length > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:800">⚡ ${partialItems.length} ناقص جزئي</span>` : ""}
+      </div>
+      <p style="font-size:13px;color:#6b7280;margin-top:8px;text-align:left">إجمالي الناقص: <strong style="color:${accentRed?"#dc2626":"#d97706"};font-size:18px">${totalGap}</strong> قطعة</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif">
+    <thead>
+      <tr style="background:${accentRed ? "#fee2e2" : "#fef3c7"}">
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">المنتج</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">المقاس</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">اللون</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">مطلوب</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">متاح</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">ناقص</th>
+        <th style="padding:12px 14px;text-align:center;font-size:14px;font-weight:900;color:#374151">الحالة</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr style="background:${accentRed?"#fee2e2":"#fef3c7"}">
+        <td colspan="5" style="padding:12px 14px;font-size:14px;font-weight:900;color:#374151">الإجمالي</td>
+        <td style="padding:12px 14px;font-size:18px;font-weight:900;color:${accentRed?"#dc2626":"#d97706"}">-${filtered.reduce((s,i)=>s+i.gap,0)}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <p style="margin-top:20px;font-size:12px;color:#9ca3af;text-align:center">تم الإنشاء بواسطة نظام كابرينا للطلبات</p>
+</div>
+<script>window.onload=()=>{ window.print(); }</script>
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${accentBorder}`}>
+
+        {/* ── Header ── */}
+        <div className={`flex items-center gap-3 px-4 py-3 border-b ${hdrBg}`}>
+          <span className="relative flex h-3 w-3 shrink-0">
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${accentRed ? "bg-red-500" : "bg-amber-500"}`} />
+            <span className={`relative inline-flex rounded-full h-3 w-3 ${accentRed ? "bg-red-600" : "bg-amber-500"}`} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-black ${accentText}`}>تقرير نواقص المخزن</p>
+            <p className="text-[10px] text-muted-foreground">
+              {filtered.length} / {critical.length} منتج • ناقص إجمالي: {totalGap} قطعة
+            </p>
+          </div>
+          <div className="flex gap-1.5 shrink-0">
+            {noneItems.length > 0 && <span className="text-[9px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">🚫 {noneItems.length}</span>}
+            {partialItems.length > 0 && <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">⚡ {partialItems.length}</span>}
+            {/* زرار الطباعة */}
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              title="طباعة / PDF"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              طباعة
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+
+        {/* ── شريط الفلتر والترتيب ── */}
+        <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-border bg-muted/10">
+          {/* بحث */}
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 ابحث عن منتج / لون / مقاس..."
+            className="w-full text-xs rounded-lg border border-border bg-background px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary/30"
+          />
+          {/* فلتر الحالة + ترتيب */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <div className="flex gap-1">
+              {(["all","none","partial"] as FilterStatus[]).map(s => (
+                <button key={s}
+                  onClick={() => setFilterStatus(s)}
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
+                    filterStatus === s
+                      ? s === "none" ? "bg-red-600 text-white border-red-600" : s === "partial" ? "bg-amber-500 text-white border-amber-500" : "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                  }`}>
+                  {s === "all" ? "الكل" : s === "none" ? "🚫 فاضي" : "⚡ ناقص"}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 mr-auto">
+              <span className="text-[10px] text-muted-foreground self-center">ترتيب:</span>
+              {([["product","المنتج"],["needed","مطلوب"],["available","متاح"],["gap","ناقص"]] as [SortKey,string][]).map(([k,l]) => (
+                <button key={k}
+                  onClick={() => toggleSort(k)}
+                  className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${
+                    sortKey === k
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                  }`}>
+                  {l}{sortArrow(k)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── القائمة ── */}
+        <div className="overflow-y-auto flex-1 p-3 space-y-1.5">
+          {filtered.length === 0 ? (
+            <p className="text-center text-xs text-muted-foreground py-8">لا توجد نتائج</p>
+          ) : filtered.map((item, idx) => (
+            <div key={idx} className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all ${
+              item.status === "none"
+                ? "bg-red-50/80 dark:bg-red-900/15 border-red-200 dark:border-red-800/40"
+                : "bg-amber-50/60 dark:bg-amber-900/10 border-amber-200/70 dark:border-amber-800/30"
+            }`}>
+              <span className="text-lg shrink-0">{item.status === "none" ? "🚫" : "⚡"}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black">{item.product}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {[item.size, item.color].filter(Boolean).join(" · ") || "—"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0 text-[11px]">
+                <div className="text-center">
+                  <p className="font-black text-foreground text-base leading-none">{item.needed}</p>
+                  <p className="text-muted-foreground text-[9px] mt-0.5">مطلوب</p>
+                </div>
+                <span className="text-muted-foreground/30 text-base">→</span>
+                <div className="text-center">
+                  <p className={`font-black text-base leading-none ${item.available === 0 ? "text-red-500" : "text-amber-500"}`}>{item.available}</p>
+                  <p className="text-muted-foreground text-[9px] mt-0.5">متاح</p>
+                </div>
+                <div className={`text-center px-2.5 py-1.5 rounded-lg ${item.status === "none" ? "bg-red-200 dark:bg-red-900/50" : "bg-amber-200/70 dark:bg-amber-900/40"}`}>
+                  <p className={`font-black text-base leading-none ${item.status === "none" ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>-{item.gap}</p>
+                  <p className="text-muted-foreground text-[9px] mt-0.5">وفّر</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="px-4 py-2.5 border-t border-border bg-muted/10 flex items-center justify-between gap-3">
+          <p className="text-[10px] text-muted-foreground">
+            إجمالي الناقص في العرض الحالي:
+            <span className={`font-black text-xs mr-1 ${accentRed ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+              {filtered.reduce((s,i)=>s+i.gap,0)} قطعة
+            </span>
+          </p>
+          <button onClick={onClose} className="text-xs font-bold px-4 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors">
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { isAdmin, canViewFinancials, can } = useAuth();
   // ── Dashboard permission shortcuts ───────────────────────────────────
@@ -1016,139 +1276,14 @@ export default function Dashboard() {
 
             {/* ── Modal: كل المنتجات الناقصة ── */}
             {showShortageModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowShortageModal(false)} />
-                <div className={`relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${
-                  isEmergency
-                    ? "bg-card border-red-300 dark:border-red-800"
-                    : "bg-card border-amber-300 dark:border-amber-700"
-                }`}>
-                  {/* Header */}
-                  <div className={`flex items-center gap-3 px-4 py-3 border-b ${
-                    isEmergency
-                      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                      : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40"
-                  }`}>
-                    <span className="relative flex h-3 w-3 shrink-0">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isEmergency ? "bg-red-500" : "bg-amber-500"}`} />
-                      <span className={`relative inline-flex rounded-full h-3 w-3 ${isEmergency ? "bg-red-600" : "bg-amber-500"}`} />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-black ${isEmergency ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
-                        تقرير نواقص المخزن
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {critical.length} منتج يحتاج توفير • إجمالي الناقص: {totalGap} قطعة
-                      </p>
-                    </div>
-                    {/* ملخص سريع */}
-                    <div className="flex gap-2 shrink-0">
-                      {noneItems.length > 0 && (
-                        <span className="text-[9px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">
-                          🚫 {noneItems.length} فاضي
-                        </span>
-                      )}
-                      {partialItems.length > 0 && (
-                        <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">
-                          ⚡ {partialItems.length} ناقص
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setShowShortageModal(false)}
-                      className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors shrink-0"
-                    >
-                      <X className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  </div>
-
-                  {/* قائمة كل المنتجات */}
-                  <div className="overflow-y-auto flex-1 p-3 space-y-2">
-                    {/* فاضي خالص أولاً */}
-                    {noneItems.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-black text-red-600 dark:text-red-400 px-1 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
-                          مخزون فاضي خالص — يجب التوفير فوراً
-                        </p>
-                        {noneItems.map((item, idx) => (
-                          <div key={`none-${idx}`} className="flex items-center gap-3 rounded-xl px-4 py-3 border bg-red-50/80 dark:bg-red-900/15 border-red-200 dark:border-red-800/40">
-                            <span className="text-lg shrink-0">🚫</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-black">{item.product}</p>
-                              {(item.color || item.size) && (
-                                <p className="text-xs text-muted-foreground">{[item.color, item.size].filter(Boolean).join(" / ")}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0 text-xs">
-                              <div className="text-center">
-                                <p className="font-black text-red-600 dark:text-red-400 text-base">{item.needed}</p>
-                                <p className="text-muted-foreground text-[9px]">مطلوب</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="font-black text-muted-foreground text-base">0</p>
-                                <p className="text-muted-foreground text-[9px]">متاح</p>
-                              </div>
-                              <div className="text-center bg-red-200 dark:bg-red-900/50 px-3 py-1 rounded-lg">
-                                <p className="font-black text-red-700 dark:text-red-300 text-base">-{item.gap}</p>
-                                <p className="text-muted-foreground text-[9px]">وفّر</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* ناقص جزئي */}
-                    {partialItems.length > 0 && (
-                      <div className="space-y-1.5 mt-2">
-                        <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 px-1 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
-                          مخزون ناقص — يحتاج تكملة
-                        </p>
-                        {partialItems.map((item, idx) => (
-                          <div key={`partial-${idx}`} className="flex items-center gap-3 rounded-xl px-4 py-3 border bg-amber-50/60 dark:bg-amber-900/10 border-amber-200/70 dark:border-amber-800/30">
-                            <span className="text-lg shrink-0">⚡</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-black">{item.product}</p>
-                              {(item.color || item.size) && (
-                                <p className="text-xs text-muted-foreground">{[item.color, item.size].filter(Boolean).join(" / ")}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0 text-xs">
-                              <div className="text-center">
-                                <p className="font-black text-foreground text-base">{item.needed}</p>
-                                <p className="text-muted-foreground text-[9px]">مطلوب</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="font-black text-amber-500 text-base">{item.available}</p>
-                                <p className="text-muted-foreground text-[9px]">متاح</p>
-                              </div>
-                              <div className="text-center bg-amber-200/70 dark:bg-amber-900/40 px-3 py-1 rounded-lg">
-                                <p className="font-black text-amber-700 dark:text-amber-300 text-base">-{item.gap}</p>
-                                <p className="text-muted-foreground text-[9px]">وفّر</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-4 py-3 border-t border-border bg-muted/10 flex items-center justify-between gap-3">
-                    <p className="text-[10px] text-muted-foreground">
-                      إجمالي القطع المطلوب توفيرها: <span className={`font-black text-xs ${isEmergency ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>{totalGap} قطعة</span>
-                    </p>
-                    <button
-                      onClick={() => setShowShortageModal(false)}
-                      className="text-xs font-bold px-4 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                    >
-                      إغلاق
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ShortageModal
+                isEmergency={isEmergency}
+                critical={critical}
+                noneItems={noneItems}
+                partialItems={partialItems}
+                totalGap={totalGap}
+                onClose={() => setShowShortageModal(false)}
+              />
             )}
           </>
         );
