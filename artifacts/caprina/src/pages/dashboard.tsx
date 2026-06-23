@@ -592,6 +592,8 @@ function ShortageModal({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   // أي عمود مفتوح الفلتر بتاعه
   const [openFilter, setOpenFilter] = useState<string | null>(null);
+  // إظهار/إخفاء أيقونات الفلتر على الأعمدة (زرار "إنشاء فلتر")
+  const [filtersEnabled, setFiltersEnabled] = useState(false);
   // قيم الفلاتر لكل عمود
   const [colFilter, setColFilter] = useState<ColFilter>({
     product: "", size: "", color: "", needed: "", available: "", gap: "", status: "all",
@@ -602,6 +604,34 @@ function ShortageModal({
   const hdrBg        = accentRed ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40";
   const accentText   = accentRed ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
   const accentBorder = accentRed ? "bg-card border-red-300 dark:border-red-800" : "bg-card border-amber-300 dark:border-amber-700";
+
+  // القيم الفريدة الموجودة فعليًا في البيانات لكل عمود (لعرضها كاختيارات جاهزة في الفلتر)
+  const uniqueValues = useMemo(() => {
+    const productSet = new Set<string>();
+    const sizeSet = new Set<string>();
+    const colorSet = new Set<string>();
+    const neededSet = new Set<string>();
+    const availableSet = new Set<string>();
+    const gapSet = new Set<string>();
+    critical.forEach(i => {
+      if (i.product) productSet.add(i.product);
+      if (i.size) sizeSet.add(i.size);
+      if (i.color) colorSet.add(i.color);
+      neededSet.add(String(i.needed));
+      availableSet.add(String(i.available));
+      gapSet.add(String(i.gap));
+    });
+    const sortStrings = (s: Set<string>) => Array.from(s).sort((a, b) => a.localeCompare(b, "ar"));
+    const sortNumbers  = (s: Set<string>) => Array.from(s).sort((a, b) => Number(a) - Number(b));
+    return {
+      product: sortStrings(productSet),
+      size: sortStrings(sizeSet),
+      color: sortStrings(colorSet),
+      needed: sortNumbers(neededSet),
+      available: sortNumbers(availableSet),
+      gap: sortNumbers(gapSet),
+    };
+  }, [critical]);
 
   // إغلاق dropdowns عند الضغط خارجها
   useEffect(() => {
@@ -618,12 +648,12 @@ function ShortageModal({
   const filtered = critical
     .filter(i => {
       const cf = colFilter;
-      if (cf.product   && !i.product.includes(cf.product))                   return false;
-      if (cf.size      && !(i.size  ?? "").includes(cf.size))                return false;
-      if (cf.color     && !(i.color ?? "").includes(cf.color))               return false;
-      if (cf.needed    && String(i.needed).indexOf(cf.needed)    === -1)      return false;
-      if (cf.available && String(i.available).indexOf(cf.available) === -1)   return false;
-      if (cf.gap       && String(i.gap).indexOf(cf.gap)           === -1)     return false;
+      if (cf.product   && i.product !== cf.product)                          return false;
+      if (cf.size      && (i.size  ?? "") !== cf.size)                       return false;
+      if (cf.color     && (i.color ?? "") !== cf.color)                      return false;
+      if (cf.needed    && String(i.needed) !== cf.needed)                    return false;
+      if (cf.available && String(i.available) !== cf.available)              return false;
+      if (cf.gap       && String(i.gap) !== cf.gap)                          return false;
       if (cf.status !== "all" && i.status !== cf.status)                      return false;
       return true;
     })
@@ -672,60 +702,64 @@ function ShortageModal({
             {label}
             {sortKey === col ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
           </button>
-          {/* زرار الفلتر */}
-          <div
-            ref={el => { filterRefs.current[col] = el; }}
-            className="relative"
-          >
-            <button
-              onClick={() => setOpenFilter(isOpen ? null : col)}
-              title="فلتر"
-              className={`p-0.5 rounded transition-colors ${filtered_ ? "text-blue-500" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+          {/* زرار الفلتر — يظهر فقط لما الفلاتر تكون مفعّلة */}
+          {filtersEnabled && (
+            <div
+              ref={el => { filterRefs.current[col] = el; }}
+              className="relative"
             >
-              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 01.707 1.707L13 10.414V17a1 1 0 01-1.447.894l-4-2A1 1 0 017 15v-4.586L3.293 4.707A1 1 0 013 4V3z" clipRule="evenodd"/>
-              </svg>
-            </button>
-            {isOpen && (
-              <div className="absolute top-6 left-0 z-50 bg-background border border-border rounded-lg shadow-xl p-2 min-w-[160px]" style={{right: "auto"}}>
-                {col === "status" ? (
-                  <div className="flex flex-col gap-1">
-                    {(["all","none","partial"] as FilterStatus[]).map(s => (
-                      <button key={s}
-                        onClick={() => { setColFilter(f => ({...f, status: s})); setOpenFilter(null); }}
-                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg text-right transition-colors ${
-                          colFilter.status === s
-                            ? s === "none" ? "bg-red-600 text-white" : s === "partial" ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        {s === "all" ? "الكل" : s === "none" ? "🚫 فاضي" : "⚡ ناقص"}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-1.5">
-                    <input
-                      autoFocus
-                      type={numeric ? "number" : "text"}
-                      value={colFilter[col]}
-                      onChange={e => setColFilter(f => ({...f, [col]: e.target.value}))}
-                      placeholder={`فلتر ${label}...`}
-                      className="text-xs rounded border border-border bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary/30 w-full"
-                    />
-                    {colFilter[col] && (
+              <button
+                onClick={() => setOpenFilter(isOpen ? null : col)}
+                title="فلتر"
+                className={`p-0.5 rounded transition-colors ${filtered_ ? "text-blue-500" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+              >
+                <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 01.707 1.707L13 10.414V17a1 1 0 01-1.447.894l-4-2A1 1 0 017 15v-4.586L3.293 4.707A1 1 0 013 4V3z" clipRule="evenodd"/>
+                </svg>
+              </button>
+              {isOpen && (
+                <div className="absolute top-6 left-0 z-50 bg-background border border-border rounded-lg shadow-xl p-2 min-w-[160px] max-h-[240px] overflow-y-auto" style={{right: "auto"}}>
+                  {col === "status" ? (
+                    <div className="flex flex-col gap-1">
+                      {(["all","none","partial"] as FilterStatus[]).map(s => (
+                        <button key={s}
+                          onClick={() => { setColFilter(f => ({...f, status: s})); setOpenFilter(null); }}
+                          className={`text-[11px] font-bold px-3 py-1.5 rounded-lg text-right transition-colors ${
+                            colFilter.status === s
+                              ? s === "none" ? "bg-red-600 text-white" : s === "partial" ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
+                              : "hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          {s === "all" ? "الكل" : s === "none" ? "🚫 فاضي" : "⚡ ناقص"}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
                       <button
                         onClick={() => { setColFilter(f => ({...f, [col]: ""})); setOpenFilter(null); }}
-                        className="text-[10px] text-red-500 hover:underline text-right"
+                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg text-right transition-colors ${
+                          colFilter[col] === "" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                        }`}
                       >
-                        مسح الفلتر
+                        الكل
                       </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                      {uniqueValues[col].map(val => (
+                        <button key={val}
+                          onClick={() => { setColFilter(f => ({...f, [col]: val})); setOpenFilter(null); }}
+                          className={`text-[11px] font-bold px-3 py-1.5 rounded-lg text-right transition-colors truncate ${
+                            colFilter[col] === val ? "bg-blue-500 text-white" : "hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </th>
     );
@@ -832,6 +866,29 @@ function ShortageModal({
           <div className="flex gap-1.5 shrink-0">
             {noneItems.length > 0 && <span className="text-[9px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">🚫 {noneItems.length}</span>}
             {partialItems.length > 0 && <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">⚡ {partialItems.length}</span>}
+            {/* زرار إنشاء فلتر (toggle) */}
+            <button
+              onClick={() => {
+                setFiltersEnabled(v => {
+                  const next = !v;
+                  // لما نقفل الفلاتر بالكامل، نقفل أي dropdown مفتوح ونمسح كل القيم المختارة
+                  if (!next) {
+                    setOpenFilter(null);
+                    setColFilter({ product:"", size:"", color:"", needed:"", available:"", gap:"", status:"all" });
+                  }
+                  return next;
+                });
+              }}
+              className={`flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg transition-colors ${
+                filtersEnabled ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-muted hover:bg-muted/70 text-muted-foreground"
+              }`}
+              title="إنشاء فلتر"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 01.707 1.707L13 10.414V17a1 1 0 01-1.447.894l-4-2A1 1 0 017 15v-4.586L3.293 4.707A1 1 0 013 4V3z" clipRule="evenodd"/>
+              </svg>
+              إنشاء فلتر
+            </button>
             {/* زرار الطباعة */}
             <button
               onClick={handlePrint}
