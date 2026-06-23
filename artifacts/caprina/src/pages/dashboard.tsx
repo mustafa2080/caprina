@@ -594,6 +594,8 @@ function ShortageModal({
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   // إظهار/إخفاء أيقونات الفلتر على الأعمدة (زرار "إنشاء فلتر")
   const [filtersEnabled, setFiltersEnabled] = useState(false);
+  // بحث عام (اسم المنتج / المقاس / اللون)
+  const [searchText, setSearchText] = useState("");
   // قيم الفلاتر لكل عمود
   const [colFilter, setColFilter] = useState<ColFilter>({
     product: "", size: "", color: "", needed: "", available: "", gap: "", status: "all",
@@ -647,6 +649,12 @@ function ShortageModal({
   // ── فلترة + ترتيب ──
   const filtered = critical
     .filter(i => {
+      // بحث عام: المنتج / المقاس / اللون
+      if (searchText) {
+        const q = searchText.trim();
+        const hit = i.product.includes(q) || (i.size ?? "").includes(q) || (i.color ?? "").includes(q);
+        if (!hit) return false;
+      }
       const cf = colFilter;
       if (cf.product   && i.product !== cf.product)                          return false;
       if (cf.size      && (i.size  ?? "") !== cf.size)                       return false;
@@ -680,7 +688,7 @@ function ShortageModal({
   const hasFilter = (col: keyof ColFilter) =>
     col === "status" ? colFilter.status !== "all" : colFilter[col] !== "";
 
-  const anyFilterActive = Object.entries(colFilter).some(([k, v]) => k === "status" ? v !== "all" : v !== "");
+  const anyFilterActive = searchText !== "" || Object.entries(colFilter).some(([k, v]) => k === "status" ? v !== "all" : v !== "");
 
   // مساعد لرسم header خلية مع زرار فلتر
   const ColHeader = ({
@@ -847,9 +855,9 @@ function ShortageModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" dir="rtl">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${accentBorder}`}>
+      <div className={`relative z-10 w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${accentBorder}`}>
 
         {/* ── Header ── */}
         <div className={`flex items-center gap-3 px-4 py-3 border-b ${hdrBg}`}>
@@ -906,12 +914,36 @@ function ShortageModal({
           </div>
         </div>
 
+        {/* ── شريط البحث العام ── */}
+        <div className="px-3 py-2 border-b border-border bg-muted/10 shrink-0">
+          <div className="relative">
+            <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              placeholder="بحث بالمنتج / المقاس / اللون..."
+              className="w-full text-xs rounded-lg border border-border bg-background pr-8 pl-3 py-1.5 outline-none focus:ring-1 focus:ring-primary/30"
+            />
+            {searchText && (
+              <button
+                onClick={() => setSearchText("")}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* ── شريط مسح الفلاتر ── */}
         {anyFilterActive && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800/40">
             <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold flex-1">🔍 فلاتر نشطة</span>
             <button
-              onClick={() => setColFilter({ product:"", size:"", color:"", needed:"", available:"", gap:"", status:"all" })}
+              onClick={() => { setSearchText(""); setColFilter({ product:"", size:"", color:"", needed:"", available:"", gap:"", status:"all" }); }}
               className="text-[10px] text-red-500 hover:underline font-bold"
             >
               مسح الكل ✕
@@ -920,8 +952,8 @@ function ShortageModal({
         )}
 
         {/* ── الجدول ── */}
-        <div className="overflow-auto flex-1">
-          <table className="w-full border-collapse text-right" dir="rtl" style={{ minWidth: 520 }}>
+        <div className="overflow-auto flex-1 min-h-0">
+          <table className="w-full border-collapse text-right" dir="rtl">
             <thead className={`sticky top-0 z-10 ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"} border-b border-border`}>
               <tr>
                 <ColHeader col="product"   label="المنتج" />
