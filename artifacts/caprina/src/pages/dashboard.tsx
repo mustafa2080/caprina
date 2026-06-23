@@ -563,7 +563,7 @@ function DashShippingCompanyRow({ company, allStats, allManifests, canViewFinanc
 }
 
 // ─── ShortageModal Component ──────────────────────────────────────────────────
-type SortKey = "product" | "needed" | "available" | "gap";
+type SortKey = "product" | "size" | "color" | "needed" | "available" | "gap";
 type SortDir = "asc" | "desc";
 type FilterStatus = "all" | "none" | "partial";
 
@@ -579,8 +579,8 @@ function ShortageModal({
 }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("gap");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortKey, setSortKey] = useState<SortKey>("product");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const accentRed   = isEmergency;
   const hdrBg       = accentRed ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40";
@@ -596,15 +596,30 @@ function ShortageModal({
     })
     .sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
-      if (sortKey === "product") return dir * a.product.localeCompare(b.product, "ar");
-      if (sortKey === "needed")  return dir * (a.needed - b.needed);
-      if (sortKey === "available") return dir * (a.available - b.available);
-      return dir * (a.gap - b.gap);
+      // ترتيب مركّب: المفتاح المختار أولاً، ثم منتج → مقاس → لون كـ tiebreaker
+      const cmp = (x: string | number, y: string | number) =>
+        typeof x === "string" ? x.localeCompare(y as string, "ar") : (x as number) - (y as number);
+
+      let primary = 0;
+      if (sortKey === "product")   primary = cmp(a.product, b.product);
+      else if (sortKey === "size") primary = cmp(a.size ?? "", b.size ?? "");
+      else if (sortKey === "color") primary = cmp(a.color ?? "", b.color ?? "");
+      else if (sortKey === "needed") primary = cmp(a.needed, b.needed);
+      else if (sortKey === "available") primary = cmp(a.available, b.available);
+      else primary = cmp(a.gap, b.gap);
+
+      if (primary !== 0) return dir * primary;
+      // tiebreaker: منتج → مقاس → لون
+      return cmp(a.product, b.product) || cmp(a.size ?? "", b.size ?? "") || cmp(a.color ?? "", b.color ?? "");
     });
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("desc"); }
+    else {
+      setSortKey(key);
+      // الأرقام: تنازلي (الأكبر أولاً) — النصوص: تصاعدي (أ→ي)
+      setSortDir(["product","size","color"].includes(key) ? "asc" : "desc");
+    }
   };
 
   const sortArrow = (key: SortKey) => sortKey === key ? (sortDir === "desc" ? " ↓" : " ↑") : "";
@@ -754,7 +769,7 @@ function ShortageModal({
             </div>
             <div className="flex gap-1 mr-auto">
               <span className="text-[10px] text-muted-foreground self-center">ترتيب:</span>
-              {([["product","المنتج"],["needed","مطلوب"],["available","متاح"],["gap","ناقص"]] as [SortKey,string][]).map(([k,l]) => (
+              {([["product","المنتج"],["size","المقاس"],["color","اللون"],["needed","مطلوب"],["available","متاح"],["gap","ناقص"]] as [SortKey,string][]).map(([k,l]) => (
                 <button key={k}
                   onClick={() => toggleSort(k)}
                   className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${
