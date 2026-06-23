@@ -672,6 +672,52 @@ export interface ShortageVsStockResponse {
   criticalCount: number;
 }
 
+// ─── Feasible Invoices — الفواتير القابلة للتحضير ───────────────────────────
+export interface FeasibleOrder {
+  id: number;
+  customerName: string;
+  phone: string | null;
+  product: string;
+  color: string | null;
+  size: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  shippingCost: number | null;
+  invoiceNumber: string | null;
+  createdAt: string;
+  notes: string | null;
+}
+
+export interface SkippedOrder extends FeasibleOrder {
+  missing: number;
+  reasonAr: string;
+}
+
+export interface StockUsageItem {
+  product: string;
+  color: string | null;
+  size: string | null;
+  wasAvailable: number;
+  used: number;
+  remaining: number;
+}
+
+export interface FeasibleInvoicesSummary {
+  feasibleCount: number;
+  skippedCount: number;
+  totalRevenue: number;
+  totalQty: number;
+  skippedRevenue: number;
+  stockUsage: StockUsageItem[];
+}
+
+export interface FeasibleInvoicesResponse {
+  feasibleOrders: FeasibleOrder[];
+  skippedOrders: SkippedOrder[];
+  summary: FeasibleInvoicesSummary;
+}
+
 export const ordersApi = {
   stats: () => apiFetch<OrderStats>("/orders/stats"),
   delete: (id: number) => apiFetch<void>(`/orders/${id}`, { method: "DELETE" }),
@@ -680,6 +726,7 @@ export const ordersApi = {
   inManifestIds: () => apiFetch<{ ids: number[] }>("/orders/in-manifest-ids"),
   inventoryShortage: () => apiFetch<InventoryShortageResponse>("/orders/inventory-shortage"),
   shortageVsStock: () => apiFetch<ShortageVsStockResponse>("/orders/shortage-vs-stock"),
+  feasibleInvoices: () => apiFetch<FeasibleInvoicesResponse>("/orders/feasible-invoices"),
   bySource: (source: string, dateFrom?: string, dateTo?: string) => {
     const params = new URLSearchParams({ source });
     if (dateFrom) params.set("dateFrom", dateFrom);

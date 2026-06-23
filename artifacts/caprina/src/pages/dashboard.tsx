@@ -12,11 +12,13 @@ import {
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
   Receipt, Building2, FileText, X, AlertOctagon, Users, Truck, Globe,
+  CheckCircle2, CircleDashed, Sparkles, ChevronRight, BadgeDollarSign,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi, shippingApi, manifestsApi, teamAnalyticsApi, type TeamMemberExtStats,
   employeeApi, usersApi, ordersApi, type ShortageVsStockItem,
+  type FeasibleOrder, type SkippedOrder, type FeasibleInvoicesResponse,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -563,6 +565,322 @@ function DashShippingCompanyRow({ company, allStats, allManifests, canViewFinanc
 }
 
 // ─── ShortageModal Component ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ✅ FeasibleInvoicesTab — الفواتير المتاحة (أعلى إيراد ممكن من المخزن)
+// ═══════════════════════════════════════════════════════════════════════════
+function FeasibleInvoicesTab({ data, isLoading }: { data: FeasibleInvoicesResponse | undefined; isLoading: boolean }) {
+  const [tab, setTab] = useState<"feasible" | "skipped">("feasible");
+  const [search, setSearch] = useState("");
+
+  const fc = (v: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(v);
+
+  const sendWhatsApp = (phone: string | null, order: FeasibleOrder) => {
+    if (!phone) return;
+    const clean = phone.replace(/\D/g, "");
+    const num = clean.startsWith("0") ? `2${clean}` : clean.startsWith("2") ? clean : `2${clean}`;
+    const msg = encodeURIComponent(
+      `أهلاً ${order.customerName} 🌟\nطلبك جاهز للشحن!\n\n📦 ${order.product}${order.color ? ` - ${order.color}` : ""}${order.size ? ` / ${order.size}` : ""}\n🔢 الكمية: ${order.quantity}\n💰 الإجمالي: ${(order.totalPrice ?? 0).toLocaleString("ar-EG")} جنيه\n\nنتشرف بخدمتك 🙏`
+    );
+    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+        <RefreshCw className="w-6 h-6 animate-spin" />
+        <span className="text-sm">جاري تحليل المخزون...</span>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+        <CircleDashed className="w-8 h-8" />
+        <span className="text-sm">لا توجد بيانات</span>
+      </div>
+    );
+  }
+
+  const { feasibleOrders, skippedOrders, summary } = data;
+
+  const filteredFeasible = feasibleOrders.filter(o =>
+    !search || o.customerName.includes(search) || o.product.includes(search) || (o.invoiceNumber ?? "").includes(search)
+  );
+  const filteredSkipped = skippedOrders.filter(o =>
+    !search || o.customerName.includes(search) || o.product.includes(search) || (o.invoiceNumber ?? "").includes(search)
+  );
+
+  // حساب الترتيب التراكمي للإيراد (لبار التقدم)
+  let cumRevenue = 0;
+  const feasibleWithCum = filteredFeasible.map(o => {
+    cumRevenue += (o.totalPrice ?? 0) + (o.shippingCost ?? 0);
+    return { ...o, cumRevenue };
+  });
+
+  return (
+    <div className="flex flex-col gap-0 h-full min-h-0" dir="rtl">
+
+      {/* ── KPI Summary Cards ── */}
+      <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 border-b border-border/60">
+        {/* أعلى إيراد ممكن */}
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 p-2.5 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+            <BadgeDollarSign className="w-3.5 h-3.5" />
+            أعلى إيراد ممكن
+          </div>
+          <p className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 leading-none">
+            {fc(summary.totalRevenue)}
+          </p>
+          <p className="text-[9px] text-emerald-600/70 dark:text-emerald-500">
+            {summary.feasibleCount} فاتورة قابلة للتحضير
+          </p>
+        </div>
+
+        {/* عدد العملاء */}
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 p-2.5 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400">
+            <Users className="w-3.5 h-3.5" />
+            العملاء الجاهزون
+          </div>
+          <p className="text-base sm:text-lg font-black text-blue-700 dark:text-blue-300 leading-none">
+            {summary.feasibleCount}
+          </p>
+          <p className="text-[9px] text-blue-600/70 dark:text-blue-500">
+            {summary.totalQty} قطعة إجمالي
+          </p>
+        </div>
+
+        {/* إيراد معلّق (skipped) */}
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-2.5 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+            <Clock className="w-3.5 h-3.5" />
+            إيراد معلّق
+          </div>
+          <p className="text-base sm:text-lg font-black text-amber-700 dark:text-amber-300 leading-none">
+            {fc(summary.skippedRevenue ?? 0)}
+          </p>
+          <p className="text-[9px] text-amber-600/70 dark:text-amber-500">
+            {summary.skippedCount} طلب ينتظر المخزون
+          </p>
+        </div>
+
+        {/* نسبة التغطية */}
+        <div className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-violet-50 dark:bg-violet-900/20 p-2.5 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-violet-700 dark:text-violet-400">
+            <Sparkles className="w-3.5 h-3.5" />
+            نسبة التغطية
+          </div>
+          <p className="text-base sm:text-lg font-black text-violet-700 dark:text-violet-300 leading-none">
+            {summary.feasibleCount + summary.skippedCount > 0
+              ? Math.round((summary.feasibleCount / (summary.feasibleCount + summary.skippedCount)) * 100)
+              : 0}%
+          </p>
+          <p className="text-[9px] text-violet-600/70 dark:text-violet-500">من إجمالي الطلبات المعلقة</p>
+        </div>
+      </div>
+
+      {/* ── Tabs + Search ── */}
+      <div className="shrink-0 flex flex-col gap-2 px-3 pt-2.5 pb-0">
+        <div className="flex items-center gap-2">
+          {/* Tabs */}
+          <div className="flex rounded-lg overflow-hidden border border-border text-xs font-semibold">
+            <button
+              onClick={() => setTab("feasible")}
+              className={`px-3 py-1.5 flex items-center gap-1.5 transition-colors ${tab === "feasible" ? "bg-emerald-600 text-white" : "bg-card text-muted-foreground hover:bg-muted/50"}`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              جاهزة ({summary.feasibleCount})
+            </button>
+            <button
+              onClick={() => setTab("skipped")}
+              className={`px-3 py-1.5 flex items-center gap-1.5 transition-colors ${tab === "skipped" ? "bg-amber-500 text-white" : "bg-card text-muted-foreground hover:bg-muted/50"}`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              معلّقة ({summary.skippedCount})
+            </button>
+          </div>
+          {/* Search */}
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="بحث بالعميل / المنتج / الفاتورة..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full text-xs rounded-lg border border-border bg-muted/40 px-3 py-1.5 pr-3 focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/60"
+            />
+          </div>
+        </div>
+
+        {/* Insight bar — الـ greedy algorithm explanation */}
+        {tab === "feasible" && summary.feasibleCount > 0 && (
+          <div className="flex items-center gap-2 text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg px-3 py-1.5">
+            <Sparkles className="w-3 h-3 shrink-0" />
+            <span>مرتّبة بأعلى إيراد أولاً — الخوارزمية اختارت أفضل {summary.feasibleCount} عميل لتعظيم إيراد <strong>{fc(summary.totalRevenue)}</strong> من المخزون الحالي</span>
+          </div>
+        )}
+        {tab === "skipped" && summary.skippedCount > 0 && (
+          <div className="flex items-center gap-2 text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg px-3 py-1.5">
+            <AlertTriangle className="w-3 h-3 shrink-0" />
+            <span>هذه الطلبات تحتاج تجديد مخزون — إيرادها المؤجَّل <strong>{fc(summary.skippedRevenue ?? 0)}</strong></span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Orders List ── */}
+      <div className="overflow-auto flex-1 min-h-0 mt-2">
+        {tab === "feasible" ? (
+          feasibleWithCum.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+              <span className="text-sm">لا توجد نتائج</span>
+            </div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border/40">
+              {feasibleWithCum.map((order, idx) => {
+                const revenue = (order.totalPrice ?? 0) + (order.shippingCost ?? 0);
+                const progressPct = summary.totalRevenue > 0 ? Math.round((order.cumRevenue / summary.totalRevenue) * 100) : 0;
+                return (
+                  <div key={order.id} className="flex items-start gap-3 px-3 py-3 hover:bg-muted/30 transition-colors group">
+                    {/* رقم الترتيب */}
+                    <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black mt-0.5 ${idx < 3 ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                      {idx + 1}
+                    </div>
+                    {/* التفاصيل */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-foreground truncate">{order.customerName}</span>
+                        {order.invoiceNumber && (
+                          <span className="text-[10px] text-muted-foreground font-mono border border-border/60 px-1.5 py-0.5 rounded bg-muted/30">
+                            #{order.invoiceNumber}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/40 px-1.5 py-0.5 rounded-full">
+                          ✅ جاهز
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                        <span className="font-semibold text-foreground/80">{order.product}</span>
+                        {order.color && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.color}</span>}
+                        {order.size && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.size}</span>}
+                        <span>× {order.quantity} قطعة</span>
+                      </div>
+                      {/* بار تراكم الإيراد */}
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-muted-foreground shrink-0">{progressPct}% من الإيراد</span>
+                      </div>
+                    </div>
+                    {/* الإيراد + واتساب */}
+                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                      <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{fc(revenue)}</span>
+                      {order.phone ? (
+                        <button
+                          onClick={() => sendWhatsApp(order.phone, order)}
+                          title="إرسال واتساب"
+                          className="flex items-center gap-1 text-[10px] font-semibold text-white bg-[#25D366] hover:bg-[#1DA851] px-2 py-1 rounded-lg transition-colors"
+                        >
+                          <FaWhatsapp className="w-3 h-3" />
+                          واتساب
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/50">لا يوجد رقم</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          /* ── Skipped Orders Tab ── */
+          filteredSkipped.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+              <span className="text-sm">ما فيش طلبات معلّقة 🎉</span>
+            </div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border/40">
+              {filteredSkipped.map((order) => {
+                const revenue = (order.totalPrice ?? 0) + (order.shippingCost ?? 0);
+                return (
+                  <div key={order.id} className="flex items-start gap-3 px-3 py-3 hover:bg-muted/30 transition-colors">
+                    <div className="shrink-0 w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mt-0.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-foreground">{order.customerName}</span>
+                        {order.invoiceNumber && (
+                          <span className="text-[10px] text-muted-foreground font-mono border border-border/60 px-1.5 py-0.5 rounded bg-muted/30">
+                            #{order.invoiceNumber}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/40 px-1.5 py-0.5 rounded-full">
+                          ⚠ {order.reasonAr}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                        <span className="font-semibold text-foreground/80">{order.product}</span>
+                        {order.color && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.color}</span>}
+                        {order.size && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.size}</span>}
+                        <span>× {order.quantity} قطعة</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                      <span className="text-sm font-black text-amber-700 dark:text-amber-400">{fc(revenue)}</span>
+                      {order.phone ? (
+                        <button
+                          onClick={() => sendWhatsApp(order.phone, order as unknown as FeasibleOrder)}
+                          title="إرسال واتساب"
+                          className="flex items-center gap-1 text-[10px] font-semibold text-white bg-[#25D366] hover:bg-[#1DA851] px-2 py-1 rounded-lg transition-colors"
+                        >
+                          <FaWhatsapp className="w-3 h-3" />
+                          واتساب
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/50">لا يوجد رقم</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* ── Footer: Stock Usage Summary ── */}
+      {summary.stockUsage.length > 0 && (
+        <div className="shrink-0 border-t border-border bg-muted/30 px-3 py-2">
+          <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+            <Boxes className="w-3 h-3" />
+            استخدام المخزون المقترح
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {summary.stockUsage.slice(0, 6).map((s, i) => (
+              <div key={i} className="text-[9px] border border-border/60 rounded px-2 py-1 bg-card flex items-center gap-1">
+                <span className="font-semibold">{s.product}</span>
+                {s.color && <span className="text-muted-foreground">{s.color}</span>}
+                {s.size && <span className="text-muted-foreground">/{s.size}</span>}
+                <ChevronRight className="w-2.5 h-2.5 text-muted-foreground/50" />
+                <span className="text-red-500 font-black">-{s.used}</span>
+                <span className="text-muted-foreground">({s.remaining} متبقي)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 type SortKey = "product" | "size" | "color" | "needed" | "available" | "gap";
 type SortDir = "asc" | "desc";
 type FilterStatus = "all" | "none" | "partial";
@@ -580,6 +898,7 @@ type ColFilter = {
 
 function ShortageModal({
   isEmergency, critical, noneItems, partialItems, totalGap, onClose,
+  feasibleData, feasibleLoading,
 }: {
   isEmergency: boolean;
   critical: ShortageVsStockItem[];
@@ -587,7 +906,11 @@ function ShortageModal({
   partialItems: ShortageVsStockItem[];
   totalGap: number;
   onClose: () => void;
+  feasibleData?: FeasibleInvoicesResponse;
+  feasibleLoading?: boolean;
 }) {
+  // التاب الرئيسي للمودال: نواقص / فواتير متاحة
+  const [modalTab, setModalTab] = useState<"shortages" | "feasible">("shortages");
   const [sortKey, setSortKey] = useState<SortKey>("gap");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   // أي عمود مفتوح الفلتر بتاعه
@@ -866,10 +1189,35 @@ function ShortageModal({
             <span className={`relative inline-flex rounded-full h-3 w-3 ${accentRed ? "bg-red-600" : "bg-amber-500"}`} />
           </span>
           <div className="flex-1 min-w-0">
-            <p className={`text-sm font-black ${accentText}`}>تقرير نواقص المخزن</p>
-            <p className="text-[10px] text-muted-foreground">
-              {filtered.length} / {critical.length} منتج • ناقص إجمالي: {totalGap} قطعة
+            <p className={`text-sm font-black ${accentText}`}>
+              {modalTab === "shortages" ? "تقرير نواقص المخزن" : "الفواتير المتاحة"}
             </p>
+            <p className="text-[10px] text-muted-foreground">
+              {modalTab === "shortages"
+                ? `${filtered.length} / ${critical.length} منتج • ناقص إجمالي: ${totalGap} قطعة`
+                : `${feasibleData?.summary.feasibleCount ?? 0} فاتورة جاهزة • إيراد ${new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(feasibleData?.summary.totalRevenue ?? 0)}`
+              }
+            </p>
+          </div>
+          {/* ── Tab Switcher ── */}
+          <div className="flex rounded-lg overflow-hidden border border-border/60 text-[10px] font-bold shrink-0">
+            <button
+              onClick={() => setModalTab("shortages")}
+              className={`px-2.5 py-1.5 flex items-center gap-1 transition-colors ${modalTab === "shortages" ? (accentRed ? "bg-red-600 text-white" : "bg-amber-500 text-white") : "bg-card text-muted-foreground hover:bg-muted/50"}`}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              النواقص
+            </button>
+            <button
+              onClick={() => setModalTab("feasible")}
+              className={`px-2.5 py-1.5 flex items-center gap-1 transition-colors ${modalTab === "feasible" ? "bg-emerald-600 text-white" : "bg-card text-muted-foreground hover:bg-muted/50"}`}
+            >
+              <CheckCircle2 className="w-3 h-3" />
+              الفواتير المتاحة
+              {(feasibleData?.summary.feasibleCount ?? 0) > 0 && (
+                <span className="bg-white/20 rounded-full px-1">{feasibleData?.summary.feasibleCount}</span>
+              )}
+            </button>
           </div>
           <div className="flex gap-1.5 shrink-0">
             {noneItems.length > 0 && <span className="text-[9px] font-black bg-red-600 text-white px-2 py-0.5 rounded-full">🚫 {noneItems.length}</span>}
@@ -913,6 +1261,16 @@ function ShortageModal({
             </button>
           </div>
         </div>
+
+        {/* ══ تاب الفواتير المتاحة ══ */}
+        {modalTab === "feasible" && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <FeasibleInvoicesTab data={feasibleData} isLoading={feasibleLoading ?? false} />
+          </div>
+        )}
+
+        {/* ══ تاب النواقص (يُخفى لما نكون في تاب الفواتير) ══ */}
+        {modalTab === "shortages" && <>
 
         {/* ── شريط البحث العام ── */}
         <div className="px-3 py-2 border-b border-border bg-muted/10 shrink-0">
@@ -1044,6 +1402,9 @@ function ShortageModal({
             إغلاق
           </button>
         </div>
+
+        </> /* end of shortages tab */ }
+
       </div>
     </div>
   );
@@ -1200,6 +1561,14 @@ export default function Dashboard() {
     queryFn: ordersApi.shortageVsStock,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
+  });
+
+  const { data: feasibleInvoices, isLoading: feasibleLoading } = useQuery({
+    queryKey: ["feasible-invoices"],
+    queryFn: ordersApi.feasibleInvoices,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    enabled: true,
   });
 
   const { data: cashRegisters } = useQuery({
@@ -1510,6 +1879,8 @@ export default function Dashboard() {
                 partialItems={partialItems}
                 totalGap={totalGap}
                 onClose={() => setShowShortageModal(false)}
+                feasibleData={feasibleInvoices}
+                feasibleLoading={feasibleLoading}
               />
             )}
           </>

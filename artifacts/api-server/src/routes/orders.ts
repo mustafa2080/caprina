@@ -171,6 +171,131 @@ router.get("/orders/inventory-shortage", async (req, res): Promise<void> => {
 });
 
 // ─── Inventory Shortage vs Stock Analysis (مقارنة النواقص بالمخزن) ───────────
+// ─── Feasible Invoices — أفضل فواتير يمكن تحضيرها من المخزن الحالي ──────────
+// الخوارزمية: Greedy بأعلى إيراد — تُعظِّم الإيراد الممكن من المخزون المتاح
+router.get("/orders/feasible-invoices", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req);
+    const conditions: any[] = [
+      isNull(ordersTable.deletedAt),
+      eq(ordersTable.status, "pending"),
+    ];
+    if (tenantId !== null) conditions.push(eq(ordersTable.tenantId, tenantId));
+
+    // 1) جلب كل الطلبات المعلقة مع كل تفاصيلها
+    const pendingOrders = await db
+      .select({
+        id: ordersTable.id,
+        customerName: ordersTable.customerName,
+        phone: ordersTable.phone,
+        product: ordersTable.product,
+        color: ordersTable.color,
+        size: ordersTable.size,
+        quantity: ordersTable.quantity,
+        unitPrice: ordersTable.unitPrice,
+        totalPrice: ordersTable.totalPrice,
+        shippingCost: ordersTable.shippingCost,
+        invoiceNumber: ordersTable.invoiceNumber,
+        createdAt: ordersTable.createdAt,
+        notes: ordersTable.notes,
+      })
+      .from(ordersTable)
+      .where(and(...conditions))
+      .orderBy(desc(ordersTable.createdAt));
+
+    if (pendingOrders.length === 0) {
+      res.json({ feasibleOrders: [], skippedOrders: [], summary: { feasibleCount: 0, skippedCount: 0, totalRevenue: 0, totalQty: 0, stockUsage: [] } });
+      return;
+    }
+
+    // 2) جلب المخزون المتاح من product_variants
+    const variantStockRows = await db
+      .select({
+        productName: productsTable.name,
+        color: productVariantsTable.color,
+        size: productVariantsTable.size,
+        totalQuantity: productVariantsTable.totalQuantity,
+        reservedQuantity: productVariantsTable.reservedQuantity,
+        soldQuantity: productVariantsTable.soldQuantity,
+      })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+      .where(tenantId !== null ? eq(productsTable.tenantId, tenantId) : sql`1=1`);
+
+    // خريطة المخزون المتاح (mutable - هنخصم منها)
+    const stockMap = new Map<string, number>();
+    for (const row of variantStockRows) {
+      const key = `${row.productName}||${row.color ?? ""}||${row.size ?? ""}`;
+      const available = Math.max(0, (row.totalQuantity ?? 0) - (row.reservedQuantity ?? 0) - (row.soldQuantity ?? 0));
+      stockMap.set(key, (stockMap.get(key) ?? 0) + available);
+    }
+    // نسخة ثابتة للمقارنة في النهاية
+    const originalStockMap = new Map(stockMap);
+
+    // 3) ترتيب الطلبات تنازلياً بالإيراد (greedy: أعلى إيراد أولاً)
+    const sorted = [...pendingOrders].sort((a, b) => {
+      const revA = (a.totalPrice ?? 0) + (a.shippingCost ?? 0);
+      const revB = (b.totalPrice ?? 0) + (b.shippingCost ?? 0);
+      return revB - revA;
+    });
+
+    // 4) Greedy allocation — خصم من المخزون طالما الطلب يمكن تغطيته كاملاً
+    const feasibleOrders: typeof sorted = [];
+    const skippedOrders: Array<typeof sorted[0] & { reasonAr: string; missing: number }> = [];
+
+    for (const order of sorted) {
+      const key = `${order.product}||${order.color ?? ""}||${order.size ?? ""}`;
+      const inStock = stockMap.get(key) ?? 0;
+
+      if (inStock >= order.quantity) {
+        // ✅ يمكن تحضيره — خصم من المخزون
+        stockMap.set(key, inStock - order.quantity);
+        feasibleOrders.push(order);
+      } else {
+        // ❌ مش كافي
+        const missing = order.quantity - inStock;
+        skippedOrders.push({
+          ...order,
+          missing,
+          reasonAr: inStock === 0 ? "المخزن فاضي" : `ناقص ${missing} قطعة`,
+        });
+      }
+    }
+
+    // 5) تقرير استخدام المخزون لكل صنف
+    const stockUsage: Array<{ product: string; color: string | null; size: string | null; wasAvailable: number; used: number; remaining: number }> = [];
+    for (const [key, remaining] of stockMap.entries()) {
+      const original = originalStockMap.get(key) ?? 0;
+      const used = original - remaining;
+      if (used > 0) {
+        const [product, color, size] = key.split("||");
+        stockUsage.push({ product, color: color || null, size: size || null, wasAvailable: original, used, remaining });
+      }
+    }
+    stockUsage.sort((a, b) => b.used - a.used);
+
+    const totalRevenue = feasibleOrders.reduce((s, o) => s + (o.totalPrice ?? 0) + (o.shippingCost ?? 0), 0);
+    const totalQty = feasibleOrders.reduce((s, o) => s + o.quantity, 0);
+    const skippedRevenue = skippedOrders.reduce((s, o) => s + (o.totalPrice ?? 0) + (o.shippingCost ?? 0), 0);
+
+    res.json({
+      feasibleOrders,
+      skippedOrders,
+      summary: {
+        feasibleCount: feasibleOrders.length,
+        skippedCount: skippedOrders.length,
+        totalRevenue,
+        totalQty,
+        skippedRevenue,
+        stockUsage,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Server error" });
+  }
+});
+
+// ─── Inventory Shortage vs Stock Analysis (مقارنة النواقص بالمخزن) ───────────
 router.get("/orders/shortage-vs-stock", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const conditions: any[] = [
