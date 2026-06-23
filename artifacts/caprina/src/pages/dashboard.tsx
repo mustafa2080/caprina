@@ -1204,8 +1204,8 @@ export default function Dashboard() {
                 </span>
                 <p className={`text-xs sm:text-sm font-black flex-1 min-w-0 ${isEmergency ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
                   {isEmergency
-                    ? `⚠️ تحذير عاجل — ${noneItems.length} منتج مخزونه فاضي خالص!`
-                    : `📦 تنبيه — المخزون لا يكفي لتغطية ${shortageVsStock.criticalCount} طلب`}
+                    ? `⚠️ تحذير عاجل — منتجات يجب توافرها سريعاً لخروج طلبات الانتظار!`
+                    : `📦 تنبيه — منتجات مخزونها لا يكفي لتغطية طلبات الانتظار`}
                 </p>
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${isEmergency ? "bg-red-600 text-white" : "bg-amber-500 text-white"}`}>
                   ناقص {totalGap} قطعة
