@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useGetOrdersSummary, useGetRecentOrders } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -567,6 +567,17 @@ type SortKey = "product" | "size" | "color" | "needed" | "available" | "gap";
 type SortDir = "asc" | "desc";
 type FilterStatus = "all" | "none" | "partial";
 
+// فلتر عمود واحد
+type ColFilter = {
+  product: string;
+  size: string;
+  color: string;
+  needed: string;
+  available: string;
+  gap: string;
+  status: FilterStatus;
+};
+
 function ShortageModal({
   isEmergency, critical, noneItems, partialItems, totalGap, onClose,
 }: {
@@ -577,52 +588,148 @@ function ShortageModal({
   totalGap: number;
   onClose: () => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("product");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("gap");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // أي عمود مفتوح الفلتر بتاعه
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  // قيم الفلاتر لكل عمود
+  const [colFilter, setColFilter] = useState<ColFilter>({
+    product: "", size: "", color: "", needed: "", available: "", gap: "", status: "all",
+  });
+  const filterRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const accentRed   = isEmergency;
-  const hdrBg       = accentRed ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40";
-  const accentText  = accentRed ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
-  const accentBorder= accentRed ? "bg-card border-red-300 dark:border-red-800" : "bg-card border-amber-300 dark:border-amber-700";
+  const accentRed    = isEmergency;
+  const hdrBg        = accentRed ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800/40";
+  const accentText   = accentRed ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
+  const accentBorder = accentRed ? "bg-card border-red-300 dark:border-red-800" : "bg-card border-amber-300 dark:border-amber-700";
+
+  // إغلاق dropdowns عند الضغط خارجها
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const inside = Object.values(filterRefs.current).some(el => el?.contains(target));
+      if (!inside) setOpenFilter(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // ── فلترة + ترتيب ──
   const filtered = critical
     .filter(i => {
-      const matchSearch = !search || i.product.includes(search) || (i.color ?? "").includes(search) || (i.size ?? "").includes(search);
-      const matchStatus = filterStatus === "all" || i.status === filterStatus;
-      return matchSearch && matchStatus;
+      const cf = colFilter;
+      if (cf.product   && !i.product.includes(cf.product))                   return false;
+      if (cf.size      && !(i.size  ?? "").includes(cf.size))                return false;
+      if (cf.color     && !(i.color ?? "").includes(cf.color))               return false;
+      if (cf.needed    && String(i.needed).indexOf(cf.needed)    === -1)      return false;
+      if (cf.available && String(i.available).indexOf(cf.available) === -1)   return false;
+      if (cf.gap       && String(i.gap).indexOf(cf.gap)           === -1)     return false;
+      if (cf.status !== "all" && i.status !== cf.status)                      return false;
+      return true;
     })
     .sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
-      // ترتيب مركّب: المفتاح المختار أولاً، ثم منتج → مقاس → لون كـ tiebreaker
       const cmp = (x: string | number, y: string | number) =>
         typeof x === "string" ? x.localeCompare(y as string, "ar") : (x as number) - (y as number);
-
       let primary = 0;
-      if (sortKey === "product")   primary = cmp(a.product, b.product);
-      else if (sortKey === "size") primary = cmp(a.size ?? "", b.size ?? "");
-      else if (sortKey === "color") primary = cmp(a.color ?? "", b.color ?? "");
-      else if (sortKey === "needed") primary = cmp(a.needed, b.needed);
+      if (sortKey === "product")        primary = cmp(a.product, b.product);
+      else if (sortKey === "size")      primary = cmp(a.size ?? "", b.size ?? "");
+      else if (sortKey === "color")     primary = cmp(a.color ?? "", b.color ?? "");
+      else if (sortKey === "needed")    primary = cmp(a.needed, b.needed);
       else if (sortKey === "available") primary = cmp(a.available, b.available);
-      else primary = cmp(a.gap, b.gap);
-
+      else                              primary = cmp(a.gap, b.gap);
       if (primary !== 0) return dir * primary;
-      // tiebreaker: منتج → مقاس → لون
       return cmp(a.product, b.product) || cmp(a.size ?? "", b.size ?? "") || cmp(a.color ?? "", b.color ?? "");
     });
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else {
-      setSortKey(key);
-      // الأرقام: تنازلي (الأكبر أولاً) — النصوص: تصاعدي (أ→ي)
-      setSortDir(["product","size","color"].includes(key) ? "asc" : "desc");
-    }
+    else { setSortKey(key); setSortDir(["product","size","color"].includes(key) ? "asc" : "desc"); }
   };
 
-  const sortArrow = (key: SortKey) => sortKey === key ? (sortDir === "desc" ? " ↓" : " ↑") : "";
+  const hasFilter = (col: keyof ColFilter) =>
+    col === "status" ? colFilter.status !== "all" : colFilter[col] !== "";
+
+  const anyFilterActive = Object.entries(colFilter).some(([k, v]) => k === "status" ? v !== "all" : v !== "");
+
+  // مساعد لرسم header خلية مع زرار فلتر
+  const ColHeader = ({
+    col, label, numeric = false,
+  }: { col: keyof ColFilter; label: string; numeric?: boolean }) => {
+    const isOpen   = openFilter === col;
+    const filtered_ = hasFilter(col);
+    return (
+      <th
+        className={`px-3 py-2 text-right text-[11px] font-black whitespace-nowrap select-none ${numeric ? "text-center" : ""}`}
+        style={{ minWidth: numeric ? 70 : 90 }}
+      >
+        <div className="flex items-center gap-1 justify-between">
+          {/* اسم + ترتيب */}
+          <button
+            onClick={() => toggleSort(col as SortKey)}
+            className={`flex items-center gap-0.5 hover:text-primary transition-colors ${sortKey === col ? "text-primary font-black" : "text-muted-foreground"}`}
+          >
+            {label}
+            {sortKey === col ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+          </button>
+          {/* زرار الفلتر */}
+          <div
+            ref={el => { filterRefs.current[col] = el; }}
+            className="relative"
+          >
+            <button
+              onClick={() => setOpenFilter(isOpen ? null : col)}
+              title="فلتر"
+              className={`p-0.5 rounded transition-colors ${filtered_ ? "text-blue-500" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 01.707 1.707L13 10.414V17a1 1 0 01-1.447.894l-4-2A1 1 0 017 15v-4.586L3.293 4.707A1 1 0 013 4V3z" clipRule="evenodd"/>
+              </svg>
+            </button>
+            {isOpen && (
+              <div className="absolute top-6 left-0 z-50 bg-background border border-border rounded-lg shadow-xl p-2 min-w-[160px]" style={{right: "auto"}}>
+                {col === "status" ? (
+                  <div className="flex flex-col gap-1">
+                    {(["all","none","partial"] as FilterStatus[]).map(s => (
+                      <button key={s}
+                        onClick={() => { setColFilter(f => ({...f, status: s})); setOpenFilter(null); }}
+                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg text-right transition-colors ${
+                          colFilter.status === s
+                            ? s === "none" ? "bg-red-600 text-white" : s === "partial" ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground"
+                            : "hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        {s === "all" ? "الكل" : s === "none" ? "🚫 فاضي" : "⚡ ناقص"}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <input
+                      autoFocus
+                      type={numeric ? "number" : "text"}
+                      value={colFilter[col]}
+                      onChange={e => setColFilter(f => ({...f, [col]: e.target.value}))}
+                      placeholder={`فلتر ${label}...`}
+                      className="text-xs rounded border border-border bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary/30 w-full"
+                    />
+                    {colFilter[col] && (
+                      <button
+                        onClick={() => { setColFilter(f => ({...f, [col]: ""})); setOpenFilter(null); }}
+                        className="text-[10px] text-red-500 hover:underline text-right"
+                      >
+                        مسح الفلتر
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </th>
+    );
+  };
 
   // ── طباعة ──
   const handlePrint = () => {
@@ -742,82 +849,87 @@ function ShortageModal({
           </div>
         </div>
 
-        {/* ── شريط الفلتر والترتيب ── */}
-        <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-border bg-muted/10">
-          {/* بحث */}
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="🔍 ابحث عن منتج / لون / مقاس..."
-            className="w-full text-xs rounded-lg border border-border bg-background px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary/30"
-          />
-          {/* فلتر الحالة + ترتيب */}
-          <div className="flex gap-2 flex-wrap items-center">
-            <div className="flex gap-1">
-              {(["all","none","partial"] as FilterStatus[]).map(s => (
-                <button key={s}
-                  onClick={() => setFilterStatus(s)}
-                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
-                    filterStatus === s
-                      ? s === "none" ? "bg-red-600 text-white border-red-600" : s === "partial" ? "bg-amber-500 text-white border-amber-500" : "bg-primary text-primary-foreground border-primary"
-                      : "bg-background text-muted-foreground border-border hover:border-primary/40"
-                  }`}>
-                  {s === "all" ? "الكل" : s === "none" ? "🚫 فاضي" : "⚡ ناقص"}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1 mr-auto">
-              <span className="text-[10px] text-muted-foreground self-center">ترتيب:</span>
-              {([["product","المنتج"],["size","المقاس"],["color","اللون"],["needed","مطلوب"],["available","متاح"],["gap","ناقص"]] as [SortKey,string][]).map(([k,l]) => (
-                <button key={k}
-                  onClick={() => toggleSort(k)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${
-                    sortKey === k
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background text-muted-foreground border-border hover:border-primary/40"
-                  }`}>
-                  {l}{sortArrow(k)}
-                </button>
-              ))}
-            </div>
+        {/* ── شريط مسح الفلاتر ── */}
+        {anyFilterActive && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800/40">
+            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold flex-1">🔍 فلاتر نشطة</span>
+            <button
+              onClick={() => setColFilter({ product:"", size:"", color:"", needed:"", available:"", gap:"", status:"all" })}
+              className="text-[10px] text-red-500 hover:underline font-bold"
+            >
+              مسح الكل ✕
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* ── القائمة ── */}
-        <div className="overflow-y-auto flex-1 p-3 space-y-1.5">
-          {filtered.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-8">لا توجد نتائج</p>
-          ) : filtered.map((item, idx) => (
-            <div key={idx} className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all ${
-              item.status === "none"
-                ? "bg-red-50/80 dark:bg-red-900/15 border-red-200 dark:border-red-800/40"
-                : "bg-amber-50/60 dark:bg-amber-900/10 border-amber-200/70 dark:border-amber-800/30"
-            }`}>
-              <span className="text-lg shrink-0">{item.status === "none" ? "🚫" : "⚡"}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black">{item.product}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {[item.size, item.color].filter(Boolean).join(" · ") || "—"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2.5 shrink-0 text-[11px]">
-                <div className="text-center">
-                  <p className="font-black text-foreground text-base leading-none">{item.needed}</p>
-                  <p className="text-muted-foreground text-[9px] mt-0.5">مطلوب</p>
-                </div>
-                <span className="text-muted-foreground/30 text-base">→</span>
-                <div className="text-center">
-                  <p className={`font-black text-base leading-none ${item.available === 0 ? "text-red-500" : "text-amber-500"}`}>{item.available}</p>
-                  <p className="text-muted-foreground text-[9px] mt-0.5">متاح</p>
-                </div>
-                <div className={`text-center px-2.5 py-1.5 rounded-lg ${item.status === "none" ? "bg-red-200 dark:bg-red-900/50" : "bg-amber-200/70 dark:bg-amber-900/40"}`}>
-                  <p className={`font-black text-base leading-none ${item.status === "none" ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>-{item.gap}</p>
-                  <p className="text-muted-foreground text-[9px] mt-0.5">وفّر</p>
-                </div>
-              </div>
-            </div>
-          ))}
+        {/* ── الجدول ── */}
+        <div className="overflow-auto flex-1">
+          <table className="w-full border-collapse text-right" dir="rtl" style={{ minWidth: 520 }}>
+            <thead className={`sticky top-0 z-10 ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"} border-b border-border`}>
+              <tr>
+                <ColHeader col="product"   label="المنتج" />
+                <ColHeader col="size"      label="المقاس" />
+                <ColHeader col="color"     label="اللون" />
+                <ColHeader col="needed"    label="مطلوب"  numeric />
+                <ColHeader col="available" label="متاح"   numeric />
+                <ColHeader col="gap"       label="ناقص"   numeric />
+                <ColHeader col="status"    label="الحالة" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-xs text-muted-foreground">لا توجد نتائج تطابق الفلاتر</td>
+                </tr>
+              ) : filtered.map((item, idx) => (
+                <tr
+                  key={idx}
+                  className={`border-b border-border/50 transition-colors ${
+                    idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                  } hover:bg-muted/40`}
+                >
+                  <td className="px-3 py-2.5 text-sm font-black max-w-[160px] truncate">{item.product}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{item.size ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{item.color ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-center text-sm font-black">{item.needed}</td>
+                  <td className={`px-3 py-2.5 text-center text-sm font-black ${item.available === 0 ? "text-red-500" : "text-amber-500"}`}>
+                    {item.available}
+                  </td>
+                  <td className={`px-3 py-2.5 text-center text-sm font-black ${item.status === "none" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    -{item.gap}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      item.status === "none"
+                        ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                        : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                    }`}>
+                      {item.status === "none" ? "🚫 فاضي" : "⚡ ناقص"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot className={`sticky bottom-0 ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"} border-t border-border`}>
+                <tr>
+                  <td colSpan={3} className="px-3 py-2 text-xs font-black text-muted-foreground">
+                    الإجمالي ({filtered.length} صنف)
+                  </td>
+                  <td className="px-3 py-2 text-center text-sm font-black">
+                    {filtered.reduce((s,i)=>s+i.needed,0)}
+                  </td>
+                  <td className="px-3 py-2 text-center text-sm font-black">
+                    {filtered.reduce((s,i)=>s+i.available,0)}
+                  </td>
+                  <td className={`px-3 py-2 text-center text-base font-black ${accentRed ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    -{filtered.reduce((s,i)=>s+i.gap,0)}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
 
         {/* ── Footer ── */}
