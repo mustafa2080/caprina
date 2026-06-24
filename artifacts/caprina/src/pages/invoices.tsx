@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Printer, FileText, CheckSquare, Square } from "lucide-react";
+import { Printer, FileText, CheckSquare, Square, ExternalLink } from "lucide-react";
 import { useBrand } from "@/contexts/BrandContext";
 import { getOrderStatusLabel } from "@/lib/order-constants";
+import { useLocation } from "wouter";
 
 const statusLabels: Record<string, string> = {
   pending:          "قيد الانتظار",
@@ -44,6 +45,7 @@ type InvoiceListStatus = "all" | "warehouse_ready" | "in_shipping" | "received" 
 
 export default function Invoices() {
   const { brand } = useBrand();
+  const [, navigate] = useLocation();
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const preselectedInvoiceNumber = params.get("invoiceNumber");
 
@@ -417,7 +419,17 @@ export default function Invoices() {
                     <div>
                       <p className="font-bold text-sm leading-tight">{grp.customerName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <p className="text-[10px] text-muted-foreground font-mono">#{grp.representativeId.toString().padStart(4,"0")}</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/orders/${grp.representativeId}`);
+                          }}
+                          className="text-[10px] text-primary font-mono font-bold hover:underline flex items-center gap-0.5 transition-opacity hover:opacity-80"
+                          title="فتح تفاصيل الطلب"
+                        >
+                          #{grp.representativeId.toString().padStart(4,"0")}
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </button>
                         {isGroup && (
                           <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{displayOrders.length} منتجات</span>
                         )}
