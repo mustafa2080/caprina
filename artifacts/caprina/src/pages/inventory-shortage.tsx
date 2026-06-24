@@ -1,10 +1,9 @@
 import { useState, useMemo, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUpdateOrder } from "@workspace/api-client-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Package, Printer, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, ListFilter, X, CheckCircle2, Sparkles, Users, Clock, BadgeDollarSign, Boxes, ChevronRight, CircleDashed } from "lucide-react";
-import { ordersApi } from "@/lib/api";
+import { ordersApi, apiFetch } from "@/lib/api";
 import type { InventoryShortageItem, FeasibleOrder, FeasibleInvoicesResponse } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -146,12 +145,12 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
-  const updateOrder = useUpdateOrder({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["feasible-invoices"] });
-        queryClient.invalidateQueries({ queryKey: ["inventory-shortage"] });
-      },
+  const updateOrder = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiFetch(`/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feasible-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-shortage"] });
     },
   });
 
@@ -173,9 +172,9 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
     });
   };
 
-  const handleWaSent = async () => {
+  const handleWaSent = () => {
     if (!waOrder) return;
-    await updateOrder.mutateAsync({ id: waOrder.id, data: { status: "warehouse_ready" } as any });
+    updateOrder.mutate({ id: waOrder.id, status: "warehouse_ready" });
     setWaOrder(null);
   };
 
