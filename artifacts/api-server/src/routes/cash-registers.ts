@@ -200,7 +200,11 @@ cashRegistersRouter.post("/:id/transaction", async (req, res) => {
     const balanceAfter=isDebit?balanceBefore-amt:balanceBefore+amt;
     if(isDebit&&balanceAfter<0)return res.status(400).json({error:`الرصيد مش كفاية — المتاح: ${balanceBefore.toLocaleString("ar-EG")} ج.م`});
     await db.update(cashRegistersTable).set({balance:String(balanceAfter),updatedAt:now}).where(eq(cashRegistersTable.id,registerId));
-    await db.insert(cashTransactionsTable).values({registerId,type,amount:String(amt),balanceBefore:String(balanceBefore),balanceAfter:String(balanceAfter),description,referenceNumber,orderId:orderId?Number(orderId):null,transactionDate:transactionDate?new Date(transactionDate):now,createdByUserId:req.body.userId??null,createdByName:req.body.userName??null,createdAt:now});
+    // لو transactionDate جاية كـ date فقط بدون وقت (yyyy-MM-dd) نستخدم now عشان منكسرش ترتيب الأرصدة
+    const parsedTxDate = transactionDate
+      ? (/^\d{4}-\d{2}-\d{2}$/.test(transactionDate) ? now : new Date(transactionDate))
+      : now;
+    await db.insert(cashTransactionsTable).values({registerId,type,amount:String(amt),balanceBefore:String(balanceBefore),balanceAfter:String(balanceAfter),description,referenceNumber,orderId:orderId?Number(orderId):null,transactionDate:parsedTxDate,createdByUserId:req.body.userId??null,createdByName:req.body.userName??null,createdAt:now});
     res.json({success:true,newBalance:balanceAfter});
   } catch(err){res.status(500).json({error:"فشل تسجيل الحركة"});}
 });
@@ -424,7 +428,7 @@ cashRegistersRouter.patch("/transactions/:id", async (req, res) => {
     if (amount)            updates.amount = String(parseFloat(amount));
     if (description !== undefined) updates.description = description;
     if (referenceNumber !== undefined) updates.referenceNumber = referenceNumber;
-    if (transactionDate)   updates.transactionDate = new Date(transactionDate);
+    if (transactionDate)   updates.transactionDate = /^\d{4}-\d{2}-\d{2}$/.test(transactionDate) ? new Date(transactionDate + "T" + new Date().toTimeString().slice(0,8)) : new Date(transactionDate);
 
     await db.update(cashTransactionsTable).set(updates).where(eq(cashTransactionsTable.id, txId));
     // إعادة حساب أرصدة كل حركات الخزنة بعد التعديل، وتحديث رصيد الخزنة الحالي
