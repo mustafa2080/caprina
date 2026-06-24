@@ -145,8 +145,11 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
     if (!phone) return;
     const clean = phone.replace(/\D/g, "");
     const num = clean.startsWith("0") ? `2${clean}` : clean.startsWith("2") ? clean : `2${clean}`;
+    const itemsText = (order.items ?? [])
+      .map(it => `• ${it.product}${it.color ? ` - ${it.color}` : ""}${it.size ? ` / ${it.size}` : ""} × ${it.quantity}`)
+      .join("\n");
     const msg = encodeURIComponent(
-      `أهلاً ${order.customerName} 🌟\nطلبك جاهز للشحن!\n\n📦 ${order.product}${order.color ? ` - ${order.color}` : ""}${order.size ? ` / ${order.size}` : ""}\n🔢 الكمية: ${order.quantity}\n💰 الإجمالي: ${(order.totalPrice ?? 0).toLocaleString("ar-EG")} جنيه\n\nنتشرف بخدمتك 🙏`
+      `أهلاً ${order.customerName} 🌟\nطلبك جاهز للشحن!\n\n📦 الأصناف:\n${itemsText}\n\n💰 الإجمالي: ${(order.totalPrice ?? 0).toLocaleString("ar-EG")} جنيه\n\nنتشرف بخدمتك 🙏`
     );
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
   };
@@ -172,10 +175,10 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
   const { feasibleOrders, skippedOrders, summary } = data;
 
   const filteredFeasible = feasibleOrders.filter(o =>
-    !search || o.customerName.includes(search) || o.product.includes(search) || (o.invoiceNumber ?? "").includes(search)
+    !search || o.customerName.includes(search) || (o.items ?? []).some(it => it.product.includes(search)) || (o.invoiceNumber ?? "").includes(search)
   );
   const filteredSkipped = skippedOrders.filter(o =>
-    !search || o.customerName.includes(search) || o.product.includes(search) || (o.invoiceNumber ?? "").includes(search)
+    !search || o.customerName.includes(search) || (o.items ?? []).some(it => it.product.includes(search)) || (o.invoiceNumber ?? "").includes(search)
   );
 
   // تراكم الإيراد لبار التقدم
@@ -306,11 +309,15 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                           ✅ جاهز للشحن
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
-                        <span className="font-semibold text-foreground/80">{order.product}</span>
-                        {order.color && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{order.color}</span>}
-                        {order.size && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{order.size}</span>}
-                        <span>× {order.quantity} قطعة</span>
+                      <div className="flex flex-col gap-1 mb-2">
+                        {(order.items ?? []).map((it, i) => (
+                          <div key={i} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground/80">{it.product}</span>
+                            {it.color && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{it.color}</span>}
+                            {it.size && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{it.size}</span>}
+                            <span>× {it.quantity} قطعة</span>
+                          </div>
+                        ))}
                       </div>
                       {/* بار تراكم الإيراد */}
                       <div className="flex items-center gap-2">
@@ -368,11 +375,15 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                           ⚠ {order.reasonAr}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground/80">{order.product}</span>
-                        {order.color && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{order.color}</span>}
-                        {order.size && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{order.size}</span>}
-                        <span>× {order.quantity} قطعة</span>
+                      <div className="flex flex-col gap-1">
+                        {(order.items ?? []).map((it, i) => (
+                          <div key={i} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground/80">{it.product}</span>
+                            {it.color && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{it.color}</span>}
+                            {it.size && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{it.size}</span>}
+                            <span>× {it.quantity} قطعة</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-2">
