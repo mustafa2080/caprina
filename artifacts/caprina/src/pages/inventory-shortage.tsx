@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Package, Printer, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, ListFilter, X, CheckCircle2, Sparkles, Users, Clock, BadgeDollarSign, Boxes, ChevronRight, CircleDashed } from "lucide-react";
 import { ordersApi } from "@/lib/api";
@@ -8,6 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FaWhatsapp } from "react-icons/fa";
+import { WhatsAppDialog } from "@/components/whatsapp-dialog";
+import { type WhatsAppOrderData } from "@/lib/whatsapp";
 
 type SortKey = "qty" | "orders" | "revenue" | "name" | "color" | "size";
 type SortDir = "desc" | "asc";
@@ -138,20 +141,40 @@ function ShortageRow({ item, index }: { item: InventoryShortageItem; index: numb
 function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesResponse | undefined; isLoading: boolean }) {
   const [subTab, setSubTab] = useState<"feasible" | "skipped">("feasible");
   const [search, setSearch] = useState("");
+  const [waOrder, setWaOrder] = useState<WhatsAppOrderData | null>(null);
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
+  const updateOrder = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: { status: string } }) =>
+      ordersApi.updateOrder(id, data as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feasible-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-shortage"] });
+    },
+  });
 
   const fc = formatCurrency;
 
-  const sendWhatsApp = (phone: string | null, order: FeasibleOrder) => {
-    if (!phone) return;
-    const clean = phone.replace(/\D/g, "");
-    const num = clean.startsWith("0") ? `2${clean}` : clean.startsWith("2") ? clean : `2${clean}`;
+  const openWhatsApp = (order: FeasibleOrder) => {
     const itemsText = (order.items ?? [])
-      .map(it => `• ${it.product}${it.color ? ` - ${it.color}` : ""}${it.size ? ` / ${it.size}` : ""} × ${it.quantity}`)
-      .join("\n");
-    const msg = encodeURIComponent(
-      `أهلاً ${order.customerName} 🌟\nطلبك جاهز للشحن!\n\n📦 الأصناف:\n${itemsText}\n\n💰 الإجمالي: ${(order.totalPrice ?? 0).toLocaleString("ar-EG")} جنيه\n\nنتشرف بخدمتك 🙏`
-    );
-    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+      .map(it => `${it.product}${it.color ? ` - ${it.color}` : ""}${it.size ? ` / ${it.size}` : ""} ×${it.quantity}`)
+      .join("، ");
+    setWaOrder({
+      id: order.id,
+      customerName: order.customerName,
+      product: itemsText,
+      quantity: (order.items ?? []).reduce((s, it) => s + it.quantity, 0),
+      totalPrice: (order.totalPrice ?? 0) + (order.shippingCost ?? 0),
+      status: "pending",
+      phone: order.phone ?? null,
+    });
+  };
+
+  const handleWaSent = async () => {
+    if (!waOrder) return;
+    await updateOrder.mutateAsync({ id: waOrder.id, data: { status: "warehouse_ready" } });
+    setWaOrder(null);
   };
 
   if (isLoading) {
@@ -301,9 +324,12 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="font-black text-sm text-foreground">{order.customerName}</span>
                         {order.invoiceNumber && (
-                          <span className="text-[10px] font-mono border border-border/60 px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">
+                          <button
+                            onClick={() => navigate(`/orders/invoice/${order.invoiceNumber}`)}
+                            className="text-[10px] font-mono border border-primary/40 px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                          >
                             #{order.invoiceNumber}
-                          </span>
+                          </button>
                         )}
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
                           ✅ جاهز للشحن
@@ -332,7 +358,7 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                       <span className="text-base font-black text-emerald-700 dark:text-emerald-400">{fc(revenue)}</span>
                       {order.phone ? (
                         <button
-                          onClick={() => sendWhatsApp(order.phone, order)}
+                          onClick={() => openWhatsApp(order)}
                           className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#25D366] hover:bg-[#1DA851] px-3 py-1.5 rounded-lg transition-colors"
                         >
                           <FaWhatsapp className="w-3.5 h-3.5" />
@@ -390,7 +416,7 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                       <span className="text-base font-black text-amber-700 dark:text-amber-400">{fc(revenue)}</span>
                       {order.phone ? (
                         <button
-                          onClick={() => sendWhatsApp(order.phone, order as unknown as FeasibleOrder)}
+                          onClick={() => openWhatsApp(order)}
                           className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#25D366] hover:bg-[#1DA851] px-3 py-1.5 rounded-lg transition-colors"
                         >
                           <FaWhatsapp className="w-3.5 h-3.5" />
@@ -429,6 +455,16 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
           </div>
         )}
       </Card>
+
+      {/* ── WhatsApp Dialog ── */}
+      {waOrder && (
+        <WhatsAppDialog
+          order={waOrder}
+          open={!!waOrder}
+          onOpenChange={(open) => { if (!open) setWaOrder(null); }}
+          onSent={handleWaSent}
+        />
+      )}
     </div>
   );
 }
