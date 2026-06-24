@@ -1336,11 +1336,10 @@ function ShortageModal({
         )}
 
         {/* ── الجدول ── */}
-        {/* thead ثابت خارج الـ scroll container عشان ما ينزلش مع الـ scroll */}
-        <div className={`shrink-0 border-b border-border ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"}`}>
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full border-collapse text-right" dir="rtl">
-            <thead>
-              <tr>
+            <thead className={`sticky top-0 z-10 ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"}`}>
+              <tr className={`border-b border-border`}>
                 <ColHeader col="product"   label="المنتج" />
                 <ColHeader col="size"      label="المقاس" />
                 <ColHeader col="color"     label="اللون" />
@@ -1350,10 +1349,6 @@ function ShortageModal({
                 <ColHeader col="status"    label="الحالة" />
               </tr>
             </thead>
-          </table>
-        </div>
-        <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full border-collapse text-right" dir="rtl">
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
@@ -1388,14 +1383,9 @@ function ShortageModal({
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-
-        {/* ── صف الإجماليات — خارج scroll container عشان يفضل ثابت في الأسفل ── */}
-        {filtered.length > 0 && (
-          <div className={`shrink-0 border-t border-border ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"}`}>
-            <table className="w-full border-collapse text-right" dir="rtl">
-              <tbody>
+            {/* ── صف الإجماليات داخل نفس الجدول عشان الأعمدة تتوافق ── */}
+            {filtered.length > 0 && (
+              <tfoot className={`sticky bottom-0 z-10 border-t border-border ${accentRed ? "bg-red-50 dark:bg-red-900/25" : "bg-amber-50 dark:bg-amber-900/20"}`}>
                 <tr>
                   <td colSpan={3} className="px-3 py-2 text-xs font-black text-muted-foreground">
                     الإجمالي ({filtered.length} صنف)
@@ -1411,10 +1401,10 @@ function ShortageModal({
                   </td>
                   <td />
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
+              </tfoot>
+            )}
+          </table>
+        </div>
 
         {/* ── Footer ── */}
         <div className="px-4 py-2.5 border-t border-border bg-muted/10 flex items-center justify-between gap-3">
