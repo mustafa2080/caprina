@@ -393,9 +393,12 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="font-black text-sm text-foreground">{order.customerName}</span>
                         {order.invoiceNumber && (
-                          <span className="text-[10px] font-mono border border-border/60 px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">
+                          <button
+                            onClick={() => navigate(`/invoices/${order.invoiceNumber}`)}
+                            className="text-[10px] font-mono border border-amber-400/40 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                          >
                             #{order.invoiceNumber}
-                          </span>
+                          </button>
                         )}
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
                           ⚠ {order.reasonAr}
