@@ -325,7 +325,7 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                         <span className="font-black text-sm text-foreground">{order.customerName}</span>
                         {order.invoiceNumber && (
                           <button
-                            onClick={() => navigate(`/invoices/${order.invoiceNumber}`)}
+                            onClick={() => navigate(`/orders/${order.id}`)}
                             className="text-[10px] font-mono border border-primary/40 px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
                           >
                             #{order.invoiceNumber}
@@ -394,7 +394,7 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
                         <span className="font-black text-sm text-foreground">{order.customerName}</span>
                         {order.invoiceNumber && (
                           <button
-                            onClick={() => navigate(`/invoices/${order.invoiceNumber}`)}
+                            onClick={() => navigate(`/orders/${order.id}`)}
                             className="text-[10px] font-mono border border-amber-400/40 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
                           >
                             #{order.invoiceNumber}
