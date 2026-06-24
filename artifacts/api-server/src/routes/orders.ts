@@ -204,9 +204,48 @@ router.get("/orders/feasible-invoices", async (req, res): Promise<void> => {
       .orderBy(desc(ordersTable.createdAt));
 
     if (pendingOrders.length === 0) {
-      res.json({ feasibleOrders: [], skippedOrders: [], summary: { feasibleCount: 0, skippedCount: 0, totalRevenue: 0, totalQty: 0, stockUsage: [] } });
+      res.json({ feasibleOrders: [], skippedOrders: [], summary: { feasibleCount: 0, skippedCount: 0, totalRevenue: 0, totalQty: 0, skippedRevenue: 0, stockUsage: [] } });
       return;
     }
+
+    // 1.5) تجميع الأصناف حسب الفاتورة — كل invoiceNumber (أو الصف نفسه لو ماله فاتورة) يُعتبر "طلب كامل" واحد.
+    //      الهدف: الفاتورة تتحضّر بالكامل أو لا تتحضّر أصلاً (مينفعش نحضّر صنف ونسيب صنف من نفس الفاتورة).
+    type PendingRow = typeof pendingOrders[0];
+    type InvoiceGroup = {
+      invoiceKey: string;
+      invoiceNumber: string | null;
+      customerName: string;
+      phone: string | null;
+      createdAt: Date;
+      items: PendingRow[];
+      totalPrice: number;
+      shippingCost: number;
+    };
+
+    const invoiceMap = new Map<string, InvoiceGroup>();
+    for (const o of pendingOrders) {
+      // الصفوف من غير رقم فاتورة بتتعامل كل واحدة لوحدها (طلب مستقل بصنف واحد)
+      const invoiceKey = o.invoiceNumber ? `inv:${o.invoiceNumber}` : `order:${o.id}`;
+      if (!invoiceMap.has(invoiceKey)) {
+        invoiceMap.set(invoiceKey, {
+          invoiceKey,
+          invoiceNumber: o.invoiceNumber,
+          customerName: o.customerName,
+          phone: o.phone,
+          createdAt: o.createdAt,
+          items: [],
+          totalPrice: 0,
+          shippingCost: 0,
+        });
+      }
+      const inv = invoiceMap.get(invoiceKey)!;
+      inv.items.push(o);
+      inv.totalPrice += o.totalPrice ?? 0;
+      inv.shippingCost += o.shippingCost ?? 0;
+      // أحدث تاريخ بين أصناف الفاتورة (عشان الترتيب بالأحدث يفضل منطقي)
+      if (o.createdAt > inv.createdAt) inv.createdAt = o.createdAt;
+    }
+    const invoiceGroups = Array.from(invoiceMap.values());
 
     // 2) جلب المخزون المتاح من product_variants
     const variantStockRows = await db
@@ -232,32 +271,122 @@ router.get("/orders/feasible-invoices", async (req, res): Promise<void> => {
     // نسخة ثابتة للمقارنة في النهاية
     const originalStockMap = new Map(stockMap);
 
-    // 3) ترتيب الطلبات تنازلياً بالإيراد (greedy: أعلى إيراد أولاً)
-    const sorted = [...pendingOrders].sort((a, b) => {
-      const revA = (a.totalPrice ?? 0) + (a.shippingCost ?? 0);
-      const revB = (b.totalPrice ?? 0) + (b.shippingCost ?? 0);
+    // 3) ترتيب الفواتير تنازلياً بالإيراد (greedy: أعلى إيراد أولاً)
+    const sortedInvoices = [...invoiceGroups].sort((a, b) => {
+      const revA = a.totalPrice + a.shippingCost;
+      const revB = b.totalPrice + b.shippingCost;
       return revB - revA;
     });
 
-    // 4) Greedy allocation — خصم من المخزون طالما الطلب يمكن تغطيته كاملاً
-    const feasibleOrders: typeof sorted = [];
-    const skippedOrders: Array<typeof sorted[0] & { reasonAr: string; missing: number }> = [];
+    // 4) Greedy allocation على مستوى الفاتورة الكاملة —
+    //    الفاتورة تُحضَّر فقط لو كل أصنافها متوفرة بالكمية الكافية معاً، وإلا تُرفض بالكامل.
+    const feasibleOrders: Array<{
+      id: number; // أول صنف في الفاتورة (للتوافق مع الواجهة كـ key)
+      customerName: string;
+      phone: string | null;
+      invoiceNumber: string | null;
+      createdAt: Date;
+      totalPrice: number;
+      shippingCost: number;
+      product: string;
+      color: string | null;
+      size: string | null;
+      quantity: number;
+      unitPrice: number;
+      items: typeof pendingOrders;
+    }> = [];
 
-    for (const order of sorted) {
-      const key = `${order.product}||${order.color ?? ""}||${order.size ?? ""}`;
-      const inStock = stockMap.get(key) ?? 0;
+    const skippedOrders: Array<{
+      id: number;
+      customerName: string;
+      phone: string | null;
+      invoiceNumber: string | null;
+      createdAt: Date;
+      totalPrice: number;
+      shippingCost: number;
+      product: string;
+      color: string | null;
+      size: string | null;
+      quantity: number;
+      unitPrice: number;
+      items: typeof pendingOrders;
+      missing: number;
+      reasonAr: string;
+      missingItems: Array<{ product: string; color: string | null; size: string | null; needed: number; available: number; missing: number }>;
+    }> = [];
 
-      if (inStock >= order.quantity) {
-        // ✅ يمكن تحضيره — خصم من المخزون
-        stockMap.set(key, inStock - order.quantity);
-        feasibleOrders.push(order);
+    for (const inv of sortedInvoices) {
+      // تجميع الكمية المطلوبة لكل (منتج/لون/مقاس) داخل الفاتورة نفسها
+      // (لو الفاتورة فيها نفس الصنف في أكتر من سطر)
+      const neededMap = new Map<string, { product: string; color: string | null; size: string | null; needed: number }>();
+      for (const item of inv.items) {
+        const key = `${item.product}||${item.color ?? ""}||${item.size ?? ""}`;
+        const existing = neededMap.get(key);
+        if (existing) existing.needed += item.quantity;
+        else neededMap.set(key, { product: item.product, color: item.color, size: item.size, needed: item.quantity });
+      }
+
+      // فحص توفر كل صنف في الفاتورة معاً (قبل أي خصم فعلي)
+      const missingItems: Array<{ product: string; color: string | null; size: string | null; needed: number; available: number; missing: number }> = [];
+      for (const need of neededMap.values()) {
+        const key = `${need.product}||${need.color ?? ""}||${need.size ?? ""}`;
+        const available = stockMap.get(key) ?? 0;
+        if (available < need.needed) {
+          missingItems.push({ product: need.product, color: need.color, size: need.size, needed: need.needed, available, missing: need.needed - available });
+        }
+      }
+
+      // بيانات تمثيلية للفاتورة (أول صنف فيها) — للتوافق مع شكل الواجهة الحالي
+      const firstItem = inv.items[0];
+      const totalQtyInvoice = inv.items.reduce((s, it) => s + it.quantity, 0);
+
+      if (missingItems.length === 0) {
+        // ✅ الفاتورة كاملة قابلة للتحضير — اخصم كل أصنافها من المخزون دفعة واحدة
+        for (const need of neededMap.values()) {
+          const key = `${need.product}||${need.color ?? ""}||${need.size ?? ""}`;
+          stockMap.set(key, (stockMap.get(key) ?? 0) - need.needed);
+        }
+        feasibleOrders.push({
+          id: firstItem.id,
+          customerName: inv.customerName,
+          phone: inv.phone,
+          invoiceNumber: inv.invoiceNumber,
+          createdAt: inv.createdAt,
+          totalPrice: inv.totalPrice,
+          shippingCost: inv.shippingCost,
+          product: firstItem.product,
+          color: firstItem.color,
+          size: firstItem.size,
+          quantity: totalQtyInvoice,
+          unitPrice: firstItem.unitPrice,
+          items: inv.items,
+        });
       } else {
-        // ❌ مش كافي
-        const missing = order.quantity - inStock;
+        // ❌ ناقصة صنف أو أكتر — الفاتورة كلها معلّقة، نوضح كل الأصناف الناقصة
+        const totalMissing = missingItems.reduce((s, m) => s + m.missing, 0);
+        const reasonAr = missingItems.length === 1
+          ? (missingItems[0].available === 0
+              ? `${missingItems[0].product} ${[missingItems[0].color, missingItems[0].size].filter(Boolean).join("/")}: المخزن فاضي`
+              : `${missingItems[0].product} ${[missingItems[0].color, missingItems[0].size].filter(Boolean).join("/")}: ناقص ${missingItems[0].missing}`)
+          : `${missingItems.length} أصناف ناقصة من الفاتورة`;
+
         skippedOrders.push({
-          ...order,
-          missing,
-          reasonAr: inStock === 0 ? "المخزن فاضي" : `ناقص ${missing} قطعة`,
+          id: firstItem.id,
+          customerName: inv.customerName,
+          phone: inv.phone,
+          invoiceNumber: inv.invoiceNumber,
+          createdAt: inv.createdAt,
+          totalPrice: inv.totalPrice,
+          shippingCost: inv.shippingCost,
+          product: firstItem.product,
+          color: firstItem.color,
+          size: firstItem.size,
+          quantity: totalQtyInvoice,
+          unitPrice: firstItem.unitPrice,
+          items: inv.items,
+          missing: totalMissing,
+          reasonAr,
+          missingItems,
         });
       }
     }
@@ -274,9 +403,9 @@ router.get("/orders/feasible-invoices", async (req, res): Promise<void> => {
     }
     stockUsage.sort((a, b) => b.used - a.used);
 
-    const totalRevenue = feasibleOrders.reduce((s, o) => s + (o.totalPrice ?? 0) + (o.shippingCost ?? 0), 0);
+    const totalRevenue = feasibleOrders.reduce((s, o) => s + o.totalPrice + o.shippingCost, 0);
     const totalQty = feasibleOrders.reduce((s, o) => s + o.quantity, 0);
-    const skippedRevenue = skippedOrders.reduce((s, o) => s + (o.totalPrice ?? 0) + (o.shippingCost ?? 0), 0);
+    const skippedRevenue = skippedOrders.reduce((s, o) => s + o.totalPrice + o.shippingCost, 0);
 
     res.json({
       feasibleOrders,

@@ -673,6 +673,21 @@ export interface ShortageVsStockResponse {
 }
 
 // ─── Feasible Invoices — الفواتير القابلة للتحضير ───────────────────────────
+// كل عنصر يمثل فاتورة كاملة (ممكن تحتوي على أكثر من صنف) — الفاتورة تُحضَّر
+// بالكامل فقط لو كل أصنافها متوفرة، وإلا تُعتبر الفاتورة كلها معلّقة.
+export interface FeasibleInvoiceItem {
+  id: number;
+  product: string;
+  color: string | null;
+  size: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  shippingCost: number | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface FeasibleOrder {
   id: number;
   customerName: string;
@@ -686,12 +701,22 @@ export interface FeasibleOrder {
   shippingCost: number | null;
   invoiceNumber: string | null;
   createdAt: string;
-  notes: string | null;
+  items: FeasibleInvoiceItem[];
+}
+
+export interface MissingItem {
+  product: string;
+  color: string | null;
+  size: string | null;
+  needed: number;
+  available: number;
+  missing: number;
 }
 
 export interface SkippedOrder extends FeasibleOrder {
   missing: number;
   reasonAr: string;
+  missingItems: MissingItem[];
 }
 
 export interface StockUsageItem {

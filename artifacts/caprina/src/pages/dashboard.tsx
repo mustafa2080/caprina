@@ -578,8 +578,11 @@ function FeasibleInvoicesTab({ data, isLoading }: { data: FeasibleInvoicesRespon
     if (!phone) return;
     const clean = phone.replace(/\D/g, "");
     const num = clean.startsWith("0") ? `2${clean}` : clean.startsWith("2") ? clean : `2${clean}`;
+    const itemsText = order.items
+      .map(it => `• ${it.product}${it.color ? ` - ${it.color}` : ""}${it.size ? ` / ${it.size}` : ""} × ${it.quantity}`)
+      .join("\n");
     const msg = encodeURIComponent(
-      `أهلاً ${order.customerName} 🌟\nطلبك جاهز للشحن!\n\n📦 ${order.product}${order.color ? ` - ${order.color}` : ""}${order.size ? ` / ${order.size}` : ""}\n🔢 الكمية: ${order.quantity}\n💰 الإجمالي: ${(order.totalPrice ?? 0).toLocaleString("ar-EG")} جنيه\n\nنتشرف بخدمتك 🙏`
+      `أهلاً ${order.customerName} 🌟\nطلبك جاهز للشحن!\n\n📦 الأصناف:\n${itemsText}\n\n💰 الإجمالي: ${(order.totalPrice ?? 0).toLocaleString("ar-EG")} جنيه\n\nنتشرف بخدمتك 🙏`
     );
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
   };
@@ -605,10 +608,10 @@ function FeasibleInvoicesTab({ data, isLoading }: { data: FeasibleInvoicesRespon
   const { feasibleOrders, skippedOrders, summary } = data;
 
   const filteredFeasible = feasibleOrders.filter(o =>
-    !search || o.customerName.includes(search) || o.product.includes(search) || (o.invoiceNumber ?? "").includes(search)
+    !search || o.customerName.includes(search) || o.items.some(it => it.product.includes(search)) || (o.invoiceNumber ?? "").includes(search)
   );
   const filteredSkipped = skippedOrders.filter(o =>
-    !search || o.customerName.includes(search) || o.product.includes(search) || (o.invoiceNumber ?? "").includes(search)
+    !search || o.customerName.includes(search) || o.items.some(it => it.product.includes(search)) || (o.invoiceNumber ?? "").includes(search)
   );
 
   // حساب الترتيب التراكمي للإيراد (لبار التقدم)
@@ -760,10 +763,14 @@ function FeasibleInvoicesTab({ data, isLoading }: { data: FeasibleInvoicesRespon
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                        <span className="font-semibold text-foreground/80">{order.product}</span>
-                        {order.color && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.color}</span>}
-                        {order.size && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.size}</span>}
-                        <span>× {order.quantity} قطعة</span>
+                        {order.items.map((it, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 bg-muted/60 px-1.5 py-0.5 rounded">
+                            <span className="font-semibold text-foreground/80">{it.product}</span>
+                            {it.color && <span className="text-[10px] opacity-80">{it.color}</span>}
+                            {it.size && <span className="text-[10px] opacity-80">/{it.size}</span>}
+                            <span className="text-[10px]">×{it.quantity}</span>
+                          </span>
+                        ))}
                       </div>
                       {/* بار تراكم الإيراد */}
                       <div className="mt-1.5 flex items-center gap-2">
@@ -822,14 +829,33 @@ function FeasibleInvoicesTab({ data, isLoading }: { data: FeasibleInvoicesRespon
                           </span>
                         )}
                         <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/40 px-1.5 py-0.5 rounded-full">
-                          ⚠ {order.reasonAr}
+                          ⏸ طلب كامل — معلّق لنقص المخزون
                         </span>
                       </div>
+                      {/* كل أصناف الفاتورة */}
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                        <span className="font-semibold text-foreground/80">{order.product}</span>
-                        {order.color && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.color}</span>}
-                        {order.size && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{order.size}</span>}
-                        <span>× {order.quantity} قطعة</span>
+                        {order.items.map((it, i) => {
+                          const isMissing = order.missingItems.some(m => m.product === it.product && (m.color ?? "") === (it.color ?? "") && (m.size ?? "") === (it.size ?? ""));
+                          return (
+                            <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${isMissing ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" : "bg-muted/60"}`}>
+                              <span className="font-semibold">{it.product}</span>
+                              {it.color && <span className="text-[10px] opacity-80">{it.color}</span>}
+                              {it.size && <span className="text-[10px] opacity-80">/{it.size}</span>}
+                              <span className="text-[10px]">×{it.quantity}</span>
+                              {isMissing && <span className="text-[10px]">🚫</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {/* تفاصيل الأصناف الناقصة بالاسم */}
+                      <div className="flex flex-col gap-0.5 mt-1.5">
+                        {order.missingItems.map((m, i) => (
+                          <span key={i} className="text-[10px] text-red-600 dark:text-red-400">
+                            🚫 {m.product}{(m.color || m.size) ? ` (${[m.color, m.size].filter(Boolean).join(" / ")})` : ""}
+                            {" — "}
+                            {m.available === 0 ? "المخزن فاضي" : `متاح ${m.available} فقط`} • ناقص {m.missing}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1.5">
