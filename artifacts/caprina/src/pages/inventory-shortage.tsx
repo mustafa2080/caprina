@@ -165,7 +165,8 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
       customerName: order.customerName,
       product: itemsText,
       quantity: (order.items ?? []).reduce((s, it) => s + it.quantity, 0),
-      totalPrice: (order.totalPrice ?? 0) + (order.shippingCost ?? 0),
+      totalPrice: order.totalPrice ?? 0,
+      shippingCost: order.shippingCost ?? 0,
       status: "pending",
       phone: order.phone ?? null,
     });
