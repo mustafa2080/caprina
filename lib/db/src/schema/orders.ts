@@ -53,6 +53,9 @@ export const ordersTable = mysqlTable("orders", {
   index("idx_orders_shipping_company_id").on(t.shippingCompanyId),
   index("idx_orders_assigned_user_id").on(t.assignedUserId),
   index("idx_orders_invoice_number").on(t.invoiceNumber),
+  // composite index للـ invoice grouping query (tenantId + deletedAt + status + invoiceNumber)
+  index("idx_orders_tenant_status").on(t.tenantId, t.deletedAt, t.status),
+  index("idx_orders_tenant_invoice").on(t.tenantId, t.deletedAt, t.invoiceNumber),
 ]);
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true, updatedAt: true, totalPrice: true });
