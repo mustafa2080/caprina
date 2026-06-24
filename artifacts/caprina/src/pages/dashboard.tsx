@@ -1779,6 +1779,86 @@ export default function Dashboard() {
         const isEmergency  = noneItems.length > 0;
         const preview      = critical.slice(0, 3); // أول 3 فقط في الداشبورد
 
+        // ── طباعة سريعة من الحاوية مباشرة (بدون فتح المودال) ──
+        const handleQuickPrint = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          const now = new Date().toLocaleString("ar-EG");
+          const rows = critical.map((item, i) => `
+            <tr style="background:${i % 2 === 0 ? "#fff" : "#f9fafb"}">
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:15px;font-weight:700">${item.product}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:15px;color:#6b7280">${item.size ?? "—"}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:15px;color:#6b7280">${item.color ?? "—"}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:800;color:#111">${item.needed}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:800;color:${item.available === 0 ? "#dc2626" : "#f59e0b"}">${item.available}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:900;color:${item.status === "none" ? "#dc2626" : "#d97706"}">-${item.gap}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;text-align:center">
+                <span style="background:${item.status === "none" ? "#fee2e2" : "#fef3c7"};color:${item.status === "none" ? "#dc2626" : "#d97706"};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:800">
+                  ${item.status === "none" ? "🚫 فاضي" : "⚡ ناقص"}
+                </span>
+              </td>
+            </tr>`).join("");
+
+          const html = `<!DOCTYPE html><html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<title>تقرير نواقص المخزن</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Cairo',sans-serif; background:#fff; color:#111; direction:rtl; }
+  @media print {
+    @page { margin:15mm; size:A4 portrait; }
+    .no-print { display:none !important; }
+  }
+</style>
+</head>
+<body>
+<div style="padding:24px 32px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid ${isEmergency ? "#dc2626" : "#f59e0b"}">
+    <div>
+      <h1 style="font-size:26px;font-weight:900;color:${isEmergency ? "#dc2626" : "#d97706"}">📦 تقرير نواقص المخزن</h1>
+      <p style="font-size:13px;color:#6b7280;margin-top:4px">تاريخ الطباعة: ${now}</p>
+    </div>
+    <div style="text-align:left">
+      <div style="display:flex;gap:12px">
+        ${noneItems.length > 0 ? `<span style="background:#fee2e2;color:#dc2626;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:800">🚫 ${noneItems.length} فاضي خالص</span>` : ""}
+        ${partialItems.length > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:800">⚡ ${partialItems.length} ناقص جزئي</span>` : ""}
+      </div>
+      <p style="font-size:13px;color:#6b7280;margin-top:8px;text-align:left">إجمالي الناقص: <strong style="color:${isEmergency?"#dc2626":"#d97706"};font-size:18px">${totalGap}</strong> قطعة</p>
+    </div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif">
+    <thead>
+      <tr style="background:${isEmergency ? "#fee2e2" : "#fef3c7"}">
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">المنتج</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">المقاس</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">اللون</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">مطلوب</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">متاح</th>
+        <th style="padding:12px 14px;text-align:right;font-size:14px;font-weight:900;color:#374151">ناقص</th>
+        <th style="padding:12px 14px;text-align:center;font-size:14px;font-weight:900;color:#374151">الحالة</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr style="background:${isEmergency?"#fee2e2":"#fef3c7"}">
+        <td colspan="5" style="padding:12px 14px;font-size:14px;font-weight:900;color:#374151">الإجمالي</td>
+        <td style="padding:12px 14px;font-size:18px;font-weight:900;color:${isEmergency?"#dc2626":"#d97706"}">-${totalGap}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <p style="margin-top:20px;font-size:12px;color:#9ca3af;text-align:center">تم الإنشاء بواسطة نظام كابرينا للطلبات</p>
+</div>
+<script>window.onload=()=>{ window.print(); }</script>
+</body></html>`;
+
+          const win = window.open("", "_blank", "width=900,height=700");
+          if (win) { win.document.write(html); win.document.close(); }
+        };
+
         return (
           <>
             {/* ── البطاقة الملخصة ── */}
@@ -1803,6 +1883,19 @@ export default function Dashboard() {
                     ? `⚠️ تحذير عاجل — منتجات يجب توافرها سريعاً لخروج طلبات الانتظار!`
                     : `📦 تنبيه — منتجات مخزونها لا يكفي لتغطية طلبات الانتظار`}
                 </p>
+                {/* زرار طباعة سريع جنب التحذير */}
+                <button
+                  onClick={handleQuickPrint}
+                  title="طباعة / PDF"
+                  className={`flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg shrink-0 transition-colors ${
+                    isEmergency ? "bg-red-600 hover:bg-red-500 text-white" : "bg-amber-500 hover:bg-amber-400 text-white"
+                  }`}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  طباعة
+                </button>
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${isEmergency ? "bg-red-600 text-white" : "bg-amber-500 text-white"}`}>
                   ناقص {totalGap} قطعة
                 </span>
