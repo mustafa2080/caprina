@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUpdateOrder } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Package, Printer, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, ListFilter, X, CheckCircle2, Sparkles, Users, Clock, BadgeDollarSign, Boxes, ChevronRight, CircleDashed } from "lucide-react";
@@ -145,12 +146,12 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
-  const updateOrder = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { status: string } }) =>
-      ordersApi.updateOrder(id, data as any),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["feasible-invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-shortage"] });
+  const updateOrder = useUpdateOrder({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["feasible-invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["inventory-shortage"] });
+      },
     },
   });
 
@@ -174,7 +175,7 @@ function FeasibleInvoicesSection({ data, isLoading }: { data: FeasibleInvoicesRe
 
   const handleWaSent = async () => {
     if (!waOrder) return;
-    await updateOrder.mutateAsync({ id: waOrder.id, data: { status: "warehouse_ready" } });
+    await updateOrder.mutateAsync({ id: waOrder.id, data: { status: "warehouse_ready" } as any });
     setWaOrder(null);
   };
 
