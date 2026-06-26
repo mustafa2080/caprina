@@ -241,7 +241,8 @@ router.get("/orders/feasible-invoices", async (req, res): Promise<void> => {
       const inv = invoiceMap.get(invoiceKey)!;
       inv.items.push(o);
       inv.totalPrice += o.totalPrice ?? 0;
-      inv.shippingCost += o.shippingCost ?? 0;
+      // تكلفة الشحن مرة واحدة للفاتورة (مش لكل سطر) — نأخذ أكبر قيمة بين القديمة والجديدة
+      if ((o.shippingCost ?? 0) > inv.shippingCost) inv.shippingCost = o.shippingCost ?? 0;
       // أحدث تاريخ بين أصناف الفاتورة (عشان الترتيب بالأحدث يفضل منطقي)
       if (o.createdAt > inv.createdAt) inv.createdAt = o.createdAt;
     }
@@ -403,9 +404,9 @@ router.get("/orders/feasible-invoices", async (req, res): Promise<void> => {
     }
     stockUsage.sort((a, b) => b.used - a.used);
 
-    const totalRevenue = feasibleOrders.reduce((s, o) => s + o.totalPrice + o.shippingCost, 0);
+    const totalRevenue = feasibleOrders.reduce((s, o) => s + o.totalPrice, 0);
     const totalQty = feasibleOrders.reduce((s, o) => s + o.quantity, 0);
-    const skippedRevenue = skippedOrders.reduce((s, o) => s + o.totalPrice + o.shippingCost, 0);
+    const skippedRevenue = skippedOrders.reduce((s, o) => s + o.totalPrice, 0);
 
     res.json({
       feasibleOrders,
