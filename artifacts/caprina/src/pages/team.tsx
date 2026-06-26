@@ -2272,8 +2272,7 @@ function StarEmployeesSection({ currentMonth: _cm }: { currentMonth: string }) {
 function StarEmployeesManageTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const [rankMonth, setRankMonth] = useState(currentMonth);
+  const [rankMonth, setRankMonth] = useState(() => currentPayPeriodValue());
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [saved, setSaved] = useState(false);
 
@@ -2536,7 +2535,7 @@ export function MyDashboardTab({ profileId, monthlySalary }: {
   profileId: number; monthlySalary: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const currentMonth = today.slice(0, 7);
+  const currentMonth = currentPayPeriodValue();
 
   // ── Toggle يومي/شهري ──
   const [viewMode, setViewMode] = useState<"monthly" | "daily">("daily");
@@ -3271,10 +3270,7 @@ function EmployeeDetail({
   const [profileOpen, setProfileOpen] = useState(false);
   const [kpiDialogOpen, setKpiDialogOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<EmployeeKpi | undefined>();
-  const [reportMonth, setReportMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const [reportMonth, setReportMonth] = useState(() => currentPayPeriodValue());
   const today = new Date().toISOString().slice(0, 10);
   const [kpiViewMode, setKpiViewMode] = useState<"monthly" | "daily">("monthly");
   const [kpiSelectedDate, setKpiSelectedDate] = useState(today);
