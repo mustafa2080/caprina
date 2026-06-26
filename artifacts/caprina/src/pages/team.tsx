@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import { employeeApi, usersApi, teamAnalyticsApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { PayPeriodPicker, currentPayPeriodValue } from "@/components/pay-period-picker";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
@@ -1399,8 +1400,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
       {/* Header: شهر + تبويب */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="h-8 text-xs w-36" />
+          <PayPeriodPicker value={month} onChange={setMonth} />
         </div>
         <div className="flex gap-1 mr-auto">
           <Button size="sm" variant={activeView === "calendar" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setActiveView("calendar")}>
@@ -2378,9 +2378,7 @@ function StarEmployeesManageTab() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground whitespace-nowrap">الشهر:</Label>
-            <Input type="month" value={rankMonth} onChange={e => setRankMonth(e.target.value)}
-              className="h-8 text-xs bg-background border-border w-36" />
+            <PayPeriodPicker value={rankMonth} onChange={setRankMonth} />
           </div>
         </div>
       </div>
@@ -3087,8 +3085,8 @@ function MyOrdersTab({
           <p className="text-[10px] text-muted-foreground">الطلبات التي أنشأها الموظف — مرتبطة بمؤشرات أدائه</p>
         </div>
         <div className="mr-auto">
-          <Label className="text-[10px] text-muted-foreground block mb-1">الشهر</Label>
-          <Input type="month" value={reportMonth} onChange={e => onMonthChange(e.target.value)} className="h-7 text-xs w-36" />
+          <Label className="text-[10px] text-muted-foreground block mb-1">الفترة</Label>
+          <PayPeriodPicker value={reportMonth} onChange={onMonthChange} />
         </div>
       </div>
 
@@ -3477,14 +3475,7 @@ function EmployeeDetail({
                   onChange={e => setKpiSelectedDate(e.target.value)}
                   className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary" />
               ) : (
-                <select value={reportMonth} onChange={e => setReportMonth(e.target.value)}
-                  className="rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs font-medium focus:outline-none focus:border-primary">
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const d = new Date(); d.setMonth(d.getMonth() - i);
-                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-                    return <option key={val} value={val}>{d.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}</option>;
-                  })}
-                </select>
+                <PayPeriodPicker value={reportMonth} onChange={setReportMonth} />
               )}
               {canManage && (
                 <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditingKpi(undefined); setKpiDialogOpen(true); }}>
@@ -4307,8 +4298,8 @@ function EmployeeDetail({
         <TabsContent value="report" className="space-y-3 mt-3">
           <div className="flex items-center gap-3">
             <div className="space-y-0.5">
-              <Label className="text-[10px] text-muted-foreground">اختر الشهر</Label>
-              <Input type="month" value={reportMonth} onChange={e => setReportMonth(e.target.value)} className="h-7 text-xs w-40" />
+              <Label className="text-[10px] text-muted-foreground">اختر فترة التقييم</Label>
+              <PayPeriodPicker value={reportMonth} onChange={setReportMonth} />
             </div>
             {report && (
               <div className={`mr-auto px-3 py-1 rounded-full text-xs font-bold ${ratingCfg.bg} ${ratingCfg.color}`}>
