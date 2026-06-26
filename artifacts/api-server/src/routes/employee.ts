@@ -1459,7 +1459,11 @@ router.get("/employee-daily-logs/:profileId/week", async (req, res): Promise<voi
           } else {
             actualValue = log?.value ?? null;
           }
-          const { dateFrom: wPeriodStart, dateTo: wPeriodEnd } = getPayPeriod(date.slice(0, 7));
+          const wDayObj = new Date(date + "T00:00:00");
+          let wPpYear = wDayObj.getFullYear(), wPpMonth = wDayObj.getMonth() + 1;
+          if (wDayObj.getDate() >= 26) { wPpMonth += 1; if (wPpMonth > 12) { wPpMonth = 1; wPpYear += 1; } }
+          const wMonthStr = `${wPpYear}-${String(wPpMonth).padStart(2, "0")}`;
+          const { dateFrom: wPeriodStart, dateTo: wPeriodEnd } = getPayPeriod(wMonthStr);
           const wPeriodDays = Math.round((wPeriodEnd.getTime() - wPeriodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
           const dailyTarget = Math.round(kpi.targetValue / wPeriodDays);
           const achieved = actualValue !== null
