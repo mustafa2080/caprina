@@ -17,6 +17,12 @@ router.use(requireAuth);
 // GET /attendance/my?month=YYYY-MM
 
 // ─── دورة الراتب: من 26 الشهر السابق لـ 25 الشهر الحالي ──────────────────────
+function currentPayPeriodMonth(): string {
+  const now = new Date();
+  let y = now.getFullYear(), m = now.getMonth() + 1;
+  if (now.getDate() >= 26) { m += 1; if (m > 12) { m = 1; y += 1; } }
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
 function getPayPeriodDates(month: string): { from: string; to: string } {
   const [y, m] = month.split("-").map(Number);
   const prevMon  = m === 1 ? 12 : m - 1;
@@ -30,7 +36,7 @@ router.get("/attendance/my", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const month = (req.query.month as string) || currentPayPeriodMonth();
   const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
 
   const [profile] = await db
@@ -153,7 +159,7 @@ router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const month = (req.query.month as string) || currentPayPeriodMonth();
   const [year, mon] = month.split("-").map(Number);
   const daysInMonth = new Date(year, mon, 0).getDate();
 
@@ -229,7 +235,7 @@ router.get("/attendance/:profileId", async (req, res): Promise<void> => {
   const profileId = parseInt(req.params.profileId);
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
-  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const month = (req.query.month as string) || currentPayPeriodMonth();
   const { from: periodFrom, to: periodTo } = getPayPeriodDates(month);
 
   const records = await db
@@ -322,7 +328,7 @@ router.get("/attendance/:profileId/salary-report", async (req, res): Promise<voi
   const profileId = parseInt(req.params.profileId);
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
-  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const month = (req.query.month as string) || currentPayPeriodMonth();
   const [year, mon] = month.split("-").map(Number);
   const daysInMonth = new Date(year, mon, 0).getDate();
 
@@ -381,7 +387,7 @@ router.get("/attendance/adjustments/:profileId", async (req, res): Promise<void>
   const profileId = parseInt(req.params.profileId);
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
-  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const month = (req.query.month as string) || currentPayPeriodMonth();
 
   const adjustments = await db
     .select()

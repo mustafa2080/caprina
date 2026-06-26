@@ -142,6 +142,11 @@ function getPayPeriod(monthParam: string): { dateFrom: Date; dateTo: Date; perio
     const now = new Date();
     year = now.getFullYear();
     month = now.getMonth() + 1;
+    // لو اليوم >= 26، الفترة الحالية تنتهي في الشهر القادم
+    if (now.getDate() >= 26) {
+      month += 1;
+      if (month > 12) { month = 1; year += 1; }
+    }
   }
   // ظ…ظ†: 26 ط§ظ„ط´ظ‡ط± ط§ظ„ط³ط§ط¨ظ‚
   const prevMonth = month === 1 ? 12 : month - 1;
@@ -1512,7 +1517,13 @@ router.post("/employee-daily-logs", async (req, res): Promise<void> => {
 // ظٹط±ط¬ط¹ ظƒظ„ ط§ظ„ظ…ظˆط¸ظپظٹظ† ظ…ط±طھط¨ظٹظ† ط­ط³ط¨ overallScore ظ…ظ† ط§ظ„ط£ط¹ظ„ظ‰ ظ„ظ„ط£ظ‚ظ„
 router.get("/team-ranking", requireAdmin, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
-  const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+  const _now = new Date();
+  const _defM = (() => {
+    let y = _now.getFullYear(), m = _now.getMonth() + 1;
+    if (_now.getDate() >= 26) { m += 1; if (m > 12) { m = 1; y += 1; } }
+    return `${y}-${String(m).padStart(2, "0")}`;
+  })();
+  const month = (req.query.month as string) || _defM;
 
   // ط¬ظٹط¨ ظƒظ„ ط§ظ„ظ€ profiles ظپظٹ ظ†ظپط³ ط§ظ„ظ€ tenant
   const profilesQuery = db.select({
