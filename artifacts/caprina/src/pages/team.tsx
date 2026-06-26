@@ -1297,7 +1297,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
   const { toast } = useToast();
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
-  const [month, setMonth] = useState(() => today.slice(0, 7));
+  const [month, setMonth] = useState(() => currentPayPeriodValue());
   const [savingDay, setSavingDay] = useState<string | null>(null);
   const [adjType, setAdjType] = useState<"bonus" | "deduction">("bonus");
   const [adjAmount, setAdjAmount] = useState("");
