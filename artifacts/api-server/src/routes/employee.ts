@@ -183,13 +183,21 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
     kpisByProfile[k.profileId].push(k);
   }
 
-  // ط¬ظ„ط¨ ط§ظ„ط­ط¶ظˆط± ظ„ظ„ط´ظ‡ط± ط§ظ„ط­ط§ظ„ظٹ ظ„ظƒظ„ profile
+  // جلب الحضور للفترة الحالية (pay period) لكل profile
   const now = new Date();
-  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // pay period: لو اليوم >= 26 نستخدم الشهر القادم عشان نجيب الفترة الصح
+  let ppYear = now.getFullYear(), ppMonth = now.getMonth() + 1;
+  if (now.getDate() >= 26) { ppMonth += 1; if (ppMonth > 12) { ppMonth = 1; ppYear += 1; } }
+  const currentMonthStrPP = `${ppYear}-${String(ppMonth).padStart(2, "0")}`;
+  const { dateFrom: ppFrom, dateTo: ppTo } = getPayPeriod(currentMonthStrPP);
+  const ppFromStr = ppFrom.toISOString().slice(0, 10);
+  const ppToStr   = ppTo.toISOString().slice(0, 10);
   const attRecords = await db.select({
     profileId: attendanceTable.profileId,
     status: attendanceTable.status,
-  }).from(attendanceTable).where(like(attendanceTable.date, `${monthStr}-%`));
+  }).from(attendanceTable).where(
+    and(gte(attendanceTable.date, ppFromStr), lte(attendanceTable.date, ppToStr))
+  );
 
   const attMap: Record<number, { workedDays: number; absentDays: number; lateDays: number }> = {};
   for (const r of attRecords) {
@@ -202,8 +210,8 @@ router.get("/employee-profiles", async (req, res): Promise<void> => {
   }
 
   // ─── نفس getPayPeriod اللي بيستخدمه employee-report ────────────────────────
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStr);
+  // currentMonthStrPP اتحسبت فوق بشكل صح (مع pay period logic)
+  const { dateFrom: mFrom, dateTo: mTo } = getPayPeriod(currentMonthStrPP);
   const periodStart = mFrom.toISOString().slice(0, 10);
   const periodEnd   = mTo.toISOString().slice(0, 10);
 
