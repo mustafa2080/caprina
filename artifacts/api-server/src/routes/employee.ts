@@ -1305,8 +1305,11 @@ router.get("/employee-daily-logs/:profileId", async (req, res): Promise<void> =>
   const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
   // ── استخدام نفس getPayPeriod زي employee-report ──────────────────────────
-  // الفترة: من 26 الشهر السابق → 25 الشهر الحالي
-  const dateMonthStr = date.slice(0, 7); // YYYY-MM
+  // لو اليوم >= 26 نستخدم الشهر القادم عشان نجيب الفترة الصح
+  const dateObj = new Date(date + "T00:00:00");
+  let ppYear = dateObj.getFullYear(), ppMonth = dateObj.getMonth() + 1;
+  if (dateObj.getDate() >= 26) { ppMonth += 1; if (ppMonth > 12) { ppMonth = 1; ppYear += 1; } }
+  const dateMonthStr = `${ppYear}-${String(ppMonth).padStart(2, "0")}`;
   const { dateFrom: periodStart, dateTo: periodEnd } = getPayPeriod(dateMonthStr);
 
   // عدد أيام الفترة الكاملة (دايماً ~30-31 يوم)
