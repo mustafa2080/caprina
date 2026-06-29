@@ -680,15 +680,16 @@ function InvoiceGroupDeliveryRow({
   const rep = group[0];
   const groupKey = getManifestGroupKey(rep);
   const totalQty = group.reduce((s, o) => s + o.quantity, 0);
-  // السعر الفعلي: لو partial_received احسب الجزء المستلم فقط
+  // السعر الفعلي: لو partial_received احسب الجزء المستلم فقط، مع إضافة تكلفة الشحن
   const totalPrice = group.reduce((s, o) => {
+    const shipping = (o as any).shippingCost ?? 0;
     if (o.deliveryStatus === "partial_received" && o.partialQuantity != null) {
-      return s + o.unitPrice * o.partialQuantity;
+      return s + o.unitPrice * o.partialQuantity + shipping;
     }
-    return s + o.totalPrice;
+    return s + o.totalPrice + shipping;
   }, 0);
-  // السعر الكامل للفاتورة (للعرض والمرجع)
-  const totalFullPrice = group.reduce((s, o) => s + o.totalPrice, 0);
+  // السعر الكامل للفاتورة (للعرض والمرجع) مع الشحن
+  const totalFullPrice = group.reduce((s, o) => s + o.totalPrice + ((o as any).shippingCost ?? 0), 0);
   const invoiceNum = (rep as any).invoiceNumber?.trim() || null;
   const isMulti = group.length > 1;
 
