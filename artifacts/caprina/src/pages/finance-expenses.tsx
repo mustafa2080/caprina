@@ -154,16 +154,77 @@ export default function FinanceExpenses() {
 
   const handleExportCSV = () => {
     if (!expenses.length) return;
-    const header = ["#", "العنوان", "التصنيف", "المبلغ", "التاريخ", "رقم مرجعي", "ملاحظات"];
-    const rows = expenses.map(e => [
-      e.id, e.title, catLabel(e.category), e.amount,
-      e.expenseDate ? format(new Date(e.expenseDate), "yyyy/MM/dd") : "",
-      e.referenceId ?? "", e.notes ?? "",
-    ]);
-    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const CAT_LABELS: Record<string, string> = {
+      supplier_payment: "دفعة لمورد",
+      raw_materials:    "مشتريات خامات",
+      manufacturing:    "مصاريف تصنيع",
+      office_misc:      "نثريات مكتب",
+      rent:             "إيجار",
+      salary:           "مرتبات",
+      marketing:        "تسويق وإعلانات",
+      utilities:        "كهرباء وخدمات",
+      maintenance:      "صيانة معدات",
+      other:            "أخرى",
+    };
+
+    const escCSV = (v: any) => `"${String(v ?? "—").replace(/"/g, '""')}"`;
+    const lines: string[] = [];
+
+    // ── عنوان التقرير ──
+    lines.push(`${escCSV("تقرير المصروفات التشغيلية — Caprina")},,,,,,,`);
+    lines.push(`${escCSV("تاريخ التصدير: " + new Date().toLocaleDateString("ar-EG"))},${escCSV("إجمالي السجلات: " + expenses.length)},,,,,,`);
+    lines.push(",,,,,,,,");
+
+    // ── هيدر الأعمدة ──
+    const header = ["#", "العنوان", "التصنيف", "المبلغ (ج.م)", "التاريخ", "رقم مرجعي", "ملاحظات", "بواسطة"];
+    lines.push(header.map(escCSV).join(","));
+
+    // ── البيانات ──
+    let totalAmount = 0;
+    expenses.forEach((e, i) => {
+      const amt = Number(e.amount ?? 0);
+      totalAmount += amt;
+      const row = [
+        i + 1,
+        e.title,
+        CAT_LABELS[e.category ?? ""] ?? e.category,
+        amt.toFixed(2),
+        e.expenseDate ? format(new Date(e.expenseDate), "yyyy/MM/dd") : "",
+        e.referenceId ?? "—",
+        e.notes ?? "—",
+        e.createdByName ?? "—",
+      ];
+      lines.push(row.map(escCSV).join(","));
+    });
+
+    // ── صف الإجمالي ──
+    lines.push(",,,,,,,,");
+    lines.push(`${escCSV("الإجمالي الكلي")},,,${ escCSV(totalAmount.toFixed(2) + " ج.م")},${escCSV(expenses.length + " مصروف")},,,`);
+
+    // ── ملخص التصنيفات ──
+    lines.push(",,,,,,,,");
+    lines.push(`${escCSV("ملخص المصروفات حسب التصنيف")},,,,,,,`);
+    lines.push([escCSV("التصنيف"), escCSV("العدد"), escCSV("الإجمالي (ج.م)"), escCSV("النسبة %"), ",,,,"].join(","));
+
+    const catTotals: Record<string, { label: string; total: number; count: number }> = {};
+    expenses.forEach(e => {
+      const k = e.category ?? "other";
+      if (!catTotals[k]) catTotals[k] = { label: CAT_LABELS[k] ?? k, total: 0, count: 0 };
+      catTotals[k].total += Number(e.amount ?? 0);
+      catTotals[k].count++;
+    });
+    Object.values(catTotals).sort((a, b) => b.total - a.total).forEach(cat => {
+      const pct = totalAmount > 0 ? ((cat.total / totalAmount) * 100).toFixed(1) : "0.0";
+      lines.push(`${escCSV(cat.label)},${escCSV(cat.count)},${escCSV(cat.total.toFixed(2))},${escCSV(pct + "%")},,,,`);
+    });
+
+    // BOM لدعم العربية في Excel
+    const csv = "\uFEFF" + lines.join("\r\n");
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }));
-    a.download = `expenses-${Date.now()}.csv`; a.click();
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    a.download = `expenses-${Date.now()}.csv`;
+    a.click();
   };
 
   const handleExportExcel = () => {
