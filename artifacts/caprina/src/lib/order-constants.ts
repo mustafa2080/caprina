@@ -1,10 +1,16 @@
 export const RETURN_REASONS: { value: string; label: string }[] = [
-  { value: "size_mismatch", label: "مقاس غير مناسب" },
-  { value: "quality",       label: "جودة" },
-  { value: "customer_refused", label: "عميل غير جاد" },
-  { value: "customer_requested_return", label: "طلب العميل مرتجع" },
-  { value: "delay",         label: "سبب التأخير" },
-  { value: "other",         label: "سبب آخر" },
+  { value: "no_answer",      label: "العميل لا يرد" },
+  { value: "unavailable",    label: "العميل مغلق أو غير متاح" },
+  { value: "postponed",      label: "العميل طلب التأجيل" },
+  { value: "no_knowledge",   label: "العميل ليس لديه علم بالشحنة" },
+  { value: "cancel_request", label: "العميل طلب إلغاء الشحنة" },
+  { value: "refused_paid",   label: "العميل رفض الاستلام بعد المعاينة ودفع مصاريف الشحن" },
+  { value: "refused_unpaid", label: "العميل رفض الاستلام بعد المعاينة ولم يدفع مصاريف الشحن" },
+  { value: "damaged",        label: "الشحنة تالفة" },
+  { value: "unclear_address",label: "العنوان غير واضح" },
+  { value: "out_of_coverage",label: "العنوان خارج نطاق التغطية" },
+  { value: "time_mismatch",  label: "وقت العميل غير مناسب مع وقت المندوب" },
+  { value: "other",          label: "سبب آخر" },
 ];
 
 export const returnReasonLabel = (reason: string | null | undefined): string => {
