@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Receipt, Trash2, Wallet, Search, X, Filter,
-  Download, FileSpreadsheet, ChevronLeft, ChevronRight,
+  Download, FileSpreadsheet, ChevronLeft, ChevronRight, Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -26,15 +26,16 @@ const api = {
 };
 
 const EXPENSE_CATEGORIES = [
-  { value: "shipping_fees",  label: "مصاريف شحن",      color: "#3B82F6", glow: "rgba(59,130,246,0.25)" },
-  { value: "warehouse_rent", label: "إيجار مخزن",       color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
-  { value: "salary",         label: "مرتبات",           color: "#10B981", glow: "rgba(16,185,129,0.25)" },
-  { value: "marketing",      label: "تسويق وإعلانات",   color: "#F59E0B", glow: "rgba(245,158,11,0.25)" },
-  { value: "packaging",      label: "تغليف",            color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
-  { value: "utilities",      label: "كهرباء / خدمات",   color: "#EAB308", glow: "rgba(234,179,8,0.25)"  },
-  { value: "maintenance",    label: "صيانة",            color: "#F97316", glow: "rgba(249,115,22,0.25)" },
-  { value: "returns_loss",   label: "خسائر مرتجعات",    color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
-  { value: "other",          label: "أخرى",             color: "#6B7280", glow: "rgba(107,114,128,0.25)"},
+  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
+  { value: "raw_materials",     label: "مشتريات خامات",         color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
+  { value: "manufacturing",     label: "مصاريف تصنيع",          color: "#F97316", glow: "rgba(249,115,22,0.25)" },
+  { value: "office_misc",       label: "نثريات مكتب",           color: "#64748B", glow: "rgba(100,116,139,0.25)"},
+  { value: "rent",              label: "إيجار",                 color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
+  { value: "salary",            label: "مرتبات",                color: "#10B981", glow: "rgba(16,185,129,0.25)" },
+  { value: "marketing",         label: "تسويق وإعلانات",        color: "#F59E0B", glow: "rgba(245,158,11,0.25)" },
+  { value: "utilities",         label: "كهرباء وخدمات",         color: "#EAB308", glow: "rgba(234,179,8,0.25)"  },
+  { value: "maintenance",       label: "صيانة معدات",           color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
+  { value: "other",             label: "أخرى",                  color: "#6B7280", glow: "rgba(107,114,128,0.25)"},
 ];
 
 const catLabel = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.label ?? v;
@@ -49,6 +50,7 @@ const defaultForm = () => ({
   referenceId: "", notes: "",
   expenseDate: format(new Date(), "yyyy-MM-dd"),
   cashRegisterId: "",
+  supplierId: "",
 });
 
 export default function FinanceExpenses() {
@@ -111,12 +113,19 @@ export default function FinanceExpenses() {
   });
   const registers = regData?.registers ?? [];
 
+  const { data: suppliersData } = useQuery<any[]>({
+    queryKey: ["finance-suppliers-list"],
+    queryFn:  () => api.get("/api/finance/suppliers"),
+  });
+  const suppliers = suppliersData ?? [];
+
   // ── Mutations ──
   const save = useMutation({
     mutationFn: () => api.post("/api/finance/expenses", {
       ...form,
       amount: parseFloat(form.amount),
       cashRegisterId: form.cashRegisterId ? parseInt(form.cashRegisterId) : null,
+      supplierId: form.supplierId ? parseInt(form.supplierId) : null,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["finance-expenses"] });
@@ -363,7 +372,7 @@ export default function FinanceExpenses() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs mb-1 block">التصنيف</Label>
-                <Select value={form.category} onValueChange={v => F("category", v)}>
+                <Select value={form.category} onValueChange={v => { F("category", v); if (v !== "supplier_payment") F("supplierId", ""); }}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue/></SelectTrigger>
                   <SelectContent>{EXPENSE_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                 </Select>
@@ -373,6 +382,24 @@ export default function FinanceExpenses() {
                 <Input type="number" className="h-9 text-sm" placeholder="0" value={form.amount} onChange={e => F("amount", e.target.value)}/>
               </div>
             </div>
+            {form.category === "supplier_payment" && (
+              <div>
+                <Label className="text-xs mb-1 block flex items-center gap-1">
+                  <Building2 className="w-3 h-3 text-violet-400"/> اسم المورد *
+                </Label>
+                <Select value={form.supplierId} onValueChange={v => F("supplierId", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="اختر المورد..."/></SelectTrigger>
+                  <SelectContent>
+                    {suppliers.length === 0 && <SelectItem value="none" disabled>لا يوجد موردون مسجّلون</SelectItem>}
+                    {suppliers.map((s: any) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name}{s.balance ? ` — رصيد: ${Number(s.balance).toLocaleString("ar-EG")} ج.م` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs mb-1 block">التاريخ *</Label>
