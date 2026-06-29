@@ -64,63 +64,192 @@ router.get("/finance/expenses/export-excel", async (req, res): Promise<void> => 
     .orderBy(desc(expensesTable.expenseDate));
 
   const CAT_LABELS: Record<string, string> = {
-    shipping_fees:"مصاريف شحن", warehouse_rent:"إيجار مخزن", salary:"مرتبات",
-    marketing:"تسويق وإعلانات", packaging:"تغليف", utilities:"كهرباء / خدمات",
-    maintenance:"صيانة", returns_loss:"خسائر مرتجعات", other:"أخرى",
+    supplier_payment: "دفعة لمورد",
+    raw_materials:    "مشتريات خامات",
+    manufacturing:    "مصاريف تصنيع",
+    office_misc:      "نثريات مكتب",
+    rent:             "إيجار",
+    salary:           "مرتبات",
+    marketing:        "تسويق وإعلانات",
+    utilities:        "كهرباء وخدمات",
+    maintenance:      "صيانة معدات",
+    other:            "أخرى",
+  };
+
+  // ألوان لكل تصنيف
+  const CAT_COLORS: Record<string, string> = {
+    supplier_payment: "FFE9D5FF",
+    raw_materials:    "FFD5F4FF",
+    manufacturing:    "FFFFD5D5",
+    office_misc:      "FFE8E8E8",
+    rent:             "FFF0D5FF",
+    salary:           "FFD5FFE8",
+    marketing:        "FFFFF3D5",
+    utilities:        "FFFFF9D5",
+    maintenance:      "FFFFD5D5",
+    other:            "FFF5F5F5",
   };
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Caprina"; wb.created = new Date();
-  const ws = wb.addWorksheet("المصروفات", { views: [{ rightToLeft: true }] });
+  wb.creator = "Caprina";
+  wb.created = new Date();
+  const ws = wb.addWorksheet("المصروفات التشغيلية", {
+    views: [{ rightToLeft: true }],
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
+  });
 
+  // ── صف العنوان الرئيسي (merged) ──
+  ws.mergeCells("A1:H1");
+  const titleCell = ws.getCell("A1");
+  titleCell.value = "🧾  تقرير المصروفات التشغيلية — Caprina";
+  titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" }, name: "Arial" };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A1A2E" } };
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(1).height = 38;
+
+  // ── صف التاريخ ──
+  ws.mergeCells("A2:H2");
+  const dateCell = ws.getCell("A2");
+  dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString("ar-EG", { year:"numeric", month:"long", day:"numeric" })}   |   إجمالي السجلات: ${expenses.length}`;
+  dateCell.font = { italic: true, size: 10, color: { argb: "FF555555" } };
+  dateCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F0F0" } };
+  dateCell.alignment = { horizontal: "center", vertical: "middle" };
+  ws.getRow(2).height = 20;
+
+  // ── صف فارغ ──
+  ws.addRow([]);
+
+  // ── تعريف الأعمدة ──
   ws.columns = [
-    { header: "#",          key: "id",          width: 8  },
-    { header: "العنوان",    key: "title",        width: 30 },
-    { header: "التصنيف",    key: "category",     width: 20 },
-    { header: "المبلغ",     key: "amount",       width: 16 },
-    { header: "التاريخ",    key: "expenseDate",  width: 14 },
-    { header: "رقم مرجعي", key: "referenceId",  width: 16 },
-    { header: "ملاحظات",   key: "notes",        width: 30 },
-    { header: "بواسطة",    key: "createdByName",width: 18 },
+    { key: "num",          width: 6  },
+    { key: "title",        width: 32 },
+    { key: "category",     width: 22 },
+    { key: "amount",       width: 18 },
+    { key: "expenseDate",  width: 14 },
+    { key: "referenceId",  width: 16 },
+    { key: "notes",        width: 28 },
+    { key: "createdByName",width: 18 },
   ];
 
-  // تنسيق الهيدر
-  ws.getRow(1).eachCell(cell => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDEA821" } };
-    cell.font = { bold: true, color: { argb: "FF000000" } };
-    cell.alignment = { horizontal: "center", vertical: "middle" };
+  // ── صف الهيدر (صف 4) ──
+  const HEADERS = ["#", "العنوان", "التصنيف", "المبلغ (ج.م)", "التاريخ", "رقم مرجعي", "ملاحظات", "بواسطة"];
+  const HEADER_COLORS = ["FF16213E","FF0F3460","FF533483","FFC0392B","FF1A6B3C","FF0E5E6F","FF4A4A6A","FF4A3728"];
+  const headerRow = ws.addRow(HEADERS);
+  headerRow.height = 26;
+  headerRow.eachCell((cell, colNum) => {
+    cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_COLORS[colNum - 1] ?? "FF333333" } };
+    cell.font   = { bold: true, color: { argb: "FFFFFFFF" }, size: 11, name: "Arial" };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    cell.border = {
+      top:    { style: "thin", color: { argb: "FFAAAAAA" } },
+      bottom: { style: "thin", color: { argb: "FFAAAAAA" } },
+      left:   { style: "thin", color: { argb: "FFAAAAAA" } },
+      right:  { style: "thin", color: { argb: "FFAAAAAA" } },
+    };
   });
-  ws.getRow(1).height = 22;
 
+  // ── بيانات المصروفات ──
   let totalAmount = 0;
   expenses.forEach((e, i) => {
     const amt = parseFloat(e.amount ?? "0");
     totalAmount += amt;
+    const catKey = e.category ?? "other";
+    const bgColor = i % 2 === 0 ? (CAT_COLORS[catKey] ?? "FFFFFFFF") : "FFFFFFFF";
+
     const row = ws.addRow({
-      id: e.id,
-      title: e.title,
-      category: CAT_LABELS[e.category ?? ""] ?? e.category,
-      amount: amt,
-      expenseDate: e.expenseDate ? new Date(e.expenseDate).toLocaleDateString("ar-EG") : "",
-      referenceId: e.referenceId ?? "",
-      notes: e.notes ?? "",
-      createdByName: e.createdByName ?? "",
+      num:           i + 1,
+      title:         e.title,
+      category:      CAT_LABELS[catKey] ?? catKey,
+      amount:        amt,
+      expenseDate:   e.expenseDate ? new Date(e.expenseDate).toLocaleDateString("ar-EG") : "",
+      referenceId:   e.referenceId ?? "—",
+      notes:         e.notes ?? "—",
+      createdByName: e.createdByName ?? "—",
     });
-    row.getCell("amount").numFmt = '#,##0.00 "ج.م"';
-    if (i % 2 === 1) {
-      row.eachCell(cell => { cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFF9F9F9" } }; });
-    }
+    row.height = 20;
+
+    row.eachCell((cell, colNum) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
+      cell.alignment = { vertical: "middle", horizontal: colNum === 4 ? "right" : "right", wrapText: false };
+      cell.font = { size: 10, name: "Arial" };
+      cell.border = {
+        bottom: { style: "hair", color: { argb: "FFDDDDDD" } },
+        right:  { style: "hair", color: { argb: "FFDDDDDD" } },
+      };
+    });
+    // تنسيق خاص لعمود المبلغ
+    const amtCell = row.getCell("amount");
+    amtCell.numFmt = '#,##0.00';
+    amtCell.font = { bold: true, size: 10, color: { argb: "FFC0392B" }, name: "Arial" };
+    amtCell.alignment = { horizontal: "right", vertical: "middle" };
   });
 
-  // صف الإجمالي
-  const totalRow = ws.addRow({ title: "الإجمالي", amount: totalAmount });
-  totalRow.getCell("title").font = { bold: true };
+  // ── صف الإجمالي ──
+  ws.addRow([]);
+  const totalRow = ws.addRow({
+    num: "", title: "📊  الإجمالي الكلي", category: "", amount: totalAmount,
+    expenseDate: "", referenceId: `${expenses.length} مصروف`, notes: "", createdByName: "",
+  });
+  totalRow.height = 28;
+  totalRow.eachCell(cell => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A1A2E" } };
+    cell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" }, name: "Arial" };
+    cell.alignment = { horizontal: "right", vertical: "middle" };
+    cell.border = {
+      top:    { style: "medium", color: { argb: "FFAAAAAA" } },
+      bottom: { style: "medium", color: { argb: "FFAAAAAA" } },
+    };
+  });
   totalRow.getCell("amount").numFmt = '#,##0.00 "ج.م"';
-  totalRow.getCell("amount").font = { bold: true, color: { argb: "FFC0392B" } };
-  totalRow.eachCell(cell => { cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFFFF3CD" } }; });
+  totalRow.getCell("amount").font   = { bold: true, size: 13, color: { argb: "FFFFD700" }, name: "Arial" };
+
+  // ── ملخص التصنيفات ──
+  ws.addRow([]);
+  ws.addRow([]);
+  ws.mergeCells(`A${ws.lastRow!.number}:H${ws.lastRow!.number}`);
+  const summaryTitleCell = ws.lastRow!.getCell(1);
+  summaryTitleCell.value = "📈  ملخص المصروفات حسب التصنيف";
+  summaryTitleCell.font  = { bold: true, size: 12, color: { argb: "FFFFFFFF" }, name: "Arial" };
+  summaryTitleCell.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F3460" } };
+  summaryTitleCell.alignment = { horizontal: "center", vertical: "middle" };
+  ws.lastRow!.height = 24;
+
+  const summaryHeaderRow = ws.addRow(["التصنيف", "عدد المصروفات", "الإجمالي (ج.م)", "النسبة %", "", "", "", ""]);
+  summaryHeaderRow.height = 22;
+  summaryHeaderRow.eachCell((cell, colNum) => {
+    if (colNum > 4) return;
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF533483" } };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10, name: "Arial" };
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    cell.border = { bottom: { style: "thin", color: { argb: "FFAAAAAA" } } };
+  });
+
+  const catTotals: Record<string, { label: string; total: number; count: number }> = {};
+  expenses.forEach(e => {
+    const k = e.category ?? "other";
+    if (!catTotals[k]) catTotals[k] = { label: CAT_LABELS[k] ?? k, total: 0, count: 0 };
+    catTotals[k].total += parseFloat(e.amount ?? "0");
+    catTotals[k].count++;
+  });
+  const sortedCats = Object.values(catTotals).sort((a, b) => b.total - a.total);
+  sortedCats.forEach((cat, i) => {
+    const pct = totalAmount > 0 ? ((cat.total / totalAmount) * 100).toFixed(1) : "0.0";
+    const sumRow = ws.addRow([cat.label, cat.count, cat.total, `${pct}%`, "", "", "", ""]);
+    sumRow.height = 18;
+    sumRow.getCell(3).numFmt = '#,##0.00';
+    [1,2,3,4].forEach(c => {
+      const cell = sumRow.getCell(c);
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: i % 2 === 0 ? "FFF5F0FF" : "FFFFFFFF" } };
+      cell.font = { size: 10, name: "Arial" };
+      cell.alignment = { horizontal: c === 1 ? "right" : "center", vertical: "middle" };
+      cell.border = { bottom: { style: "hair", color: { argb: "FFDDDDDD" } } };
+    });
+    sumRow.getCell(2).font = { bold: true, size: 10, color: { argb: "FF0F3460" }, name: "Arial" };
+    sumRow.getCell(3).font = { bold: true, size: 10, color: { argb: "FFC0392B" }, name: "Arial" };
+  });
 
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename="expenses-${Date.now()}.xlsx"`);
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''expenses-${Date.now()}.xlsx`);
   await wb.xlsx.write(res);
   res.end();
 });
