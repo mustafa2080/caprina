@@ -227,9 +227,28 @@ export default function FinanceExpenses() {
     a.click();
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const q = buildExportParams();
-    window.open(`/api/finance/expenses/export-excel${q ? "?" + q : ""}`, "_blank");
+    const token = localStorage.getItem("caprina_token");
+    try {
+      const res = await fetch(`/api/finance/expenses/export-excel${q ? "?" + q : ""}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "❌ فشل التصدير", description: err.error ?? `HTTP ${res.status}`, variant: "destructive" });
+        return;
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `expenses-${Date.now()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: "❌ خطأ", description: e.message, variant: "destructive" });
+    }
   };
 
   // ── ملخص الصفحة الحالية ──
