@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Building2, Phone, Mail, Edit2, Trash2,
   Search, Download, FileSpreadsheet, X, BookOpen,
-  TrendingDown, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, Star,
+  TrendingDown, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, Star, Printer,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
@@ -174,6 +174,74 @@ export default function FinanceSuppliers() {
     window.open(`/api/finance/suppliers/${stmtSupplier.id}/statement/export-excel?${p}`, "_blank");
   };
 
+  const printStatement = () => {
+    if (!stmtSupplier || !stmtData) return;
+    const rowsHtml = stmtData.orders.map(o => {
+      const total   = parseFloat(o.totalAmount ?? "0");
+      const paid    = parseFloat(o.paidAmount  ?? "0");
+      const due     = total - paid;
+      const payInfo = PAY_BADGE[o.paymentStatus ?? "unpaid"] ?? PAY_BADGE.unpaid;
+      const poInfo  = PO_BADGE[o.status ?? "draft"] ?? PO_BADGE.draft;
+      return `<tr>
+        <td>${o.poNumber}</td>
+        <td>${o.createdAt ? new Date(o.createdAt).toLocaleDateString("ar-EG") : "—"}</td>
+        <td>${poInfo.label}</td>
+        <td>${fmt(total)}</td>
+        <td>${fmt(paid)}</td>
+        <td>${fmt(due)}</td>
+        <td>${payInfo.label}</td>
+      </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8">
+<title>كشف حساب — ${stmtSupplier.name}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 32px; }
+  h1  { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+  .meta { font-size: 11px; color: #64748b; margin-bottom: 20px; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat { background: #1e293b; border-radius: 10px; padding: 14px; text-align: center; }
+  .stat-label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
+  .stat-value { font-size: 16px; font-weight: 900; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1e293b; padding: 10px 8px; font-size: 11px; text-align: center; }
+  td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #1e293b; font-size: 12px; }
+  tfoot td { background: #1d4ed8; font-weight: 900; font-size: 12px; padding: 11px 8px; }
+  @media print { body { background: #fff; color: #000; } .stat { background: #f1f5f9; } th { background: #e2e8f0; color: #000; } td { border-color: #ddd; } }
+</style></head>
+<body>
+<h1>كشف حساب — ${stmtSupplier.name}</h1>
+<p class="meta">تاريخ الطباعة: ${new Date().toLocaleDateString("ar-EG")}${stmtFrom || stmtTo ? `   |   الفترة: ${stmtFrom || "البداية"} → ${stmtTo || "الآن"}` : ""}</p>
+<div class="summary">
+  <div class="stat"><div class="stat-label">إجمالي الأوامر</div><div class="stat-value">${stmtData.summary.totalOrders}</div></div>
+  <div class="stat"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value" style="color:#FFB74D">${fmt(stmtData.summary.totalAmount)}</div></div>
+  <div class="stat"><div class="stat-label">المدفوع</div><div class="stat-value" style="color:#26A69A">${fmt(stmtData.summary.totalPaid)}</div></div>
+  <div class="stat"><div class="stat-label">المتبقي</div><div class="stat-value" style="color:#f87171">${fmt(stmtData.summary.totalUnpaid)}</div></div>
+</div>
+<table>
+  <thead><tr>
+    <th>رقم الأمر</th><th>التاريخ</th><th>الحالة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الدفع</th>
+  </tr></thead>
+  <tbody>${rowsHtml}</tbody>
+  <tfoot><tr>
+    <td colspan="3">الإجمالي الكلي</td>
+    <td>${fmt(stmtData.summary.totalAmount)}</td>
+    <td>${fmt(stmtData.summary.totalPaid)}</td>
+    <td>${fmt(stmtData.summary.totalUnpaid)}</td>
+    <td></td>
+  </tr></tfoot>
+</table>
+</body></html>`;
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.onload = () => { w.print(); };
+  };
+
   // ── pagination ─────────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(suppliers.length / PAGE_SIZE));
   const paged = suppliers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -246,7 +314,11 @@ export default function FinanceSuppliers() {
                 : "linear-gradient(135deg, rgba(126,87,194,0.28) 0%, rgba(126,87,194,0.10) 52%, rgba(255,255,255,0.05) 100%)";
               return (
               <div key={s.id}
-                className="group relative overflow-hidden rounded-[20px] p-4 transition-all duration-300 hover:-translate-y-0.5"
+                role="button"
+                tabIndex={0}
+                onClick={() => { setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); }}
+                onKeyDown={e => { if (e.key === "Enter") { setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); } }}
+                className="group relative overflow-hidden rounded-[20px] p-4 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
                 style={{ background: bg, border: `1px solid ${glow}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.13), 0 8px 24px ${glow}`, backdropFilter: "blur(12px)" }}>
                 <div className="absolute inset-x-6 top-0 h-px pointer-events-none"
                   style={{ background: `linear-gradient(90deg, transparent, ${bal < 0 ? "#ef4444" : "#7E57C2"}, transparent)` }} />
@@ -277,19 +349,19 @@ export default function FinanceSuppliers() {
                       className="h-7 w-7 hover:bg-amber-500/10"
                       title={s.isDefault ? "هو المورد الافتراضي" : "تعيين كمورد افتراضي"}
                       disabled={setDefault.isPending}
-                      onClick={() => { if (!s.isDefault) setDefault.mutate(s.id); }}
+                      onClick={e => { e.stopPropagation(); if (!s.isDefault) setDefault.mutate(s.id); }}
                       style={{ color: s.isDefault ? "#FFB74D" : "hsl(var(--muted-foreground)/0.4)" }}>
                       <Star className={`w-3.5 h-3.5 ${s.isDefault ? "fill-current" : ""}`} />
                     </Button>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400 hover:bg-white/10" title="كشف حساب"
-                      onClick={() => { setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); }}>
+                      onClick={e => { e.stopPropagation(); setStmtSupplier(s); setStmtFrom(""); setStmtTo(""); }}>
                       <BookOpen className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => openEdit(s)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={e => { e.stopPropagation(); openEdit(s); }}>
                       <Edit2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-500/10" onClick={() => { if (confirm(`حذف المورد "${s.name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) del.mutate(s.id); }}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-500/10" onClick={e => { e.stopPropagation(); if (confirm(`حذف المورد "${s.name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) del.mutate(s.id); }}>
                       <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                     </Button>
                     </div>
@@ -365,14 +437,19 @@ export default function FinanceSuppliers() {
       <Dialog open={!!stmtSupplier} onOpenChange={v => !v && setStmtSupplier(null)}>
         <DialogContent className="bg-card border-border max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <DialogTitle className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-primary" />
                 كشف حساب — {stmtSupplier?.name}
               </DialogTitle>
-              <Button variant="outline" size="sm" className="gap-2 border-border h-8" onClick={exportStatement}>
-                <Download className="w-3.5 h-3.5" />تصدير Excel
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-2 border-border h-8" onClick={exportStatement}>
+                  <Download className="w-3.5 h-3.5" />تصدير Excel
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2 border-border h-8" onClick={printStatement} disabled={!stmtData}>
+                  <Printer className="w-3.5 h-3.5" />طباعة
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
