@@ -159,11 +159,32 @@ export default function FinanceSuppliers() {
   const openNew  = () => { setEditing(null); setForm({ name: "", phone: "", email: "", address: "", category: "products", paymentTerms: "", notes: "" }); setOpen(true); };
   const openEdit = (s: Supplier) => { setEditing(s); setForm({ name: s.name, phone: s.phone ?? "", email: s.email ?? "", address: s.address ?? "", category: s.category ?? "products", paymentTerms: s.paymentTerms ?? "", notes: s.notes ?? "" }); setOpen(true); };
 
+  const downloadFile = async (url: string, filename: string) => {
+    const token = localStorage.getItem("caprina_token");
+    try {
+      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "❌ فشل التصدير", description: err.error ?? `HTTP ${res.status}`, variant: "destructive" });
+        return;
+      }
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+    } catch (e: any) {
+      toast({ title: "❌ خطأ", description: e.message, variant: "destructive" });
+    }
+  };
+
   const exportExcel = () => {
     const p = new URLSearchParams();
     if (search.trim()) p.set("search", search.trim());
     if (catFilter !== "all") p.set("category", catFilter);
-    window.open(`/api/finance/suppliers/export-excel?${p}`, "_blank");
+    downloadFile(`/api/finance/suppliers/export-excel?${p}`, `suppliers-${Date.now()}.xlsx`);
   };
 
   const exportStatement = () => {
@@ -171,7 +192,7 @@ export default function FinanceSuppliers() {
     const p = new URLSearchParams();
     if (stmtFrom) p.set("from", stmtFrom);
     if (stmtTo)   p.set("to",   stmtTo);
-    window.open(`/api/finance/suppliers/${stmtSupplier.id}/statement/export-excel?${p}`, "_blank");
+    downloadFile(`/api/finance/suppliers/${stmtSupplier.id}/statement/export-excel?${p}`, `supplier-statement-${stmtSupplier.id}-${Date.now()}.xlsx`);
   };
 
   const printStatement = () => {
@@ -208,7 +229,7 @@ export default function FinanceSuppliers() {
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { font-family: 'Cairo', Arial, sans-serif; background: #f1f3f6; color: #1f2430; direction: rtl; }
+  html, body { font-family: 'Cairo', Arial, sans-serif; background: #f1f3f6; color: #1f2430; direction: rtl; font-weight: 600; }
   body { padding: 28px; }
   .sheet { max-width: 980px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(20,20,40,0.10); }
 
@@ -219,24 +240,24 @@ export default function FinanceSuppliers() {
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand-badge { width: 38px; height: 38px; border-radius: 10px; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; letter-spacing: 0.5px; }
   .brand-name { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: rgba(255,255,255,0.92); }
-  .doc-tag { font-size: 10px; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25); }
+  .doc-tag { font-size: 10px; font-weight: 800; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25); }
   .head h1 { font-size: 22px; font-weight: 900; margin-top: 18px; position: relative; z-index: 1; }
-  .head .sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 4px; position: relative; z-index: 1; }
-  .head-meta { margin-top: 18px; display: flex; gap: 22px; flex-wrap: wrap; position: relative; z-index: 1; font-size: 11px; color: rgba(255,255,255,0.78); }
-  .head-meta b { color: #fff; font-weight: 700; }
+  .head .sub { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.70); margin-top: 4px; position: relative; z-index: 1; }
+  .head-meta { margin-top: 18px; display: flex; gap: 22px; flex-wrap: wrap; position: relative; z-index: 1; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.82); }
+  .head-meta b { color: #fff; font-weight: 900; }
 
   /* ── Supplier info strip ── */
   .info-strip { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid #e7e9f0; }
   .info-cell { flex: 1; min-width: 150px; padding: 14px 20px; border-inline-end: 1px solid #eef0f5; }
   .info-cell:last-child { border-inline-end: none; }
-  .info-cell .lbl { font-size: 10px; color: #8a8fa3; font-weight: 700; margin-bottom: 3px; }
-  .info-cell .val { font-size: 13px; font-weight: 700; color: #1f2430; }
+  .info-cell .lbl { font-size: 10px; color: #8a8fa3; font-weight: 800; margin-bottom: 3px; }
+  .info-cell .val { font-size: 13px; font-weight: 800; color: #1f2430; }
 
   /* ── Summary cards ── */
   .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 22px 36px 6px; }
   .stat { border-radius: 14px; padding: 16px 14px; text-align: center; border: 1px solid; position: relative; overflow: hidden; }
-  .stat .stat-label { font-size: 11px; font-weight: 700; margin-bottom: 6px; opacity: 0.85; }
-  .stat .stat-value { font-size: 18px; font-weight: 900; }
+  .stat .stat-label { font-size: 11px; font-weight: 800; margin-bottom: 6px; opacity: 0.9; }
+  .stat .stat-value { font-size: 19px; font-weight: 900; }
   .stat.c1 { background: #F4F1FC; border-color: #DCD3F5; }
   .stat.c1 .stat-label, .stat.c1 .stat-value { color: #5B3FA8; }
   .stat.c2 { background: #FFF6E9; border-color: #F6E0BC; }
@@ -249,30 +270,30 @@ export default function FinanceSuppliers() {
   /* ── Table ── */
   .table-wrap { padding: 18px 36px 8px; }
   table { width: 100%; border-collapse: collapse; }
-  thead th { background: #161B33; color: #fff; padding: 11px 8px; font-size: 11px; font-weight: 700; text-align: center; }
+  thead th { background: #161B33; color: #fff; padding: 11px 8px; font-size: 11.5px; font-weight: 800; text-align: center; }
   thead th:first-child { border-radius: 8px 0 0 0; }
   thead th:last-child  { border-radius: 0 8px 0 0; }
-  tbody td { padding: 10px 8px; font-size: 12px; text-align: center; border-bottom: 1px solid #eef0f5; color: #2b2f3a; }
+  tbody td { padding: 10px 8px; font-size: 12.5px; font-weight: 700; text-align: center; border-bottom: 1px solid #eef0f5; color: #2b2f3a; }
   tbody tr.even td { background: #FAFAFD; }
-  td.num { color: #9aa0b4; font-size: 11px; width: 30px; }
-  td.po  { font-weight: 800; color: #161B33; font-family: 'Cairo', Arial, sans-serif; }
-  td.num-cell { font-weight: 700; font-variant-numeric: tabular-nums; }
-  td.paid { color: #0F8A53; }
-  td.due.due-pos { color: #C23B3B; font-weight: 800; }
-  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #EEF0F7; color: #4a4f63; border: 1px solid #e2e4ee; }
+  td.num { color: #9aa0b4; font-size: 11px; font-weight: 700; width: 30px; }
+  td.po  { font-weight: 900; color: #161B33; font-family: 'Cairo', Arial, sans-serif; }
+  td.num-cell { font-weight: 800; font-variant-numeric: tabular-nums; }
+  td.paid { color: #0F8A53; font-weight: 800; }
+  td.due.due-pos { color: #C23B3B; font-weight: 900; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: #EEF0F7; color: #4a4f63; border: 1px solid #e2e4ee; }
 
-  tfoot td { background: #161B33; color: #fff; font-weight: 900; font-size: 12.5px; padding: 13px 8px; }
+  tfoot td { background: #161B33; color: #fff; font-weight: 900; font-size: 13px; padding: 13px 8px; }
   tfoot tr td:first-child { border-radius: 0 0 0 10px; }
   tfoot tr td:last-child  { border-radius: 0 0 10px 0; }
   tfoot .due-final { color: ${totalUnpaid > 0 ? "#FF8A80" : "#7FE3B4"}; }
 
-  .empty-note { text-align: center; padding: 30px; color: #9aa0b4; font-size: 12px; }
+  .empty-note { text-align: center; padding: 30px; color: #9aa0b4; font-size: 12px; font-weight: 700; }
 
   /* ── Footer / signatures ── */
   .footer { padding: 26px 36px 30px; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
   .sign { text-align: center; min-width: 160px; }
-  .sign .line { border-top: 1.5px solid #c9cce0; margin-top: 38px; padding-top: 6px; font-size: 11px; color: #6c7188; font-weight: 700; }
-  .stamp-note { font-size: 10px; color: #b3b6c6; }
+  .sign .line { border-top: 1.5px solid #c9cce0; margin-top: 38px; padding-top: 6px; font-size: 11px; color: #6c7188; font-weight: 800; }
+  .stamp-note { font-size: 10px; font-weight: 700; color: #b3b6c6; }
 
   @page { size: A4; margin: 14mm 10mm; }
   @media print {
