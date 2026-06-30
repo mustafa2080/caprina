@@ -669,10 +669,10 @@ export default function FinanceSuppliers() {
               )}
 
               {/* Extra supplier payments — دفعات إضافية مسجّلة كمصروف "دفعة لمورد" */}
-              {stmtData.extraPayments.length > 0 && (
+              {(stmtData.extraPayments?.length ?? 0) > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-muted-foreground">
-                    دفعات إضافية (خارج أوامر الشراء) — إجمالي {fmt(stmtData.summary.totalExtraPaid)}
+                    دفعات إضافية (خارج أوامر الشراء) — إجمالي {fmt(stmtData.summary.totalExtraPaid ?? 0)}
                   </p>
                   <div className="overflow-x-auto rounded-lg border border-border">
                     <table className="w-full text-sm">
@@ -684,7 +684,7 @@ export default function FinanceSuppliers() {
                         </tr>
                       </thead>
                       <tbody>
-                        {stmtData.extraPayments.map(e => (
+                        {(stmtData.extraPayments ?? []).map(e => (
                           <tr key={e.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                             <td className="p-3 text-xs text-muted-foreground">
                               {e.createdAt ? new Date(e.createdAt).toLocaleDateString("ar-EG") : "—"}
