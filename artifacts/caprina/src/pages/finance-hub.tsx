@@ -23,16 +23,17 @@ import { Button } from "@/components/ui/button";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const EXPENSE_CATEGORIES = [
-  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#8B5CF6" },
-  { value: "raw_materials",     label: "مشتريات خامات",         color: "#06B6D4" },
-  { value: "manufacturing",     label: "مصاريف تصنيع",          color: "#F97316" },
-  { value: "office_misc",       label: "نثريات مكتب",           color: "#64748B" },
-  { value: "rent",              label: "إيجار",                 color: "#A855F7" },
+  { value: "shipping_fees",     label: "مصاريف شحن",            color: "#06B6D4" },
+  { value: "warehouse_rent",    label: "إيجار مخزن",            color: "#A855F7" },
   { value: "salary",            label: "مرتبات",                color: "#10B981" },
-  { value: "marketing",         label: "تسويق وإعلانات",        color: "#F59E0B" },
+  { value: "marketing",         label: "تسويق وإعلانات",        color: "#64748B" },
+  { value: "packaging",         label: "تغليف",                 color: "#F97316" },
   { value: "utilities",         label: "كهرباء وخدمات",         color: "#EAB308" },
-  { value: "maintenance",       label: "صيانة معدات",           color: "#EF4444" },
-  { value: "other",             label: "أخرى",                  color: "#6B7280" },
+  { value: "maintenance",       label: "صيانة",                 color: "#EF4444" },
+  { value: "returns_loss",      label: "خسائر مرتجعات",         color: "#F43F5E" },
+  { value: "other",             label: "أخرى",                  color: "#8B5CF6" },
+  // متبقاة لو فيه بيانات قديمة بفئات سابقة
+  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#22D3EE" },
 ];
 const PIE_COLORS = EXPENSE_CATEGORIES.map(c => c.color);
 const CAT_COLORS: Record<string,string> = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.value, c.color]));

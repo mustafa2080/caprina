@@ -26,16 +26,17 @@ const api = {
 };
 
 const EXPENSE_CATEGORIES = [
-  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
-  { value: "raw_materials",     label: "مشتريات خامات",         color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
-  { value: "manufacturing",     label: "مصاريف تصنيع",          color: "#F97316", glow: "rgba(249,115,22,0.25)" },
-  { value: "office_misc",       label: "نثريات مكتب",           color: "#64748B", glow: "rgba(100,116,139,0.25)"},
-  { value: "rent",              label: "إيجار",                 color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
+  { value: "shipping_fees",     label: "مصاريف شحن",            color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
+  { value: "warehouse_rent",    label: "إيجار مخزن",            color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
   { value: "salary",            label: "مرتبات",                color: "#10B981", glow: "rgba(16,185,129,0.25)" },
-  { value: "marketing",         label: "تسويق وإعلانات",        color: "#F59E0B", glow: "rgba(245,158,11,0.25)" },
+  { value: "marketing",         label: "تسويق وإعلانات",        color: "#64748B", glow: "rgba(100,116,139,0.25)"},
+  { value: "packaging",         label: "تغليف",                 color: "#F97316", glow: "rgba(249,115,22,0.25)" },
   { value: "utilities",         label: "كهرباء وخدمات",         color: "#EAB308", glow: "rgba(234,179,8,0.25)"  },
-  { value: "maintenance",       label: "صيانة معدات",           color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
-  { value: "other",             label: "أخرى",                  color: "#6B7280", glow: "rgba(107,114,128,0.25)"},
+  { value: "maintenance",       label: "صيانة",                 color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
+  { value: "returns_loss",      label: "خسائر مرتجعات",         color: "#F43F5E", glow: "rgba(244,63,94,0.25)"  },
+  { value: "other",             label: "أخرى",                  color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
+  // متبقاة لو فيه بيانات قديمة بفئات سابقة
+  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#22D3EE", glow: "rgba(34,211,238,0.25)" },
 ];
 
 const catLabel = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.label ?? v;
