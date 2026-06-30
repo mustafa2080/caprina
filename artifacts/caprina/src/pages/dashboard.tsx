@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { ChartsSection, WeeklyBars, ChartCard, StatusDonutWithOrders } from "@/components/charts-section";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useAuth } from "@/contexts/AuthContext";
+import { returnReasonLabel } from "@/lib/order-constants";
 import {
   TrendingUp, TrendingDown, DollarSign, Package, AlertCircle,
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
@@ -235,12 +236,7 @@ function DamagedOrdersModal({ onClose }: { onClose: () => void }) {
                     </p>
                     {(o.returnReason || o.returnNote) && (
                       <p className="text-[9px] text-red-500/70 mt-0.5 truncate">
-                        {o.returnReason === "quality" ? "جودة المنتج" :
-                         o.returnReason === "size_mismatch" ? "مقاس غير مناسب" :
-                         o.returnReason === "customer_refused" ? "عميل غير جاد" :
-                         o.returnReason === "customer_requested_return" ? "طلب العميل" :
-                         o.returnReason === "delay" ? "تأخير" :
-                         o.returnNote || o.returnReason || ""}
+                        {o.returnReason ? returnReasonLabel(o.returnReason) : (o.returnNote || "")}
                       </p>
                     )}
                   </div>

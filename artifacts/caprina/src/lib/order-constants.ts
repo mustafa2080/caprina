@@ -15,7 +15,17 @@ export const RETURN_REASONS: { value: string; label: string }[] = [
 
 export const returnReasonLabel = (reason: string | null | undefined): string => {
   if (!reason) return "—";
-  return RETURN_REASONS.find(r => r.value === reason)?.label ?? reason;
+  const found = RETURN_REASONS.find(r => r.value === reason);
+  if (found) return found.label;
+  // Legacy/alternate values seen historically in the database
+  const LEGACY_LABELS: Record<string, string> = {
+    quality: "جودة المنتج",
+    customer_refused: "عميل غير جاد",
+    customer_requested_return: "طلب العميل",
+    delay: "تأخير",
+    size_mismatch: "مقاس غير مناسب",
+  };
+  return LEGACY_LABELS[reason] ?? reason;
 };
 
 export const STATUS_LABELS: Record<string, string> = {

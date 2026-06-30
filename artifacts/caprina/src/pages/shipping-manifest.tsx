@@ -1066,7 +1066,7 @@ function InvoiceGroupDeliveryRow({
                   <>
                     <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
                     <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                      ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
+                      ↳ {returnReasonLabel((rep as any).returnReason)}
                     </p>
                   </>
                 )}
@@ -1074,13 +1074,13 @@ function InvoiceGroupDeliveryRow({
                   <>
                     <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
                     <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                      ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
+                      ↳ {returnReasonLabel((rep as any).returnReason)}
                     </p>
                   </>
                 )}
                 {displayStatus === "returned" && (rep as any).returnReceived == null && (
                   <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                    ↳ {(rep as any).returnReason ? (RETURN_REASONS.find(r => r.value === (rep as any).returnReason)?.label ?? (rep as any).returnReason) : "لم يحدد السبب"}
+                    ↳ {returnReasonLabel((rep as any).returnReason)}
                   </p>
                 )}
                 {displayStatus === "partial_received" && currentGroupReturnReceived === true && (
