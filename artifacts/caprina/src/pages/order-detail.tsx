@@ -1988,6 +1988,8 @@ export default function OrderDetail() {
     queryClient.invalidateQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["analytics-charts"] });
     queryClient.invalidateQueries({ queryKey: ["orders-summary"] });
+    // ← مهم: invalidate صفحة الذكاء (smart-analytics) عشان أسباب المرتجعات تتحدث فورًا
+    queryClient.invalidateQueries({ queryKey: ["smart-insights"] });
     // ← مهم: invalidate الفاتورة المتعددة عشان الـ UI يتحدث
     if (invoiceNumber) {
       queryClient.invalidateQueries({ queryKey: ["invoice-orders", invoiceNumber] });
