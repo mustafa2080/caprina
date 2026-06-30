@@ -220,7 +220,15 @@ router.get("/finance/suppliers/:id/statement/export-excel", async (req, res): Pr
 
   const totalAmount = orders.reduce((s,o) => s + parseFloat(o.totalAmount ?? "0"), 0);
   const totalPaid   = orders.reduce((s,o) => s + parseFloat(o.paidAmount  ?? "0"), 0);
-  const totalDue    = totalAmount - totalPaid;
+
+  // ── دفعات إضافية (مصروفات "دفعة لمورد") — تطابق recalcSupplierBalance ──
+  const extraConds: any[] = [eq(expensesTable.category, "supplier_payment"), eq(expensesTable.supplierId, id)];
+  if (from) extraConds.push(sql`${expensesTable.createdAt} >= ${new Date(from)}`);
+  if (to)   extraConds.push(sql`${expensesTable.createdAt} <= ${new Date(to + "T23:59:59")}`);
+  const extraPayments = await db.select().from(expensesTable).where(and(...extraConds)).orderBy(desc(expensesTable.createdAt));
+  const totalExtraPaid = extraPayments.reduce((s,e) => s + parseFloat(e.amount ?? "0"), 0);
+
+  const totalDue = (totalAmount - totalPaid) - totalExtraPaid;
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Caprina";
@@ -355,6 +363,48 @@ router.get("/finance/suppliers/:id/statement/export-excel", async (req, res): Pr
   const dueCell = totalRow.getCell("due");
   dueCell.numFmt = '#,##0.00 "ج.م"';
   dueCell.font = { bold: true, size: 13, color: { argb: totalDue > 0 ? "FFFF6B6B" : "FF6BFFA0" }, name: "Arial" };
+
+  // ── جدول الدفعات الإضافية (خارج أوامر الشراء) ──
+  if (extraPayments.length > 0) {
+    ws.addRow([]);
+    ws.addRow([]);
+    const exTitleRowNum = ws.lastRow!.number + 1;
+    ws.mergeCells(`A${exTitleRowNum}:D${exTitleRowNum}`);
+    const exTitleCell = ws.getCell(`A${exTitleRowNum}`);
+    exTitleCell.value = `💵  دفعات إضافية (خارج أوامر الشراء) — إجمالي ${totalExtraPaid.toLocaleString("ar-EG")} ج.م`;
+    exTitleCell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" }, name: "Arial" };
+    exTitleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A6B3C" } };
+    exTitleCell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(exTitleRowNum).height = 24;
+
+    const exHeaderRow = ws.addRow(["التاريخ", "الوصف", "المبلغ (ج.م)", ""]);
+    exHeaderRow.height = 22;
+    exHeaderRow.eachCell((cell, colNum) => {
+      if (colNum > 3) return;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E5E6F" } };
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10, name: "Arial" };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+    });
+
+    extraPayments.forEach((e, i) => {
+      const row = ws.addRow([
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("ar-EG") : "",
+        e.title ?? "دفعة لمورد",
+        parseFloat(e.amount ?? "0"),
+      ]);
+      row.height = 20;
+      row.eachCell((cell, colNum) => {
+        if (colNum > 3) return;
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: i % 2 === 0 ? "FFD5FFE8" : "FFFFFFFF" } };
+        cell.alignment = { vertical: "middle", horizontal: "right" };
+        cell.font = { size: 10, name: "Arial" };
+        cell.border = { bottom: { style: "hair", color: { argb: "FFDDDDDD" } }, right: { style: "hair", color: { argb: "FFDDDDDD" } } };
+      });
+      const amountCell = row.getCell(3);
+      amountCell.numFmt = '#,##0.00';
+      amountCell.font = { size: 10, bold: true, color: { argb: "FF1A6B3C" }, name: "Arial" };
+    });
+  }
 
   res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition",`attachment; filename*=UTF-8''supplier-statement-${id}-${Date.now()}.xlsx`);

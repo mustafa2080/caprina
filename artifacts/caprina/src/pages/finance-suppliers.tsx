@@ -201,7 +201,8 @@ export default function FinanceSuppliers() {
   const printStatement = () => {
     if (!stmtSupplier || !stmtData) return;
     const orders = stmtData.orders;
-    const { totalOrders, totalAmount, totalPaid, totalUnpaid } = stmtData.summary;
+    const extraPayments = stmtData.extraPayments ?? [];
+    const { totalOrders, totalAmount, totalPaid, totalExtraPaid, totalUnpaid } = stmtData.summary;
 
     const rowsHtml = orders.map((o, i) => {
       const total   = parseFloat(o.totalAmount ?? "0");
@@ -356,6 +357,26 @@ export default function FinanceSuppliers() {
       </tr></tfoot>
     </table>`}
   </div>
+
+  ${extraPayments.length > 0 ? `
+  <div class="table-wrap" style="padding-top:4px;">
+    <div style="font-size:12px;font-weight:800;color:#4a4f63;margin-bottom:10px;">
+      دفعات إضافية (خارج أوامر الشراء) — إجمالي ${fmt(totalExtraPaid)}
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>التاريخ</th><th>الوصف</th><th>المبلغ</th>
+      </tr></thead>
+      <tbody>
+        ${extraPayments.map((e, i) => `<tr class="${i % 2 === 0 ? "even" : ""}">
+          <td class="num">${i + 1}</td>
+          <td>${e.createdAt ? new Date(e.createdAt).toLocaleDateString("ar-EG") : "—"}</td>
+          <td>${e.title ?? e.notes ?? "دفعة لمورد"}</td>
+          <td class="num-cell paid">${fmt(parseFloat(e.amount ?? "0"))}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>` : ""}
 
   <div class="footer">
     <div class="sign"><div class="line">توقيع المحاسب</div></div>
