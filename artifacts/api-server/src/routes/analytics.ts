@@ -1576,12 +1576,19 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   }
 
   const REASON_LABELS: Record<string, string> = {
+    // الأسباب الحالية (تطابق order-constants.ts في الفرونت إند)
+    no_answer: "العميل لا يرد",
+    unavailable: "العميل مغلق أو غير متاح",
+    postponed: "العميل طلب التأجيل",
+    no_knowledge: "العميل ليس لديه علم بالشحنة",
+    cancel_request: "العميل طلب إلغاء الشحنة",
+    other: "سبب آخر",
+    // أسباب قديمة/legacy لسه موجودة في الداتابيز من طلبات سابقة
     size_mismatch: "مقاس غير مناسب",
     quality: "جودة المنتج",
     customer_refused: "عميل غير جاد",
     customer_requested_return: "طلب العميل مرتجع",
     delay: "التأخير على العميل",
-    other: "سبب آخر",
   };
 
   const totalReturns = uniqueReturnedUnits.length;
