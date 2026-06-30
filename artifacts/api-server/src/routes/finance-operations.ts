@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, gte, lte, and, sql, lt, isNull, like, or } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable, shippingCompaniesTable } from "@workspace/db";
+import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable, shippingCompaniesTable, suppliersTable } from "@workspace/db";
 import { z } from "zod";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
@@ -327,6 +327,18 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
     });
   }
 
+  // ── خصم من رصيد المورد لو المصروف من نوع "دفعة لمورد" ──────────────────
+  if (data.category === "supplier_payment" && data.supplierId) {
+    const [sup] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, data.supplierId));
+    if (sup) {
+      const supBalBefore = parseFloat(sup.balance ?? "0");
+      const supBalAfter  = supBalBefore - amt;
+      await db.update(suppliersTable)
+        .set({ balance: String(supBalAfter), updatedAt: now })
+        .where(eq(suppliersTable.id, data.supplierId));
+    }
+  }
+
   const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, expenseId));
   res.status(201).json(expense);
 });
@@ -405,6 +417,18 @@ router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
           createdByName:   user?.displayName ?? null,
           createdAt:     now,
         });
+      }
+    }
+
+    if (expense.category === "supplier_payment" && expense.supplierId) {
+      const [sup] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, expense.supplierId));
+      if (sup) {
+        const supBalBefore = parseFloat(sup.balance ?? "0");
+        const amt          = parseFloat(expense.amount ?? "0");
+        const supBalAfter  = supBalBefore + amt;
+        await db.update(suppliersTable)
+          .set({ balance: String(supBalAfter), updatedAt: now })
+          .where(eq(suppliersTable.id, expense.supplierId));
       }
     }
 
