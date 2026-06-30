@@ -35,7 +35,7 @@ type PurchaseOrder = {
   totalAmount: string; paidAmount: string; createdAt: string; notes?: string;
 };
 
-type ExtraPayment = { id: number; amount: string; description?: string; createdAt: string };
+type ExtraPayment = { id: number; amount: string; title?: string; notes?: string; createdAt: string };
 
 type Statement = {
   supplier: Supplier;
@@ -689,7 +689,7 @@ export default function FinanceSuppliers() {
                             <td className="p-3 text-xs text-muted-foreground">
                               {e.createdAt ? new Date(e.createdAt).toLocaleDateString("ar-EG") : "—"}
                             </td>
-                            <td className="p-3 text-xs">{e.description ?? "دفعة لمورد"}</td>
+                            <td className="p-3 text-xs">{e.title ?? e.notes ?? "دفعة لمورد"}</td>
                             <td className="p-3 text-emerald-500 font-medium">{fmt(parseFloat(e.amount ?? "0"))}</td>
                           </tr>
                         ))}
