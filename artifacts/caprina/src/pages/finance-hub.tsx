@@ -22,18 +22,27 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const PIE_COLORS = ["#10b981","#f43f5e","#3b82f6","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316"];
+const EXPENSE_CATEGORIES = [
+  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#8B5CF6" },
+  { value: "raw_materials",     label: "مشتريات خامات",         color: "#06B6D4" },
+  { value: "manufacturing",     label: "مصاريف تصنيع",          color: "#F97316" },
+  { value: "office_misc",       label: "نثريات مكتب",           color: "#64748B" },
+  { value: "rent",              label: "إيجار",                 color: "#A855F7" },
+  { value: "salary",            label: "مرتبات",                color: "#10B981" },
+  { value: "marketing",         label: "تسويق وإعلانات",        color: "#F59E0B" },
+  { value: "utilities",         label: "كهرباء وخدمات",         color: "#EAB308" },
+  { value: "maintenance",       label: "صيانة معدات",           color: "#EF4444" },
+  { value: "other",             label: "أخرى",                  color: "#6B7280" },
+];
+const PIE_COLORS = EXPENSE_CATEGORIES.map(c => c.color);
+const CAT_COLORS: Record<string,string> = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.value, c.color]));
 
 const MONTH_AR: Record<string,string> = {
   "01":"يناير","02":"فبراير","03":"مارس","04":"أبريل","05":"مايو","06":"يونيو",
   "07":"يوليو","08":"أغسطس","09":"سبتمبر","10":"أكتوبر","11":"نوفمبر","12":"ديسمبر",
 };
 
-const CAT_LABELS: Record<string,string> = {
-  shipping_fees:"مصاريف شحن", warehouse_rent:"إيجار مخزن", salary:"مرتبات",
-  marketing:"تسويق", packaging:"تغليف", utilities:"خدمات", maintenance:"صيانة",
-  returns_loss:"خسائر مرتجعات", other:"أخرى",
-};
+const CAT_LABELS: Record<string,string> = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.value, c.label]));
 
 const TX_LABELS: Record<string,{label:string;credit:boolean}> = {
   deposit:{label:"إيداع",credit:true}, withdrawal:{label:"سحب",credit:false},
@@ -465,11 +474,7 @@ function BreakEvenTracker({ pnl, orders, isLoading }: { pnl: any; orders: any; i
 }
 
 // ─── MoM Expense Comparison ──────────────────────────────────────────────────
-const CAT_COLORS: Record<string, string> = {
-  shipping_fees: "#3B82F6", warehouse_rent: "#8B5CF6", salary: "#10B981",
-  marketing: "#F59E0B", packaging: "#06B6D4", utilities: "#EAB308",
-  maintenance: "#F97316", returns_loss: "#EF4444", other: "#6B7280",
-};
+// (يستخدم CAT_COLORS و CAT_LABELS المعرّفين أعلى الملف من EXPENSE_CATEGORIES الموحّدة)
 
 function MoMExpenseReport() {
   const { data, isLoading } = useQuery({
@@ -816,8 +821,8 @@ export default function FinanceHub() {
     label: new Date(d.day).toLocaleDateString("ar-EG", {day:"numeric", month:"numeric"}),
   }));
 
-  // Pie chart للمصروفات
-  const pieData = expCat.slice(0,7).map((e:any) => ({
+  // Pie chart للمصروفات — كل التصنيفات العشرة المعتمدة
+  const pieData = expCat.slice(0, EXPENSE_CATEGORIES.length).map((e:any) => ({
     name: CAT_LABELS[e.category] ?? e.category,
     value: e.total,
   }));
