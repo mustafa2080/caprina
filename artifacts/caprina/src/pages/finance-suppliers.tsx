@@ -176,70 +176,177 @@ export default function FinanceSuppliers() {
 
   const printStatement = () => {
     if (!stmtSupplier || !stmtData) return;
-    const rowsHtml = stmtData.orders.map(o => {
+    const orders = stmtData.orders;
+    const { totalOrders, totalAmount, totalPaid, totalUnpaid } = stmtData.summary;
+
+    const rowsHtml = orders.map((o, i) => {
       const total   = parseFloat(o.totalAmount ?? "0");
       const paid    = parseFloat(o.paidAmount  ?? "0");
       const due     = total - paid;
       const payInfo = PAY_BADGE[o.paymentStatus ?? "unpaid"] ?? PAY_BADGE.unpaid;
       const poInfo  = PO_BADGE[o.status ?? "draft"] ?? PO_BADGE.draft;
-      return `<tr>
-        <td>${o.poNumber}</td>
+      const payColor = o.paymentStatus === "paid" ? "#0F9D58" : o.paymentStatus === "partial" ? "#C98A0C" : "#D93025";
+      return `<tr class="${i % 2 === 0 ? "even" : ""}">
+        <td class="num">${i + 1}</td>
+        <td class="po">${o.poNumber}</td>
         <td>${o.createdAt ? new Date(o.createdAt).toLocaleDateString("ar-EG") : "—"}</td>
-        <td>${poInfo.label}</td>
-        <td>${fmt(total)}</td>
-        <td>${fmt(paid)}</td>
-        <td>${fmt(due)}</td>
-        <td>${payInfo.label}</td>
+        <td><span class="badge">${poInfo.label}</span></td>
+        <td class="num-cell">${fmt(total)}</td>
+        <td class="num-cell paid">${fmt(paid)}</td>
+        <td class="num-cell due ${due > 0 ? "due-pos" : ""}">${fmt(due)}</td>
+        <td><span class="badge" style="background:${payColor}1a;color:${payColor};border-color:${payColor}55">${payInfo.label}</span></td>
       </tr>`;
     }).join("");
+
+    const periodLabel = (stmtFrom || stmtTo)
+      ? `الفترة: ${stmtFrom ? new Date(stmtFrom).toLocaleDateString("ar-EG") : "البداية"} ← ${stmtTo ? new Date(stmtTo).toLocaleDateString("ar-EG") : "الآن"}`
+      : "كل الفترات";
 
     const html = `<!DOCTYPE html><html dir="rtl" lang="ar">
 <head><meta charset="UTF-8">
 <title>كشف حساب — ${stmtSupplier.name}</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 32px; }
-  h1  { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
-  .meta { font-size: 11px; color: #64748b; margin-bottom: 20px; }
-  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-  .stat { background: #1e293b; border-radius: 10px; padding: 14px; text-align: center; }
-  .stat-label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
-  .stat-value { font-size: 16px; font-weight: 900; }
+  html, body { font-family: 'Cairo', Arial, sans-serif; background: #f1f3f6; color: #1f2430; direction: rtl; }
+  body { padding: 28px; }
+  .sheet { max-width: 980px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(20,20,40,0.10); }
+
+  /* ── Header ── */
+  .head { background: linear-gradient(120deg, #161B33 0%, #2A2356 55%, #3B2A66 100%); color: #fff; padding: 30px 36px 26px; position: relative; overflow: hidden; }
+  .head::after { content: ""; position: absolute; inset-inline-end: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.10), transparent 70%); }
+  .head-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; position: relative; z-index: 1; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-badge { width: 38px; height: 38px; border-radius: 10px; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; letter-spacing: 0.5px; }
+  .brand-name { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: rgba(255,255,255,0.92); }
+  .doc-tag { font-size: 10px; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25); }
+  .head h1 { font-size: 22px; font-weight: 900; margin-top: 18px; position: relative; z-index: 1; }
+  .head .sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 4px; position: relative; z-index: 1; }
+  .head-meta { margin-top: 18px; display: flex; gap: 22px; flex-wrap: wrap; position: relative; z-index: 1; font-size: 11px; color: rgba(255,255,255,0.78); }
+  .head-meta b { color: #fff; font-weight: 700; }
+
+  /* ── Supplier info strip ── */
+  .info-strip { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid #e7e9f0; }
+  .info-cell { flex: 1; min-width: 150px; padding: 14px 20px; border-inline-end: 1px solid #eef0f5; }
+  .info-cell:last-child { border-inline-end: none; }
+  .info-cell .lbl { font-size: 10px; color: #8a8fa3; font-weight: 700; margin-bottom: 3px; }
+  .info-cell .val { font-size: 13px; font-weight: 700; color: #1f2430; }
+
+  /* ── Summary cards ── */
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 22px 36px 6px; }
+  .stat { border-radius: 14px; padding: 16px 14px; text-align: center; border: 1px solid; position: relative; overflow: hidden; }
+  .stat .stat-label { font-size: 11px; font-weight: 700; margin-bottom: 6px; opacity: 0.85; }
+  .stat .stat-value { font-size: 18px; font-weight: 900; }
+  .stat.c1 { background: #F4F1FC; border-color: #DCD3F5; }
+  .stat.c1 .stat-label, .stat.c1 .stat-value { color: #5B3FA8; }
+  .stat.c2 { background: #FFF6E9; border-color: #F6E0BC; }
+  .stat.c2 .stat-label, .stat.c2 .stat-value { color: #B5790A; }
+  .stat.c3 { background: #EAFAF3; border-color: #BFEBD6; }
+  .stat.c3 .stat-label, .stat.c3 .stat-value { color: #0F8A53; }
+  .stat.c4 { background: ${totalUnpaid > 0 ? "#FDECEC" : "#EAFAF3"}; border-color: ${totalUnpaid > 0 ? "#F6C6C6" : "#BFEBD6"}; }
+  .stat.c4 .stat-label, .stat.c4 .stat-value { color: ${totalUnpaid > 0 ? "#C23B3B" : "#0F8A53"}; }
+
+  /* ── Table ── */
+  .table-wrap { padding: 18px 36px 8px; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #1e293b; padding: 10px 8px; font-size: 11px; text-align: center; }
-  td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #1e293b; font-size: 12px; }
-  tfoot td { background: #1d4ed8; font-weight: 900; font-size: 12px; padding: 11px 8px; }
-  @media print { body { background: #fff; color: #000; } .stat { background: #f1f5f9; } th { background: #e2e8f0; color: #000; } td { border-color: #ddd; } }
+  thead th { background: #161B33; color: #fff; padding: 11px 8px; font-size: 11px; font-weight: 700; text-align: center; }
+  thead th:first-child { border-radius: 8px 0 0 0; }
+  thead th:last-child  { border-radius: 0 8px 0 0; }
+  tbody td { padding: 10px 8px; font-size: 12px; text-align: center; border-bottom: 1px solid #eef0f5; color: #2b2f3a; }
+  tbody tr.even td { background: #FAFAFD; }
+  td.num { color: #9aa0b4; font-size: 11px; width: 30px; }
+  td.po  { font-weight: 800; color: #161B33; font-family: 'Cairo', Arial, sans-serif; }
+  td.num-cell { font-weight: 700; font-variant-numeric: tabular-nums; }
+  td.paid { color: #0F8A53; }
+  td.due.due-pos { color: #C23B3B; font-weight: 800; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #EEF0F7; color: #4a4f63; border: 1px solid #e2e4ee; }
+
+  tfoot td { background: #161B33; color: #fff; font-weight: 900; font-size: 12.5px; padding: 13px 8px; }
+  tfoot tr td:first-child { border-radius: 0 0 0 10px; }
+  tfoot tr td:last-child  { border-radius: 0 0 10px 0; }
+  tfoot .due-final { color: ${totalUnpaid > 0 ? "#FF8A80" : "#7FE3B4"}; }
+
+  .empty-note { text-align: center; padding: 30px; color: #9aa0b4; font-size: 12px; }
+
+  /* ── Footer / signatures ── */
+  .footer { padding: 26px 36px 30px; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+  .sign { text-align: center; min-width: 160px; }
+  .sign .line { border-top: 1.5px solid #c9cce0; margin-top: 38px; padding-top: 6px; font-size: 11px; color: #6c7188; font-weight: 700; }
+  .stamp-note { font-size: 10px; color: #b3b6c6; }
+
+  @page { size: A4; margin: 14mm 10mm; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; border-radius: 0; max-width: 100%; }
+    .head::after { display: none; }
+  }
 </style></head>
 <body>
-<h1>كشف حساب — ${stmtSupplier.name}</h1>
-<p class="meta">تاريخ الطباعة: ${new Date().toLocaleDateString("ar-EG")}${stmtFrom || stmtTo ? `   |   الفترة: ${stmtFrom || "البداية"} → ${stmtTo || "الآن"}` : ""}</p>
-<div class="summary">
-  <div class="stat"><div class="stat-label">إجمالي الأوامر</div><div class="stat-value">${stmtData.summary.totalOrders}</div></div>
-  <div class="stat"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value" style="color:#FFB74D">${fmt(stmtData.summary.totalAmount)}</div></div>
-  <div class="stat"><div class="stat-label">المدفوع</div><div class="stat-value" style="color:#26A69A">${fmt(stmtData.summary.totalPaid)}</div></div>
-  <div class="stat"><div class="stat-label">المتبقي</div><div class="stat-value" style="color:#f87171">${fmt(stmtData.summary.totalUnpaid)}</div></div>
+<div class="sheet">
+
+  <div class="head">
+    <div class="head-top">
+      <div class="brand">
+        <div class="brand-badge">CP</div>
+        <div class="brand-name">Caprina<br/><span style="font-weight:400;opacity:.7">إدارة الطلبات والموردين</span></div>
+      </div>
+      <div class="doc-tag">كشف حساب مورد</div>
+    </div>
+    <h1>كشف حساب — ${stmtSupplier.name}</h1>
+    <p class="sub">بيان تفصيلي بأوامر الشراء والمدفوعات</p>
+    <div class="head-meta">
+      <span>تاريخ الطباعة: <b>${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</b></span>
+      <span>${periodLabel}</span>
+      <span>عدد الأوامر: <b>${totalOrders}</b></span>
+    </div>
+  </div>
+
+  ${(stmtSupplier.phone || stmtSupplier.email || stmtSupplier.paymentTerms || stmtSupplier.category) ? `
+  <div class="info-strip">
+    ${stmtSupplier.phone ? `<div class="info-cell"><div class="lbl">الهاتف</div><div class="val">${stmtSupplier.phone}</div></div>` : ""}
+    ${stmtSupplier.email ? `<div class="info-cell"><div class="lbl">البريد الإلكتروني</div><div class="val">${stmtSupplier.email}</div></div>` : ""}
+    ${stmtSupplier.category ? `<div class="info-cell"><div class="lbl">الفئة</div><div class="val">${CATEGORIES.find(c => c.value === stmtSupplier.category)?.label ?? stmtSupplier.category}</div></div>` : ""}
+    ${stmtSupplier.paymentTerms ? `<div class="info-cell"><div class="lbl">شروط الدفع</div><div class="val">${stmtSupplier.paymentTerms}</div></div>` : ""}
+  </div>` : ""}
+
+  <div class="summary">
+    <div class="stat c1"><div class="stat-label">إجمالي الأوامر</div><div class="stat-value">${totalOrders}</div></div>
+    <div class="stat c2"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value">${fmt(totalAmount)}</div></div>
+    <div class="stat c3"><div class="stat-label">إجمالي المدفوع</div><div class="stat-value">${fmt(totalPaid)}</div></div>
+    <div class="stat c4"><div class="stat-label">المتبقي (مديونية)</div><div class="stat-value">${fmt(totalUnpaid)}</div></div>
+  </div>
+
+  <div class="table-wrap">
+    ${orders.length === 0 ? `<div class="empty-note">لا توجد أوامر شراء في هذه الفترة</div>` : `
+    <table>
+      <thead><tr>
+        <th>#</th><th>رقم الأمر</th><th>التاريخ</th><th>الحالة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>حالة الدفع</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot><tr>
+        <td colspan="4">الإجمالي الكلي</td>
+        <td>${fmt(totalAmount)}</td>
+        <td>${fmt(totalPaid)}</td>
+        <td class="due-final">${fmt(totalUnpaid)}</td>
+        <td></td>
+      </tr></tfoot>
+    </table>`}
+  </div>
+
+  <div class="footer">
+    <div class="sign"><div class="line">توقيع المحاسب</div></div>
+    <div class="stamp-note">تم إنشاء هذا المستند إلكترونياً عبر نظام Caprina</div>
+    <div class="sign"><div class="line">توقيع واستلام المورد</div></div>
+  </div>
+
 </div>
-<table>
-  <thead><tr>
-    <th>رقم الأمر</th><th>التاريخ</th><th>الحالة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الدفع</th>
-  </tr></thead>
-  <tbody>${rowsHtml}</tbody>
-  <tfoot><tr>
-    <td colspan="3">الإجمالي الكلي</td>
-    <td>${fmt(stmtData.summary.totalAmount)}</td>
-    <td>${fmt(stmtData.summary.totalPaid)}</td>
-    <td>${fmt(stmtData.summary.totalUnpaid)}</td>
-    <td></td>
-  </tr></tfoot>
-</table>
+<script>window.onload = () => setTimeout(() => window.print(), 300);</script>
 </body></html>`;
 
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(html);
     w.document.close();
-    w.onload = () => { w.print(); };
   };
 
   // ── pagination ─────────────────────────────────────────────────────────────
