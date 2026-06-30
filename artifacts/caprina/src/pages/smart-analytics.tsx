@@ -16,7 +16,7 @@ import { PiPlantFill } from "react-icons/pi";
 import { FiMoreHorizontal } from "react-icons/fi";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell,
+  ResponsiveContainer, Cell, PieChart, Pie, Sector,
 } from "recharts";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 
@@ -444,107 +444,158 @@ function StarsSection({ stars, deadStock, showProfit }: { stars: SmartProduct[];
 }
 
 // ─── 3. Return Insights ───────────────────────────────────────────────────────
+// ─── ألوان دائمة لأسباب المرتجعات (مفتاحها reason value أو label للـ other_note) ──
+const REASON_DONUT_COLORS = [
+  "#f43f5e", // rose
+  "#f59e0b", // amber
+  "#3b82f6", // blue
+  "#10b981", // emerald
+  "#8b5cf6", // violet
+  "#06b6d4", // cyan
+  "#ec4899", // pink
+  "#84cc16", // lime
+  "#f97316", // orange
+  "#64748b", // slate
+];
+
+// ─── Active (hover) shape لدونات أسباب المرتجعات ────────────────────────────
+function ReasonActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  return (
+    <g tabIndex={-1} style={{ outline: "none" }}>
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={outerRadius + 5}
+        outerRadius={outerRadius + 9}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.2}
+        cornerRadius={6}
+      />
+      <Sector
+        cx={cx} cy={cy}
+        innerRadius={innerRadius - 4}
+        outerRadius={outerRadius + 7}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        cornerRadius={6}
+        tabIndex={-1}
+        style={{ outline: "none" }}
+      />
+      <text x={cx} y={cy - 14} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={26} fontWeight={900} style={{ pointerEvents: "none", userSelect: "none" }}>
+        {value}
+      </text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={10} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <tspan x={cx}>{String(payload.label).length > 18 ? String(payload.label).slice(0, 18) + "…" : payload.label}</tspan>
+      </text>
+      <text x={cx} y={cy + 26} textAnchor="middle" fill={fill} fontSize={14} fontWeight={800} style={{ pointerEvents: "none", userSelect: "none" }}>
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    </g>
+  );
+}
+
+// ─── Donut أسباب المرتجعات ───────────────────────────────────────────────────
+function ReturnReasonsDonut({ items, total }: { items: ReturnReasonItem[]; total: number }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const colored = useMemo(() => items.map((r, i) => ({
+    ...r,
+    color: REASON_DONUT_COLORS[i % REASON_DONUT_COLORS.length],
+  })), [items]);
+
+  return (
+    <div className="space-y-5">
+      <div className="relative" style={{ height: 240 }}>
+        {activeIndex === null && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+            <p className="text-4xl font-black text-foreground leading-none">{fn(total)}</p>
+            <p className="text-xs text-muted-foreground mt-1">إجمالي المرتجعات</p>
+          </div>
+        )}
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart tabIndex={-1} style={{ outline: "none" }}>
+            <Pie
+              data={colored}
+              cx="50%"
+              cy="50%"
+              innerRadius="52%"
+              outerRadius="78%"
+              paddingAngle={3}
+              dataKey="count"
+              nameKey="label"
+              stroke="none"
+              cornerRadius={5}
+              startAngle={90}
+              endAngle={-270}
+              labelLine={false}
+              activeIndex={activeIndex ?? undefined}
+              activeShape={ReasonActiveShape}
+              animationBegin={0}
+              animationDuration={600}
+              animationEasing="ease-out"
+              onMouseEnter={(_, index) => setActiveIndex(index)}
+              onMouseLeave={() => setActiveIndex(null)}
+              onClick={(entry: any) => setSelected(v => v === entry.reason ? null : entry.reason)}
+              style={{ cursor: "pointer", outline: "none" }}
+            >
+              {colored.map((d, i) => (
+                <Cell key={i} fill={d.color} opacity={selected && selected !== d.reason ? 0.35 : 1} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto pr-1">
+        {colored.map((item) => {
+          const isSelected = selected === item.reason;
+          return (
+            <button
+              key={item.reason}
+              type="button"
+              onClick={() => setSelected(v => v === item.reason ? null : item.reason)}
+              className="w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right"
+              style={{
+                background: isSelected ? item.color + "1a" : "transparent",
+                border: isSelected ? `1px solid ${item.color}55` : "1px solid transparent",
+              }}
+            >
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+              <span className="text-xs font-semibold text-foreground flex-1 truncate" title={item.label}>{item.label}</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0" style={{ background: item.color + "1a", color: item.color }}>
+                {item.count}
+              </span>
+              <span className="text-xs font-black w-9 text-right shrink-0" style={{ color: item.color }}>
+                {item.pct}%
+              </span>
+            </button>
+          );
+        })}
+        {colored.length === 0 && (
+          <div className="text-center py-6 text-muted-foreground text-xs">
+            <RotateCcw className="w-6 h-6 mx-auto mb-2 opacity-30" />
+            لا توجد مرتجعات مسجلة
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ReturnInsightsSection({
   byReason, highReturnProducts, totalReturnRate, totalReturns,
 }: { byReason: ReturnReasonItem[]; highReturnProducts: HighReturnProduct[]; totalReturnRate: number; totalReturns: number }) {
-  const [showOtherNotes, setShowOtherNotes] = useState(false);
-
-  // split: named reasons vs other_note items
-  const namedReasons = byReason.filter(r => r.reason !== "other_note" && r.reason !== "other");
-  const otherItem    = byReason.find(r => r.reason === "other");
-  const otherNotes   = byReason.filter(r => r.reason === "other_note");
-  // build display list: named + collapsed "سبب آخر" row
-  const topReasons = namedReasons.slice(0, 4);
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      {/* Reasons chart */}
+      {/* Reasons donut */}
       <div>
         <SectionHeader icon={RotateCcw} title="أسباب المرتجعات" subtitle={`${fn(totalReturns)} مرتجع • نسبة ${totalReturnRate}% من الطلبات`} color="text-red-600 dark:text-red-400" />
-        <div className="space-y-3">
-          {topReasons.map((r, i) => {
-            const colors = [
-              "bg-red-500 dark:bg-red-400",
-              "bg-orange-500 dark:bg-orange-400",
-              "bg-amber-500 dark:bg-amber-400",
-              "bg-zinc-500 dark:bg-zinc-400",
-            ];
-            return (
-              <div key={r.reason}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold">{r.label}</span>
-                  <span className="text-xs font-black">{r.count} ({r.pct}%)</span>
-                </div>
-                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${colors[i] ?? colors[3]}`}
-                    style={{ width: `${r.pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          {/* سبب آخر — قابل للتوسيع */}
-          {(otherNotes.length > 0 || otherItem) && (
-            <div>
-              <button
-                onClick={() => setShowOtherNotes(v => !v)}
-                className="w-full flex items-center justify-between mb-1 group"
-              >
-                <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300 flex items-center gap-1">
-                  <span>{showOtherNotes ? "▾" : "▸"}</span>
-                  سبب آخر
-                </span>
-                <span className="text-xs font-black text-amber-400">
-                  {(otherNotes.reduce((s, r) => s + r.count, 0) + (otherItem?.count ?? 0))} (
-                  {Math.round(((otherNotes.reduce((s, r) => s + r.count, 0) + (otherItem?.count ?? 0)) / totalReturns) * 100)}%)
-                </span>
-              </button>
-              {/* progress bar للإجمالي */}
-              <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2">
-                <div
-                  className="h-full rounded-full transition-all duration-700 bg-amber-500 dark:bg-amber-400"
-                  style={{ width: `${Math.round(((otherNotes.reduce((s, r) => s + r.count, 0) + (otherItem?.count ?? 0)) / totalReturns) * 100)}%` }}
-                />
-              </div>
-              {/* التفاصيل عند الضغط */}
-              {showOtherNotes && (
-                <div className="mt-2 space-y-2 pr-3 border-r-2 border-amber-500/30">
-                  {otherNotes.map((note, ni) => (
-                    <div key={ni}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs text-muted-foreground truncate max-w-[160px]" title={note.label}>{note.label}</span>
-                        <span className="text-xs font-bold text-amber-300">{note.count} ({note.pct}%)</span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-400/60" style={{ width: `${note.pct}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                  {otherItem && (
-                    <div>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs text-muted-foreground">غير مفصّل</span>
-                        <span className="text-xs font-bold text-amber-300">{otherItem.count} ({otherItem.pct}%)</span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-400/40" style={{ width: `${otherItem.pct}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {byReason.length === 0 && (
-            <div className="text-center py-6 text-muted-foreground text-xs">
-              <RotateCcw className="w-6 h-6 mx-auto mb-2 opacity-30" />
-              لا توجد مرتجعات مسجلة
-            </div>
-          )}
-        </div>
+        <ReturnReasonsDonut items={byReason} total={totalReturns} />
       </div>
 
       {/* High return products */}
