@@ -188,7 +188,24 @@ router.get("/finance/suppliers/:id/statement", async (req, res): Promise<void> =
   const orders = await db.select().from(purchaseOrdersTable).where(and(...conds)).orderBy(desc(purchaseOrdersTable.createdAt));
   const totalAmount = orders.reduce((s,o) => s + parseFloat(o.totalAmount??"0"), 0);
   const totalPaid   = orders.reduce((s,o) => s + parseFloat(o.paidAmount ??"0"), 0);
-  res.json({ supplier, orders, summary:{ totalOrders:orders.length, totalAmount, totalPaid, totalUnpaid:totalAmount-totalPaid } });
+
+  // ── دفعات إضافية (مصروفات "دفعة لمورد") — لازم تتحسب هنا عشان تطابق recalcSupplierBalance ──
+  const extraConds: any[] = [eq(expensesTable.category, "supplier_payment"), eq(expensesTable.supplierId, id)];
+  if (from) extraConds.push(sql`${expensesTable.createdAt} >= ${new Date(from)}`);
+  if (to)   extraConds.push(sql`${expensesTable.createdAt} <= ${new Date(to + "T23:59:59")}`);
+  const extraPayments = await db.select().from(expensesTable).where(and(...extraConds)).orderBy(desc(expensesTable.createdAt));
+  const totalExtraPaid = extraPayments.reduce((s,e) => s + parseFloat(e.amount ?? "0"), 0);
+
+  // المعادلة لازم تطابق recalcSupplierBalance بالظبط: (totalAmount - totalPaid) - extraPaid
+  const totalUnpaid = (totalAmount - totalPaid) - totalExtraPaid;
+
+  res.json({
+    supplier, orders, extraPayments,
+    summary:{
+      totalOrders: orders.length, totalAmount, totalPaid,
+      totalExtraPaid, totalUnpaid,
+    },
+  });
 });
 
 router.get("/finance/suppliers/:id/statement/export-excel", async (req, res): Promise<void> => {

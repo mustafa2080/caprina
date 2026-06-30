@@ -35,10 +35,13 @@ type PurchaseOrder = {
   totalAmount: string; paidAmount: string; createdAt: string; notes?: string;
 };
 
+type ExtraPayment = { id: number; amount: string; description?: string; createdAt: string };
+
 type Statement = {
   supplier: Supplier;
   orders: PurchaseOrder[];
-  summary: { totalOrders: number; totalAmount: number; totalPaid: number; totalUnpaid: number };
+  extraPayments: ExtraPayment[];
+  summary: { totalOrders: number; totalAmount: number; totalPaid: number; totalExtraPaid: number; totalUnpaid: number };
 };
 
 const CATEGORIES = [
@@ -662,6 +665,37 @@ export default function FinanceSuppliers() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Extra supplier payments — دفعات إضافية مسجّلة كمصروف "دفعة لمورد" */}
+              {stmtData.extraPayments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground">
+                    دفعات إضافية (خارج أوامر الشراء) — إجمالي {fmt(stmtData.summary.totalExtraPaid)}
+                  </p>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                          <th className="text-right p-3 text-xs font-medium text-muted-foreground">التاريخ</th>
+                          <th className="text-right p-3 text-xs font-medium text-muted-foreground">الوصف</th>
+                          <th className="text-right p-3 text-xs font-medium text-muted-foreground">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stmtData.extraPayments.map(e => (
+                          <tr key={e.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                            <td className="p-3 text-xs text-muted-foreground">
+                              {e.createdAt ? new Date(e.createdAt).toLocaleDateString("ar-EG") : "—"}
+                            </td>
+                            <td className="p-3 text-xs">{e.description ?? "دفعة لمورد"}</td>
+                            <td className="p-3 text-emerald-500 font-medium">{fmt(parseFloat(e.amount ?? "0"))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </>
