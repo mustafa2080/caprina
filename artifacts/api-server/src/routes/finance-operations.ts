@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import { db, expensesTable, shippingFinancialInvoicesTable, ordersTable, shippingManifestsTable, shippingManifestOrdersTable, cashRegistersTable, cashTransactionsTable, shippingCompaniesTable, suppliersTable } from "@workspace/db";
 import { z } from "zod";
 import { getTenantId } from "../middlewares/requireTenant.js";
+import { recalcSupplierBalance } from "./finance-suppliers.js";
 
 const router: IRouter = Router();
 
@@ -327,16 +328,9 @@ router.post("/finance/expenses", async (req, res): Promise<void> => {
     });
   }
 
-  // ── خصم من رصيد المورد لو المصروف من نوع "دفعة لمورد" ──────────────────
+  // ── إعادة حساب رصيد المورد لو المصروف من نوع "دفعة لمورد" ──────────────
   if (data.category === "supplier_payment" && data.supplierId) {
-    const [sup] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, data.supplierId));
-    if (sup) {
-      const supBalBefore = parseFloat(sup.balance ?? "0");
-      const supBalAfter  = supBalBefore - amt;
-      await db.update(suppliersTable)
-        .set({ balance: String(supBalAfter), updatedAt: now })
-        .where(eq(suppliersTable.id, data.supplierId));
-    }
+    await recalcSupplierBalance(data.supplierId);
   }
 
   const [expense] = await db.select().from(expensesTable).where(eq(expensesTable.id, expenseId));
@@ -420,19 +414,11 @@ router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
       }
     }
 
-    if (expense.category === "supplier_payment" && expense.supplierId) {
-      const [sup] = await db.select().from(suppliersTable).where(eq(suppliersTable.id, expense.supplierId));
-      if (sup) {
-        const supBalBefore = parseFloat(sup.balance ?? "0");
-        const amt          = parseFloat(expense.amount ?? "0");
-        const supBalAfter  = supBalBefore + amt;
-        await db.update(suppliersTable)
-          .set({ balance: String(supBalAfter), updatedAt: now })
-          .where(eq(suppliersTable.id, expense.supplierId));
-      }
-    }
-
     await db.delete(expensesTable).where(eq(expensesTable.id, id));
+
+    if (expense.category === "supplier_payment" && expense.supplierId) {
+      await recalcSupplierBalance(expense.supplierId);
+    }
     res.status(204).send();
   } catch (err) { console.error("[DELETE expense]", err); res.status(500).json({ error: "فشل حذف المصروف" }); }
 });

@@ -2,13 +2,30 @@ import { Router, type IRouter } from "express";
 import { eq, desc, and, sql, or, like, isNull } from "drizzle-orm";
 import {
   db, suppliersTable, purchaseOrdersTable, purchaseOrderItemsTable,
-  cashRegistersTable, cashTransactionsTable,
+  cashRegistersTable, cashTransactionsTable, expensesTable,
 } from "@workspace/db";
 import ExcelJS from "exceljs";
 import { z } from "zod";
 import { getTenantId } from "../middlewares/requireTenant.js";
 
 const router: IRouter = Router();
+
+// ── helper: إعادة حساب رصيد المورد (مديونيته) من أوامر الشراء + مصروفات دفعات إضافية ──
+// balance = إجمالي المتبقي على أوامر الشراء (totalAmount - paidAmount) − دفعات إضافية مسجّلة كمصروف "دفعة لمورد"
+export async function recalcSupplierBalance(supplierId: number) {
+  const orders = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.supplierId, supplierId));
+  const ordersUnpaid = orders.reduce((s: number, o: any) =>
+    s + (parseFloat(o.totalAmount ?? "0") - parseFloat(o.paidAmount ?? "0")), 0);
+
+  const extraExpenses = await db.select().from(expensesTable)
+    .where(and(eq(expensesTable.category, "supplier_payment"), eq(expensesTable.supplierId, supplierId)));
+  const extraPaid = extraExpenses.reduce((s: number, e: any) => s + parseFloat(e.amount ?? "0"), 0);
+
+  const balance = ordersUnpaid - extraPaid;
+  await db.update(suppliersTable).set({ balance: String(balance), updatedAt: new Date() })
+    .where(eq(suppliersTable.id, supplierId));
+  return balance;
+}
 
 const SupplierSchema = z.object({
   name: z.string().min(1), phone: z.string().nullish(), email: z.string().nullish(),
@@ -310,6 +327,7 @@ router.post("/finance/purchases", async (req, res): Promise<void> => {
   }
   const [order] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, poId));
   const newItems = await db.select().from(purchaseOrderItemsTable).where(eq(purchaseOrderItemsTable.purchaseOrderId, poId));
+  if (orderData.supplierId) await recalcSupplierBalance(orderData.supplierId);
   res.status(201).json({ ...order, items:newItems });
 });
 
@@ -393,6 +411,8 @@ router.patch("/finance/purchases/:id", async (req, res): Promise<void> => {
 
   } catch(e) { console.error(e); res.status(500).json({ error:"خطأ أثناء تحديث أمر الشراء" }); return; }
 
+  if (ob.supplierId) await recalcSupplierBalance(ob.supplierId);
+
   const [order] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
   res.json(order);
 });
@@ -424,6 +444,7 @@ router.delete("/finance/purchases/:id", async (req, res): Promise<void> => {
 
   await db.delete(purchaseOrderItemsTable).where(eq(purchaseOrderItemsTable.purchaseOrderId, id));
   await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+  if (ob.supplierId) await recalcSupplierBalance(ob.supplierId);
   res.status(204).send();
 });
 
