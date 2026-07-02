@@ -1,7 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Receipt, Trash2, Wallet, Search, X, Filter,
-  Download, FileSpreadsheet, ChevronLeft, ChevronRight, Building2,
+  Download, FileSpreadsheet, ChevronLeft, ChevronRight, Building2, Pencil,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -20,23 +19,28 @@ import { useLocation } from "wouter";
 import { apiFetch } from "@/lib/api";
 
 const api = {
-  get:  (url: string)            => apiFetch<any>(url.replace(/^\/api/, "")),
-  post: (url: string, body: any) => apiFetch<any>(url.replace(/^\/api/, ""), { method: "POST", body: JSON.stringify(body) }),
-  del:  (url: string)            => apiFetch<void>(url.replace(/^\/api/, ""), { method: "DELETE" }),
+  get:   (url: string)            => apiFetch<any>(url.replace(/^\/api/, "")),
+  post:  (url: string, body: any) => apiFetch<any>(url.replace(/^\/api/, ""), { method: "POST", body: JSON.stringify(body) }),
+  patch: (url: string, body: any) => apiFetch<any>(url.replace(/^\/api/, ""), { method: "PATCH", body: JSON.stringify(body) }),
+  del:   (url: string)            => apiFetch<void>(url.replace(/^\/api/, ""), { method: "DELETE" }),
 };
 
 const EXPENSE_CATEGORIES = [
-  { value: "shipping_fees",     label: "مصاريف شحن",            color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
-  { value: "warehouse_rent",    label: "إيجار مخزن",            color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
+  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#22D3EE", glow: "rgba(34,211,238,0.25)" },
+  { value: "raw_materials",     label: "مشتريات خامات",         color: "#06B6D4", glow: "rgba(6,182,212,0.25)"  },
+  { value: "manufacturing",     label: "مصاريف تصنيع",          color: "#F97316", glow: "rgba(249,115,22,0.25)" },
+  { value: "office_misc",       label: "نثريات مكتب",           color: "#94A3B8", glow: "rgba(148,163,184,0.25)"},
+  { value: "rent",              label: "إيجار",                 color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
   { value: "salary",            label: "مرتبات",                color: "#10B981", glow: "rgba(16,185,129,0.25)" },
   { value: "marketing",         label: "تسويق وإعلانات",        color: "#64748B", glow: "rgba(100,116,139,0.25)"},
-  { value: "packaging",         label: "تغليف",                 color: "#F97316", glow: "rgba(249,115,22,0.25)" },
   { value: "utilities",         label: "كهرباء وخدمات",         color: "#EAB308", glow: "rgba(234,179,8,0.25)"  },
-  { value: "maintenance",       label: "صيانة",                 color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
-  { value: "returns_loss",      label: "خسائر مرتجعات",         color: "#F43F5E", glow: "rgba(244,63,94,0.25)"  },
+  { value: "maintenance",       label: "صيانة معدات",           color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
   { value: "other",             label: "أخرى",                  color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
   // متبقاة لو فيه بيانات قديمة بفئات سابقة
-  { value: "supplier_payment",  label: "دفعة لمورد",            color: "#22D3EE", glow: "rgba(34,211,238,0.25)" },
+  { value: "shipping_fees",     label: "مصاريف شحن",            color: "#0EA5E9", glow: "rgba(14,165,233,0.25)" },
+  { value: "warehouse_rent",    label: "إيجار مخزن (قديم)",     color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
+  { value: "packaging",         label: "تغليف",                 color: "#F97316", glow: "rgba(249,115,22,0.25)" },
+  { value: "returns_loss",      label: "خسائر مرتجعات",         color: "#F43F5E", glow: "rgba(244,63,94,0.25)"  },
 ];
 
 const catLabel = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.label ?? v;
@@ -74,8 +78,24 @@ export default function FinanceExpenses() {
   const [, navigate] = useLocation();
   // ── Dialog state ──
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(defaultForm());
   const F = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const openEdit = (e: any) => {
+    setEditId(e.id);
+    setForm({
+      title: e.title ?? "",
+      category: e.category ?? "other",
+      amount: e.amount != null ? String(e.amount) : "",
+      referenceId: e.referenceId ?? "",
+      notes: e.notes ?? "",
+      expenseDate: e.expenseDate ? format(new Date(e.expenseDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+      cashRegisterId: e.cashRegisterId ? String(e.cashRegisterId) : "",
+      supplierId: e.supplierId ? String(e.supplierId) : "",
+    });
+    setOpen(true);
+  };
 
   // ── فلاتر ──
   const [search,    setSearch]    = useState("");
@@ -122,18 +142,24 @@ export default function FinanceExpenses() {
 
   // ── Mutations ──
   const save = useMutation({
-    mutationFn: () => api.post("/api/finance/expenses", {
-      ...form,
-      amount: parseFloat(form.amount),
-      cashRegisterId: form.cashRegisterId ? parseInt(form.cashRegisterId) : null,
-      supplierId: form.supplierId ? parseInt(form.supplierId) : null,
-    }),
+    mutationFn: () => {
+      const payload = {
+        ...form,
+        amount: parseFloat(form.amount),
+        cashRegisterId: form.cashRegisterId ? parseInt(form.cashRegisterId) : null,
+        supplierId: form.supplierId ? parseInt(form.supplierId) : null,
+      };
+      return editId
+        ? api.patch(`/api/finance/expenses/${editId}`, payload)
+        : api.post("/api/finance/expenses", payload);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["finance-expenses"] });
       qc.invalidateQueries({ queryKey: ["/api/cash-registers"] });
       qc.invalidateQueries({ queryKey: ["/api/cash-registers/alerts"] });
-      setOpen(false); setForm(defaultForm());
-      toast({ title: "✅ تمت إضافة المصروف وتم الخصم من الخزنة" });
+      qc.invalidateQueries({ queryKey: ["finance-suppliers-list"] });
+      setOpen(false); setForm(defaultForm()); setEditId(null);
+      toast({ title: editId ? "✅ تم تعديل المصروف" : "✅ تمت إضافة المصروف وتم الخصم من الخزنة" });
     },
     onError: (e: any) => toast({ title: "❌ خطأ", description: e.message, variant: "destructive" }),
   });
@@ -410,6 +436,10 @@ export default function FinanceExpenses() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <p className="font-black text-sm" style={{ color, textShadow: `0 0 10px ${glow}` }}>{fmt(e.amount)}</p>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-500/10"
+                    onClick={() => openEdit(e)}>
+                    <Pencil className="w-3.5 h-3.5 text-blue-400"/>
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/10"
                     onClick={() => del.mutate(e.id)}>
                     <Trash2 className="w-3.5 h-3.5 text-rose-400"/>
@@ -441,10 +471,10 @@ export default function FinanceExpenses() {
         </div>
       )}
 
-      {/* ── Dialog إضافة مصروف ── */}
-      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setForm(defaultForm()); }}>
+      {/* ── Dialog إضافة/تعديل مصروف ── */}
+      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { setForm(defaultForm()); setEditId(null); } }}>
         <DialogContent className="bg-card border-border max-w-md" dir="rtl">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="w-4 h-4"/> مصروف جديد</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="w-4 h-4"/> {editId ? "تعديل المصروف" : "مصروف جديد"}</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
             <div>
               <Label className="text-xs mb-1 block">العنوان *</Label>

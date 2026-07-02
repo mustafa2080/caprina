@@ -376,6 +376,99 @@ router.get("/finance/expenses/monthly-breakdown", async (req, res): Promise<void
   res.json({ months: monthLabels, categories: allCategories, data: results });
 });
 
+// ── تعديل مصروف (يعيد ضبط الخزنة القديمة ويطبّق الجديدة) ──────────────────
+const ExpenseUpdateSchema = z.object({
+  title: z.string().min(1).optional(),
+  category: z.string().optional(),
+  amount: z.number().min(0).optional(),
+  referenceId: z.string().nullish(),
+  supplierId: z.number().nullish(),
+  shippingCompanyId: z.number().nullish(),
+  cashRegisterId: z.number().nullish(),
+  notes: z.string().nullish(),
+  expenseDate: z.string().optional(),
+});
+
+router.patch("/finance/expenses/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const parsed = ExpenseUpdateSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+    const data = parsed.data;
+    const now = new Date();
+    const user = (req as any).user;
+
+    const [existing] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "المصروف غير موجود" }); return; }
+
+    const newAmount     = data.amount ?? parseFloat(existing.amount ?? "0");
+    const newRegister   = data.cashRegisterId !== undefined ? data.cashRegisterId : existing.cashRegisterId;
+    const oldRegisterId = existing.cashRegisterId;
+    const oldAmount     = parseFloat(existing.amount ?? "0");
+
+    // 1. رجّع أثر المصروف القديم على خزنته (لو كانت مربوطة)
+    if (oldRegisterId) {
+      const [oldReg] = await db.select().from(cashRegistersTable).where(eq(cashRegistersTable.id, oldRegisterId));
+      if (oldReg) {
+        const balBefore = parseFloat(oldReg.balance ?? "0");
+        const balAfter  = balBefore + oldAmount;
+        await db.update(cashRegistersTable).set({ balance: String(balAfter), updatedAt: now }).where(eq(cashRegistersTable.id, oldRegisterId));
+        await db.insert(cashTransactionsTable).values({
+          registerId: oldRegisterId, type: "deposit", amount: String(oldAmount),
+          balanceBefore: String(balBefore), balanceAfter: String(balAfter),
+          description: `تعديل مصروف (استرجاع): ${existing.title}`,
+          referenceNumber: String(id), transactionDate: now,
+          createdByUserId: user?.id ?? null, createdByName: user?.displayName ?? null, createdAt: now,
+        });
+      }
+    }
+
+    // 2. اخصم المبلغ الجديد من الخزنة الجديدة (لو محددة)
+    if (newRegister) {
+      const [newReg] = await db.select().from(cashRegistersTable)
+        .where(and(eq(cashRegistersTable.id, newRegister), eq(cashRegistersTable.isActive, true)));
+      if (!newReg) { res.status(404).json({ error: "الخزنة المحددة غير موجودة أو غير نشطة" }); return; }
+      const balBefore = parseFloat(newReg.balance ?? "0");
+      const balAfter  = balBefore - newAmount;
+      if (balAfter < 0) {
+        res.status(400).json({ error: `رصيد الخزنة "${newReg.name}" مش كفاية — المتاح: ${balBefore.toLocaleString("ar-EG")} ج.م` });
+        return;
+      }
+      await db.update(cashRegistersTable).set({ balance: String(balAfter), updatedAt: now }).where(eq(cashRegistersTable.id, newRegister));
+      await db.insert(cashTransactionsTable).values({
+        registerId: newRegister, type: "expense_paid", amount: String(newAmount),
+        balanceBefore: String(balBefore), balanceAfter: String(balAfter),
+        description: `تعديل مصروف: ${data.title ?? existing.title}`,
+        referenceNumber: data.referenceId ?? existing.referenceId ?? undefined,
+        transactionDate: data.expenseDate ? new Date(data.expenseDate) : existing.expenseDate,
+        createdByUserId: user?.id ?? null, createdByName: user?.displayName ?? null, createdAt: now,
+      });
+    }
+
+    // 3. حدّث سجل المصروف نفسه
+    await db.update(expensesTable).set({
+      ...(data.title             !== undefined ? { title: data.title } : {}),
+      ...(data.category          !== undefined ? { category: data.category } : {}),
+      ...(data.amount            !== undefined ? { amount: String(data.amount) } : {}),
+      ...(data.referenceId       !== undefined ? { referenceId: data.referenceId } : {}),
+      ...(data.supplierId        !== undefined ? { supplierId: data.supplierId } : {}),
+      ...(data.shippingCompanyId !== undefined ? { shippingCompanyId: data.shippingCompanyId } : {}),
+      cashRegisterId: newRegister ?? null,
+      ...(data.notes             !== undefined ? { notes: data.notes } : {}),
+      ...(data.expenseDate       !== undefined ? { expenseDate: new Date(data.expenseDate) } : {}),
+    }).where(eq(expensesTable.id, id));
+
+    // 4. أعد حساب رصيد المورد لو كان مرتبط قبل أو بعد التعديل
+    const supplierIdOld = existing.category === "supplier_payment" ? existing.supplierId : null;
+    const supplierIdNew = (data.category ?? existing.category) === "supplier_payment" ? (data.supplierId ?? existing.supplierId) : null;
+    if (supplierIdOld) await recalcSupplierBalance(supplierIdOld);
+    if (supplierIdNew && supplierIdNew !== supplierIdOld) await recalcSupplierBalance(supplierIdNew);
+
+    const [updated] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+    res.json(updated);
+  } catch (err) { console.error("[PATCH expense]", err); res.status(500).json({ error: "فشل تعديل المصروف" }); }
+});
+
 router.delete("/finance/expenses/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
