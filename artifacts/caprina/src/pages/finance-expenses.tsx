@@ -36,11 +36,6 @@ const EXPENSE_CATEGORIES = [
   { value: "utilities",         label: "كهرباء وخدمات",         color: "#EAB308", glow: "rgba(234,179,8,0.25)"  },
   { value: "maintenance",       label: "صيانة معدات",           color: "#EF4444", glow: "rgba(239,68,68,0.25)"  },
   { value: "other",             label: "أخرى",                  color: "#8B5CF6", glow: "rgba(139,92,246,0.25)" },
-  // متبقاة لو فيه بيانات قديمة بفئات سابقة
-  { value: "shipping_fees",     label: "مصاريف شحن",            color: "#0EA5E9", glow: "rgba(14,165,233,0.25)" },
-  { value: "warehouse_rent",    label: "إيجار مخزن (قديم)",     color: "#A855F7", glow: "rgba(168,85,247,0.25)" },
-  { value: "packaging",         label: "تغليف",                 color: "#F97316", glow: "rgba(249,115,22,0.25)" },
-  { value: "returns_loss",      label: "خسائر مرتجعات",         color: "#F43F5E", glow: "rgba(244,63,94,0.25)"  },
 ];
 
 const catLabel = (v: string) => EXPENSE_CATEGORIES.find(c => c.value === v)?.label ?? v;
