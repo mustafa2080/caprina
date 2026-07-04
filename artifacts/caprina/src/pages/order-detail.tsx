@@ -1348,6 +1348,23 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                       <p className="text-xs text-foreground">{o.notes}</p>
                     </div>
                   )}
+
+                  {o.status === "returned" && ((o as any).returnReason || (o as any).returnNote) && (
+                    <div className="p-3 rounded-xl border border-red-800/50 bg-gradient-to-br from-red-950/40 via-red-900/20 to-red-950/40 shadow-[0_0_20px_rgba(239,68,68,0.25)] relative overflow-hidden">
+                      <div className="absolute inset-0 bg-red-500/5 blur-2xl pointer-events-none" />
+                      <p className="relative text-[10px] text-red-400 font-bold mb-1 flex items-center gap-1">
+                        <RotateCcw className="w-3 h-3" />سبب الإرجاع
+                      </p>
+                      {(o as any).returnReason && (
+                        <p className="relative text-sm font-semibold text-red-300 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+                          {returnReasonLabel((o as any).returnReason)}
+                        </p>
+                      )}
+                      {(o as any).returnNote && (
+                        <p className="relative text-xs text-red-200 mt-1 leading-relaxed">{(o as any).returnNote}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1539,6 +1556,22 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                           <p className="text-[10px] text-muted-foreground italic mt-1.5 border-t border-border/40 pt-1.5 line-clamp-1">
                             {o.notes}
                           </p>
+                        )}
+                        {isRet && ((o as any).returnReason || (o as any).returnNote) && (
+                          <div className="mt-1.5 p-2 rounded-lg border border-red-800/50 bg-gradient-to-br from-red-950/40 via-red-900/20 to-red-950/40 shadow-[0_0_14px_rgba(239,68,68,0.2)] relative overflow-hidden">
+                            <div className="absolute inset-0 bg-red-500/5 blur-xl pointer-events-none" />
+                            <p className="relative text-[9px] text-red-400 font-bold mb-0.5 flex items-center gap-1">
+                              <RotateCcw className="w-2.5 h-2.5" />سبب الإرجاع
+                            </p>
+                            {(o as any).returnReason && (
+                              <p className="relative text-xs font-semibold text-red-300">
+                                {returnReasonLabel((o as any).returnReason)}
+                              </p>
+                            )}
+                            {(o as any).returnNote && (
+                              <p className="relative text-[10px] text-red-200 mt-0.5 leading-relaxed">{(o as any).returnNote}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
