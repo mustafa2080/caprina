@@ -1557,22 +1557,6 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                             {o.notes}
                           </p>
                         )}
-                        {isRet && ((o as any).returnReason || (o as any).returnNote) && (
-                          <div className="mt-1.5 p-2 rounded-lg border border-red-800/50 bg-gradient-to-br from-red-950/40 via-red-900/20 to-red-950/40 shadow-[0_0_14px_rgba(239,68,68,0.2)] relative overflow-hidden">
-                            <div className="absolute inset-0 bg-red-500/5 blur-xl pointer-events-none" />
-                            <p className="relative text-[9px] text-red-400 font-bold mb-0.5 flex items-center gap-1">
-                              <RotateCcw className="w-2.5 h-2.5" />سبب الإرجاع
-                            </p>
-                            {(o as any).returnReason && (
-                              <p className="relative text-xs font-semibold text-red-300">
-                                {returnReasonLabel((o as any).returnReason)}
-                              </p>
-                            )}
-                            {(o as any).returnNote && (
-                              <p className="relative text-[10px] text-red-200 mt-0.5 leading-relaxed">{(o as any).returnNote}</p>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1603,6 +1587,28 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
                   <span className="font-bold text-xs">إجمالي الفاتورة</span>
                   <span className="font-black text-lg text-primary">{formatCurrency(invoiceTotal)}</span>
                 </div>
+                {(() => {
+                  const returnedOrders = orders.filter((o: any) => o.status === "returned" && (o.returnReason || o.returnNote));
+                  if (returnedOrders.length === 0) return null;
+                  const uniqueReasons = Array.from(new Set(returnedOrders.map((o: any) => o.returnReason).filter(Boolean)));
+                  const uniqueNotes = Array.from(new Set(returnedOrders.map((o: any) => o.returnNote).filter(Boolean)));
+                  return (
+                    <div className="mt-1 p-3 rounded-xl border border-red-800/50 bg-gradient-to-br from-red-950/40 via-red-900/20 to-red-950/40 shadow-[0_0_20px_rgba(239,68,68,0.25)] relative overflow-hidden">
+                      <div className="absolute inset-0 bg-red-500/5 blur-2xl pointer-events-none" />
+                      <p className="relative text-[10px] text-red-400 font-bold mb-1 flex items-center gap-1">
+                        <RotateCcw className="w-3 h-3" />سبب الإرجاع
+                      </p>
+                      {uniqueReasons.map((r, i) => (
+                        <p key={i} className="relative text-sm font-semibold text-red-300 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+                          {returnReasonLabel(r as string)}
+                        </p>
+                      ))}
+                      {uniqueNotes.map((n, i) => (
+                        <p key={i} className="relative text-xs text-red-200 mt-1 leading-relaxed">{n as string}</p>
+                      ))}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
             {canViewProfitability && (() => {
