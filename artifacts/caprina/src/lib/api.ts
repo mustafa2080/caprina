@@ -593,6 +593,8 @@ export interface BatchCreateOrderBody {
   adSource?: string | null;
   adCampaign?: string | null;
   notes?: string | null;
+  orderType?: "normal" | "replacement";
+  originalOrderId?: number | null;
   items: {
     product: string;
     color?: string | null;
@@ -762,6 +764,8 @@ export const ordersApi = {
     apiFetch<any[]>(`/orders/by-invoice/${encodeURIComponent(invoiceNumber)}`),
   batchCreate: (data: BatchCreateOrderBody) =>
     apiFetch<BatchCreateOrderResponse>("/orders/batch", { method: "POST", body: JSON.stringify(data) }),
+  customerLookup: (last4: string) =>
+    apiFetch<any[]>(`/orders/customer-lookup?last4=${encodeURIComponent(last4)}`),
   list: (filters?: OrdersFilterParams) => {
     const q = new URLSearchParams();
     if (filters?.search) q.set("search", filters.search);

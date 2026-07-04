@@ -55,6 +55,8 @@ export const ListOrdersResponseItem = zod.object({
     "returned",
     "partial_received",
   ]),
+  orderType: zod.enum(["normal", "replacement"]).optional(),
+  originalOrderId: zod.number().nullable().optional(),
   partialQuantity: zod.number().nullable(),
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),
@@ -100,6 +102,8 @@ export const CreateOrderBody = zod.object({
   adCampaign: zod.string().nullish(),
   invoiceNumber: zod.string().nullish(),
   notes: zod.string().nullish(),
+  orderType: zod.enum(["normal", "replacement"]).nullish(),
+  originalOrderId: zod.number().nullish(),
 });
 
 /**
@@ -143,6 +147,8 @@ export const GetRecentOrdersResponseItem = zod.object({
     "returned",
     "partial_received",
   ]),
+  orderType: zod.enum(["normal", "replacement"]).optional(),
+  originalOrderId: zod.number().nullable().optional(),
   partialQuantity: zod.number().nullable(),
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),
@@ -186,6 +192,8 @@ export const GetOrderResponse = zod.object({
     "returned",
     "partial_received",
   ]),
+  orderType: zod.enum(["normal", "replacement"]).optional(),
+  originalOrderId: zod.number().nullable().optional(),
   partialQuantity: zod.number().nullable(),
   shippingCompanyId: zod.number().nullable(),
   productId: zod.number().nullable(),

@@ -7,6 +7,8 @@ import {
   Warehouse, UserCheck, Plus, Trash2, Package, ChevronUp, ChevronDown, X,
 } from "lucide-react";
 import { getListOrdersQueryKey, getGetOrdersSummaryQueryKey, getGetRecentOrdersQueryKey } from "@workspace/api-client-react";
+import { useDebounce } from "@/hooks/use-debounce";
+import { RefreshCw, Search } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -93,12 +95,13 @@ const emptyItem = (): ItemValues => ({
 // ── Single product item row ───────────────────────────────────────────────────
 function ProductItem({
   index, control, watch, setValue, remove, products, allVariants, canViewFinancials, isOnly,
-  onVariantRowsChange,
+  onVariantRowsChange, replacementMode = false,
 }: {
   index: number; control: any; watch: any; setValue: any;
   remove: () => void; products: any[]; allVariants: any[];
   canViewFinancials: boolean; isOnly: boolean;
   onVariantRowsChange: (index: number, rows: {color: string; size: string; quantity: number}[]) => void;
+  replacementMode?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const productId   = watch(`items.${index}.productId`);
@@ -331,7 +334,13 @@ function ProductItem({
             <FormField control={control} name={`items.${index}.unitPrice`} render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs">سعر البيع (ج.م) *</FormLabel>
-                <FormControl><Input type="number" min="0" step="0.01" className="h-9 text-sm" {...field} /></FormControl>
+                <FormControl>
+                  {replacementMode ? (
+                    <Input disabled value="0 — استبدال" className="h-9 text-sm bg-muted" />
+                  ) : (
+                    <Input type="number" min="0" step="0.01" className="h-9 text-sm" {...field} />
+                  )}
+                </FormControl>
                 <FormMessage className="text-xs" />
               </FormItem>
             )} />
@@ -367,10 +376,20 @@ function ProductItem({
 }
 
 // ── Main Form ─────────────────────────────────────────────────────────────────
-export default function OrderForm() {
+export default function OrderForm({ replacementMode = false }: { replacementMode?: boolean }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // ── وضع الاستبدال: بحث عن العميل بآخر 4 أرقام من الموبايل ──
+  const [last4, setLast4] = useState("");
+  const debouncedLast4 = useDebounce(last4, 400);
+  const [selectedOriginalOrder, setSelectedOriginalOrder] = useState<any>(null);
+  const { data: lookupResults, isFetching: isLookingUp } = useQuery({
+    queryKey: ["customer-lookup", debouncedLast4],
+    queryFn: () => ordersApi.customerLookup(debouncedLast4),
+    enabled: replacementMode && /^\d{4}$/.test(debouncedLast4),
+  });
 
   const { data: products = [] }     = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
   const { data: allVariants = [] }  = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
@@ -406,7 +425,21 @@ export default function OrderForm() {
     variantRowsMapRef.current.set(index, rows);
   };
 
+  const handleSelectOriginalOrder = (order: any) => {
+    setSelectedOriginalOrder(order);
+    form.setValue("customerName", order.customerName);
+    form.setValue("phone", order.phone ?? "");
+    form.setValue("city", order.city ?? "");
+    form.setValue("address", order.address ?? "");
+    if (order.shippingCompanyId) form.setValue("shippingCompanyId", order.shippingCompanyId);
+    if (order.warehouseId) form.setValue("warehouseId", order.warehouseId);
+  };
+
   const onSubmit = async (values: FormValues) => {
+    if (replacementMode && !selectedOriginalOrder) {
+      toast({ title: "خطأ", description: "لازم تختار طلب العميل الأصلي الأول (ابحث بآخر 4 أرقام).", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
       // expand variant rows: كل item تتحول لـ items متعددة لو فيها أكتر من row
@@ -443,9 +476,11 @@ export default function OrderForm() {
         assignedUserId: values.assignedUserId || null,
         adSource: values.adSource || null, adCampaign: values.adCampaign || null,
         notes: values.notes || null,
+        orderType: replacementMode ? "replacement" : "normal",
+        originalOrderId: replacementMode ? selectedOriginalOrder?.id ?? null : null,
         items: expandedItems.map(item => ({
           product: item.product, color: item.color || null, size: item.size || null,
-          quantity: item.quantity, unitPrice: item.unitPrice,
+          quantity: item.quantity, unitPrice: replacementMode ? 0 : item.unitPrice,
           costPrice: item.costPrice ?? null,
           productId: item.productId || null, variantId: item.variantId || null,
         })),
@@ -478,8 +513,10 @@ export default function OrderForm() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-xl font-bold">طلب جديد</h1>
-          <p className="text-muted-foreground text-xs mt-0.5">أدخل تفاصيل الطلب</p>
+          <h1 className="text-xl font-bold">{replacementMode ? "طلب استبدال" : "طلب جديد"}</h1>
+          <p className="text-muted-foreground text-xs mt-0.5">
+            {replacementMode ? "ابحث عن العميل ثم أدخل المنتج البديل" : "أدخل تفاصيل الطلب"}
+          </p>
         </div>
       </div>
 
@@ -487,6 +524,67 @@ export default function OrderForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2 space-y-4">
+
+              {/* Replacement: customer lookup */}
+              {replacementMode && (
+                <Card className="border-amber-300 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/10">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Search className="w-3.5 h-3.5" />البحث عن العميل
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 space-y-2">
+                    <Input
+                      placeholder="آخر 4 أرقام من موبايل العميل"
+                      className="h-9 text-sm"
+                      maxLength={4}
+                      value={last4}
+                      onChange={e => {
+                        setLast4(e.target.value.replace(/\D/g, "").slice(0, 4));
+                        setSelectedOriginalOrder(null);
+                      }}
+                    />
+                    {isLookingUp && <p className="text-xs text-muted-foreground">جاري البحث...</p>}
+                    {!isLookingUp && lookupResults && lookupResults.length === 0 && /^\d{4}$/.test(last4) && (
+                      <p className="text-xs text-red-500">مفيش عملاء (قيد الشحن أو مسلّم) بآخر 4 أرقام دي.</p>
+                    )}
+                    {!isLookingUp && lookupResults && lookupResults.length > 0 && !selectedOriginalOrder && (
+                      <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                        {lookupResults.map((o: any) => (
+                          <button
+                            key={o.id}
+                            type="button"
+                            onClick={() => handleSelectOriginalOrder(o)}
+                            className="w-full text-right p-2.5 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold">{o.customerName}</span>
+                              <Badge variant="outline" className="text-[9px]">
+                                {o.status === "in_shipping" ? "قيد الشحن" : "مسلّم"}
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{o.phone} — {o.product} {o.color} {o.size}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {selectedOriginalOrder && (
+                      <div className="flex items-center justify-between p-2.5 rounded-md border border-primary/40 bg-primary/5">
+                        <div>
+                          <span className="text-xs font-bold">{selectedOriginalOrder.customerName}</span>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            طلب أصلي #{selectedOriginalOrder.id} — {selectedOriginalOrder.product} {selectedOriginalOrder.color} {selectedOriginalOrder.size}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => { setSelectedOriginalOrder(null); setLast4(""); }}
+                          className="text-muted-foreground hover:text-red-500">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Customer */}
               <Card className="border-border bg-card">
@@ -558,7 +656,7 @@ export default function OrderForm() {
                     control={form.control} watch={form.watch} setValue={form.setValue}
                     remove={() => remove(index)} products={products} allVariants={allVariants}
                     canViewFinancials={canViewFinancials} isOnly={fields.length === 1}
-                    onVariantRowsChange={handleVariantRowsChange} />
+                    onVariantRowsChange={handleVariantRowsChange} replacementMode={replacementMode} />
                 ))}
 
                 {fields.length >= 2 && (
@@ -691,11 +789,18 @@ export default function OrderForm() {
                   <div className="space-y-2 text-xs pt-1">
                     <div className="flex justify-between"><span className="text-muted-foreground">عدد المنتجات</span><span>{fields.length}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">إجمالي الكمية</span><span>{totalQty}</span></div>
-                    <div className="border-t border-border pt-2 flex justify-between">
-                      <span className="font-bold">إجمالي البيع</span>
-                      <span className="font-bold text-base text-primary">{formatCurrency(totalRevenue)}</span>
-                    </div>
-                    {canViewFinancials && totalCost > 0 && (
+                    {replacementMode ? (
+                      <div className="border-t border-border pt-2 flex justify-between">
+                        <span className="font-bold">تكلفة الشحن فقط</span>
+                        <span className="font-bold text-base text-primary">{formatCurrency(shippingCost)}</span>
+                      </div>
+                    ) : (
+                      <div className="border-t border-border pt-2 flex justify-between">
+                        <span className="font-bold">إجمالي البيع</span>
+                        <span className="font-bold text-base text-primary">{formatCurrency(totalRevenue)}</span>
+                      </div>
+                    )}
+                    {!replacementMode && canViewFinancials && totalCost > 0 && (
                       <>
                         <div className="flex justify-between"><span className="text-muted-foreground">التكلفة</span><span className="text-amber-700 dark:text-amber-400">-{formatCurrency(totalCost)}</span></div>
                         {shippingCost > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الشحن</span><span className="text-amber-700 dark:text-amber-400">-{formatCurrency(shippingCost)}</span></div>}
@@ -713,7 +818,7 @@ export default function OrderForm() {
                     )}
                   </div>
                   <Button type="submit" className="w-full gap-2 bg-primary text-primary-foreground font-bold text-sm h-9" disabled={submitting}>
-                    {submitting ? "جاري الحفظ..." : <><Save className="w-4 h-4" />{fields.length > 1 ? `إنشاء فاتورة (${fields.length} منتجات)` : "إنشاء الطلب"}</>}
+                    {submitting ? "جاري الحفظ..." : <><Save className="w-4 h-4" />{replacementMode ? "إنشاء طلب استبدال" : (fields.length > 1 ? `إنشاء فاتورة (${fields.length} منتجات)` : "إنشاء الطلب")}</>}
                   </Button>
                 </CardContent>
               </Card>

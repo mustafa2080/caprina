@@ -640,6 +640,14 @@ export default function Orders() {
                 </Button>
               </Link>
               )}
+              {/* زر طلب استبدال */}
+              {canCreate && (
+              <Link href="/orders/replacement">
+                <Button variant="outline" className="gap-2 border-amber-400/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-bold text-sm">
+                  <RefreshCw className="w-4 h-4" />استبدال
+                </Button>
+              </Link>
+              )}
             </>
           ))}
         </div>
@@ -880,6 +888,11 @@ export default function Orders() {
                         <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                           {getOrderStatusLabel(order.status, (order as any).returnReceived)}
                         </Badge>
+                        {(order as any).orderType === "replacement" && (
+                          <Badge variant="outline" className="text-[9px] font-bold border-amber-400/60 text-amber-700 dark:text-amber-400">
+                            استبدال
+                          </Badge>
+                        )}
                         {order.status === "warehouse_ready" && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-500 dark:text-amber-400">🏠 ما زال في المخزن</span>
                         )}
@@ -1042,6 +1055,11 @@ export default function Orders() {
                           <Badge variant="outline" className={`text-[9px] font-bold border ${statusClasses[order.status] || ""}`}>
                             {getOrderStatusLabel(order.status, (order as any).returnReceived)}
                           </Badge>
+                          {(order as any).orderType === "replacement" && (
+                            <div className="flex items-center justify-center mt-1">
+                              <Badge variant="outline" className="text-[9px] font-bold border-amber-400/60 text-amber-700 dark:text-amber-400">استبدال</Badge>
+                            </div>
+                          )}
                           {order.status === "warehouse_ready" && (
                             <div className="flex items-center justify-center gap-0.5 mt-1">
                               <span className="text-[9px] font-bold text-amber-500 dark:text-amber-400 leading-none">🏠 ما زال في المخزن</span>

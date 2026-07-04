@@ -323,6 +323,7 @@ function Router() {
           <Route path="/"                         component={() => <ProtectedRoute permission="dashboard.view" component={Dashboard} />} />
           <Route path="/orders"                   component={() => <ProtectedRoute permission="orders.view" component={Orders} />} />
           <Route path="/orders/new"               component={() => <ProtectedRoute permission="orders.create" component={OrderForm} />} />
+          <Route path="/orders/replacement"       component={() => <ProtectedRoute permission="orders.create" component={() => <OrderForm replacementMode />} />} />
           <Route path="/invoices/:invoiceNumber"  component={() => <ProtectedRoute permission="invoices.view" component={InvoiceGroupPage} />} />
           <Route path="/orders/:id"               component={() => <ProtectedRoute permission="orders.view" component={OrderDetail} />} />
           <Route path="/inventory"                component={() => <ProtectedRoute permission="inventory.view" component={Inventory} />} />

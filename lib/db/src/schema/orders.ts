@@ -22,6 +22,8 @@ export const ordersTable = mysqlTable("orders", {
   unitPrice: real("unit_price").notNull(),
   totalPrice: real("total_price").notNull(),
   status: varchar("status", { length: 50 }).notNull().default("pending"),
+  orderType: varchar("order_type", { length: 20 }).notNull().default("normal"), // normal | replacement
+  originalOrderId: int("original_order_id"), // لو orderType=replacement، مرجع للطلب الأصلي (اختياري)
   partialQuantity: int("partial_quantity"),
   shippingCompanyId: int("shipping_company_id"),
   productId: int("product_id"),
@@ -53,6 +55,7 @@ export const ordersTable = mysqlTable("orders", {
   index("idx_orders_shipping_company_id").on(t.shippingCompanyId),
   index("idx_orders_assigned_user_id").on(t.assignedUserId),
   index("idx_orders_invoice_number").on(t.invoiceNumber),
+  index("idx_orders_order_type").on(t.orderType),
   // composite index للـ invoice grouping query (tenantId + deletedAt + status + invoiceNumber)
   index("idx_orders_tenant_status").on(t.tenantId, t.deletedAt, t.status),
   index("idx_orders_tenant_invoice").on(t.tenantId, t.deletedAt, t.invoiceNumber),

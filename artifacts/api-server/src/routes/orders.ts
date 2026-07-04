@@ -973,6 +973,24 @@ router.get("/orders", async (req, res): Promise<void> => {
 
 // ظ¤ظ¤ظ¤ Create order (single) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
+// customer lookup by last-4-digits phone (for replacement order form)
+router.get("/orders/customer-lookup", async (req, res): Promise<void> => {
+  const last4 = String(req.query.last4 ?? "").trim();
+  if (!/^\d{4}$/.test(last4)) { res.status(400).json({ error: "لازم 4 أرقام بالظبط" }); return; }
+
+  const tenantId = getTenantId(req);
+  const matches = await db.select().from(ordersTable).where(
+    and(
+      isNull(ordersTable.deletedAt),
+      tenantId ? eq(ordersTable.tenantId, tenantId) : undefined,
+      or(eq(ordersTable.status, "in_shipping"), eq(ordersTable.status, "received")),
+      like(ordersTable.phone, `%${last4}`)
+    )
+  ).orderBy(desc(ordersTable.createdAt)).limit(20);
+
+  res.json(matches.map((o) => GetOrderResponse.parse(o)));
+});
+
 router.post("/orders", async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -989,7 +1007,7 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   const invoiceNumber = (parsed.data as any).invoiceNumber || generateInvoiceNumber();
-  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, tenantId: getTenantId(req), createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
+  const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, orderType: (parsed.data as any).orderType || "normal", tenantId: getTenantId(req), createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
   const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
 
@@ -1011,12 +1029,16 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
 
   const invoiceNumber = sharedFields.invoiceNumber ?? generateInvoiceNumber();
   const totalShipping = sharedFields.shippingCost ? Number(sharedFields.shippingCost) : 0;
+  const isReplacement = sharedFields.orderType === "replacement";
+  const originalOrderId = isReplacement ? (Number(sharedFields.originalOrderId) || null) : null;
   const createdOrders = [];
 
   for (const [itemIndex, item] of items.entries()) {
     // الشحن كله على المنتج الأول فقط، الباقي صفر
     const shippingCost = itemIndex === 0 ? totalShipping : 0;
-    const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice: item.unitPrice, costPrice: item.costPrice ?? null, shippingCost, productId: item.productId ?? null, variantId: item.variantId ?? null });
+    // طلب استبدال: القطعة تخرج بقيمة 0، الشحن فقط هو اللي بيتحسب في الملخص المالي
+    const unitPrice = isReplacement ? 0 : item.unitPrice;
+    const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice, costPrice: item.costPrice ?? null, shippingCost, productId: item.productId ?? null, variantId: item.variantId ?? null, orderType: isReplacement ? "replacement" : "normal", originalOrderId });
     if (!parsed.success) { res.status(400).json({ error: `┘à┘╪ز╪ش ╪║┘è╪▒ ╪╡╪د┘╪ص: ${parsed.error.message}` }); return; }
     const totalPrice = parsed.data.quantity * parsed.data.unitPrice;
     let costPrice = (parsed.data as any).costPrice ?? null;
@@ -1028,7 +1050,7 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
       const [product] = await db.select().from(productsTable).where(eq(productsTable.id, (parsed.data as any).productId));
       if (product?.costPrice) costPrice = product.costPrice;
     }
-    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, tenantId: getTenantId(req), createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
+    const result = await db.insert(ordersTable).values({ ...parsed.data, totalPrice, status: "pending", costPrice, invoiceNumber, orderType: (parsed.data as any).orderType || "normal", tenantId: getTenantId(req), createdByUserId: req.user?.id ?? null, createdByName: req.user?.displayName ?? null, createdAt: new Date(), updatedAt: new Date() });
     const insertId = (result as any)[0]?.insertId ?? (result as any).insertId;
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, insertId));
     createdOrders.push(order);
@@ -1407,6 +1429,29 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       } else {
         // ┘à┘┘è╪┤ ╪ص╪▒┘â╪ر ظْ ╪د╪«╪╡┘à ┘â╪ذ┘è╪╣ ┘à╪ذ╪د╪┤╪▒╪ر
         await processDelivery(orderRef, existing.quantity, "sale", existing.id).catch(() => {});
+      }
+
+      // طلب استبدال: القطعة القديمة (اللي كانت عند العميل) بترجع فعليًا مع المندوب → تتسجل IN في المخزون
+      if ((existing as any).orderType === "replacement" && (existing as any).originalOrderId) {
+        const [originalOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, (existing as any).originalOrderId));
+        if (originalOrder && !(originalOrder as any).isDamaged) {
+          const { variantId: origVid, productId: origPid } = await resolveInventoryTarget(originalOrder);
+          await adjustWarehouseStock(originalOrder.warehouseId, origVid, origPid, originalOrder.quantity).catch(() => {});
+          await syncProductQuantityFromWarehouses(origVid, origPid).catch(() => {});
+          await recordMovement({
+            product: originalOrder.product,
+            color: originalOrder.color,
+            size: originalOrder.size,
+            quantity: originalOrder.quantity,
+            type: "IN",
+            reason: "return" as any,
+            productId: origPid,
+            variantId: origVid,
+            warehouseId: originalOrder.warehouseId,
+            orderId: originalOrder.id,
+            notes: `مرتجع استبدال — القطعة القديمة رجعت مع طلب #${existing.id}`,
+          }).catch(() => {});
+        }
       }
     }
 
