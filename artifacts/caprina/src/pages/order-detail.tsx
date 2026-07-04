@@ -3856,17 +3856,18 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
 
                 {/* Return reason section */}
                 {order.status === "returned" && (orderReturnReason || orderReturnNote) && (
-                  <div className="mt-2 p-3 rounded border border-red-900 bg-red-900/10">
-                    <p className="text-xs text-red-400 font-bold mb-1 flex items-center gap-1">
+                  <div className="mt-2 p-4 rounded-xl border border-red-800/50 bg-gradient-to-br from-red-950/40 via-red-900/20 to-red-950/40 shadow-[0_0_20px_rgba(239,68,68,0.25)] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-red-500/5 blur-2xl pointer-events-none" />
+                    <p className="relative text-xs text-red-400 font-bold mb-1 flex items-center gap-1">
                       <RotateCcw className="w-3 h-3" />سبب الإرجاع
                     </p>
                     {orderReturnReason && (
-                      <p className="text-sm font-semibold text-red-300">
+                      <p className="relative text-sm font-semibold text-red-300 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">
                         {returnReasonLabel(orderReturnReason)}
                       </p>
                     )}
                     {orderReturnNote && (
-                      <div className="mt-2 p-2.5 rounded-md border border-red-500 bg-red-950/40 shadow-[0_0_12px_rgba(239,68,68,0.5)]">
+                      <div className="relative mt-2 p-2.5 rounded-md border border-red-500 bg-red-950/40 shadow-[0_0_12px_rgba(239,68,68,0.5)]">
                         <p className="text-[10px] text-red-400 font-bold mb-0.5 flex items-center gap-1">
                           <MessageSquare className="w-3 h-3" />ملاحظات الإرجاع
                         </p>
