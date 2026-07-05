@@ -385,6 +385,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
   const [last4, setLast4] = useState("");
   const debouncedLast4 = useDebounce(last4, 400);
   const [selectedOriginalOrder, setSelectedOriginalOrder] = useState<any>(null);
+  const [expandedInvoice, setExpandedInvoice] = useState<any>(null);
   const { data: lookupResults, isFetching: isLookingUp } = useQuery({
     queryKey: ["customer-lookup", debouncedLast4],
     queryFn: () => ordersApi.customerLookup(debouncedLast4),
@@ -548,22 +549,51 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                     {!isLookingUp && lookupResults && lookupResults.length === 0 && /^\d{4}$/.test(last4) && (
                       <p className="text-xs text-red-500">مفيش عملاء (قيد الشحن أو مسلّم) بآخر 4 أرقام دي.</p>
                     )}
-                    {!isLookingUp && lookupResults && lookupResults.length > 0 && !selectedOriginalOrder && (
+                    {!isLookingUp && lookupResults && lookupResults.length > 0 && !selectedOriginalOrder && !expandedInvoice && (
                       <div className="space-y-1.5 max-h-56 overflow-y-auto">
-                        {lookupResults.map((o: any) => (
+                        {lookupResults.map((o: any) => {
+                          const invoiceItems = o.invoiceOrders?.length > 1 ? o.invoiceOrders : null;
+                          return (
+                            <button
+                              key={o.invoiceNumber || o.id}
+                              type="button"
+                              onClick={() => invoiceItems ? setExpandedInvoice(o) : handleSelectOriginalOrder(o)}
+                              className="w-full text-right p-2.5 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold">{o.customerName}</span>
+                                <Badge variant="outline" className="text-[9px]">
+                                  {o.status === "in_shipping" ? "قيد الشحن" : "مسلّم"}
+                                </Badge>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {o.phone} — {invoiceItems
+                                  ? `${invoiceItems.length} منتجات في الفاتورة (اضغط للاختيار)`
+                                  : `${o.product} ${o.color ?? ""} ${o.size ?? ""}`}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {expandedInvoice && !selectedOriginalOrder && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold">اختر المنتج اللي هيتستبدل:</p>
+                          <button type="button" onClick={() => setExpandedInvoice(null)} className="text-muted-foreground hover:text-red-500">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {expandedInvoice.invoiceOrders.map((o: any) => (
                           <button
                             key={o.id}
                             type="button"
                             onClick={() => handleSelectOriginalOrder(o)}
                             className="w-full text-right p-2.5 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold">{o.customerName}</span>
-                              <Badge variant="outline" className="text-[9px]">
-                                {o.status === "in_shipping" ? "قيد الشحن" : "مسلّم"}
-                              </Badge>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{o.phone} — {o.product} {o.color} {o.size}</p>
+                            <span className="text-xs font-bold">{o.product}</span>
+                            <span className="text-[10px] text-primary/70 font-bold mr-1">{o.color} {o.size}</span>
+                            <span className="text-[10px] text-muted-foreground block mt-0.5">الكمية: {o.quantity}</span>
                           </button>
                         ))}
                       </div>
@@ -576,7 +606,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                             طلب أصلي #{selectedOriginalOrder.id} — {selectedOriginalOrder.product} {selectedOriginalOrder.color} {selectedOriginalOrder.size}
                           </p>
                         </div>
-                        <button type="button" onClick={() => { setSelectedOriginalOrder(null); setLast4(""); }}
+                        <button type="button" onClick={() => { setSelectedOriginalOrder(null); setExpandedInvoice(null); setLast4(""); }}
                           className="text-muted-foreground hover:text-red-500">
                           <X className="w-4 h-4" />
                         </button>

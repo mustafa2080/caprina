@@ -986,9 +986,25 @@ router.get("/orders/customer-lookup", async (req, res): Promise<void> => {
       or(eq(ordersTable.status, "in_shipping"), eq(ordersTable.status, "received")),
       like(ordersTable.phone, `%${last4}`)
     )
-  ).orderBy(desc(ordersTable.createdAt)).limit(20);
+  ).orderBy(desc(ordersTable.createdAt)).limit(50);
 
-  res.json(matches.map((o) => GetOrderResponse.parse(o)));
+  // نجمع الأوردرز حسب رقم الفاتورة عشان الفاتورة الواحدة (اللي فيها أكتر من منتج) تظهر مرة واحدة
+  const groupedMap = new Map<string, typeof matches>();
+  for (const o of matches) {
+    const key = o.invoiceNumber || `order-${o.id}`;
+    if (!groupedMap.has(key)) groupedMap.set(key, []);
+    groupedMap.get(key)!.push(o);
+  }
+
+  const grouped = Array.from(groupedMap.values()).map((group) => {
+    const rep = group[0];
+    return {
+      ...GetOrderResponse.parse(rep),
+      invoiceOrders: group.map((o) => GetOrderResponse.parse(o)),
+    };
+  });
+
+  res.json(grouped.slice(0, 20));
 });
 
 router.post("/orders", async (req, res): Promise<void> => {
