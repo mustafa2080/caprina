@@ -1566,6 +1566,13 @@ export const attendanceApi = {
 
   // حذف خصم أو بونص
   deleteAdjustment: (id: number) => apiFetch<void>(`/attendance/adjustments/${id}`, { method: "DELETE" }),
+
+  // استثناء/تعديل يوم حضور (عفو عن غياب/تأخير أو خصم يدوي) — يحتاج سبب إجباري
+  applyException: (id: number, data: {
+    action: "excuse_absence" | "excuse_late" | "custom_deduction";
+    reason: string;
+    deductionAmount?: number;
+  }) => apiFetch<AttendanceRecord>(`/attendance/${id}/exception`, { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ─── Cash Registers API ───────────────────────────────────────────────────────

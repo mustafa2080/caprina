@@ -1306,6 +1306,10 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
   const [savingAdj, setSavingAdj] = useState(false);
   const [activeView, setActiveView] = useState<"calendar" | "salary">("calendar");
   const [proofDate, setProofDate] = useState<string | null>(null); // اليوم المختار لعرض صورة/لوكيشن الإثبات
+  const [exceptionAction, setExceptionAction] = useState<"excuse_absence" | "excuse_late" | "custom_deduction" | null>(null);
+  const [exceptionReason, setExceptionReason] = useState("");
+  const [exceptionAmount, setExceptionAmount] = useState("");
+  const [savingException, setSavingException] = useState(false);
 
   // جلب سجل الحضور
   const { data: records = [], isLoading } = useQuery({
@@ -1397,6 +1401,30 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
     }
   };
 
+  const handleApplyException = async (recordId: number) => {
+    if (!exceptionAction) return;
+    if (!exceptionReason.trim()) {
+      toast({ title: "لازم تكتب السبب", variant: "destructive" }); return;
+    }
+    if (exceptionAction === "custom_deduction" && !exceptionAmount) {
+      toast({ title: "أدخل قيمة الخصم", variant: "destructive" }); return;
+    }
+    setSavingException(true);
+    try {
+      await attendanceApi.applyException(recordId, {
+        action: exceptionAction,
+        reason: exceptionReason,
+        deductionAmount: exceptionAction === "custom_deduction" ? parseFloat(exceptionAmount) : undefined,
+      });
+      qc.invalidateQueries({ queryKey: ["attendance", profileId, month] });
+      qc.invalidateQueries({ queryKey: ["attendance-adjustments", profileId, month] });
+      setExceptionAction(null); setExceptionReason(""); setExceptionAmount("");
+      toast({ title: "تم تنفيذ الإجراء ✅" });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setSavingException(false); }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header: شهر + تبويب */}
@@ -1461,6 +1489,13 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                         title="عرض صورة ولوكيشن الحضور"
                         className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10">
                         <Camera className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                    {canEditAttendance && rec && (rec.status === "absent" || rec.status === "late" || (rec.deduction ?? 0) > 0) && (
+                      <button type="button" onClick={() => setProofDate(date)}
+                        title="استثناء / تعديل خصم"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10">
+                        <AlertCircle className="w-2.5 h-2.5" />
                       </button>
                     )}
                     <div className={`text-[10px] font-bold mb-0.5 ${cfg ? cfg.color : "text-foreground"}`}>{d}</div>
@@ -1659,6 +1694,53 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">لا يوجد لوكيشن مسجّل لهذا اليوم</p>
+              )}
+
+              {/* ─── قسم الاستثناء/التعديل (أدمن فقط) ─── */}
+              {canEditAttendance && (
+                <div className="rounded-lg border border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10 p-3 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    استثناء / تعديل هذا اليوم
+                  </div>
+                  <Select value={exceptionAction ?? ""} onValueChange={v => setExceptionAction(v as any)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="اختر الإجراء" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="excuse_absence" className="text-xs">عفو عن الغياب (بدون خصم)</SelectItem>
+                      <SelectItem value="excuse_late" className="text-xs">عفو عن التأخير (بدون خصم)</SelectItem>
+                      <SelectItem value="custom_deduction" className="text-xs">تعديل الخصم يدويًا</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {exceptionAction === "custom_deduction" && (
+                    <Input
+                      type="number"
+                      placeholder="قيمة الخصم الجديدة"
+                      value={exceptionAmount}
+                      onChange={e => setExceptionAmount(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  )}
+                  {exceptionAction && (
+                    <>
+                      <Textarea
+                        placeholder="السبب (إجباري)"
+                        value={exceptionReason}
+                        onChange={e => setExceptionReason(e.target.value)}
+                        className="text-xs min-h-[60px]"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs w-full"
+                        disabled={savingException}
+                        onClick={() => handleApplyException(recMap[proofDate].id)}
+                      >
+                        {savingException ? "جاري الحفظ..." : "تنفيذ الإجراء"}
+                      </Button>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </DialogContent>

@@ -27,13 +27,14 @@ export type Attendance = typeof attendanceTable.$inferSelect;
 
 // ─── Payroll Adjustments (Bonus / Deductions) ────────────────────────────────
 export const payrollAdjustmentsTable = mysqlTable("payroll_adjustments", {
-  id:        int("id").primaryKey().autoincrement(),
-  profileId: int("profile_id").notNull().references(() => employeeProfilesTable.id, { onDelete: "cascade" }),
-  month:     varchar("month", { length: 7 }).notNull(),             // YYYY-MM
-  type:      varchar("type", { length: 10 }).notNull(),             // bonus | deduction
-  amount:    real("amount").notNull(),
-  reason:    varchar("reason", { length: 500 }).notNull(),
-  createdAt: datetime("created_at").notNull().default(new Date()),
+  id:           int("id").primaryKey().autoincrement(),
+  profileId:    int("profile_id").notNull().references(() => employeeProfilesTable.id, { onDelete: "cascade" }),
+  month:        varchar("month", { length: 7 }).notNull(),             // YYYY-MM
+  type:         varchar("type", { length: 10 }).notNull(),             // bonus | deduction
+  amount:       real("amount").notNull(),
+  reason:       varchar("reason", { length: 500 }).notNull(),
+  attendanceId: int("attendance_id"),                                  // لو الاستثناء مرتبط بيوم حضور محدد
+  createdAt:    datetime("created_at").notNull().default(new Date()),
 });
 
 export type PayrollAdjustment = typeof payrollAdjustmentsTable.$inferSelect;

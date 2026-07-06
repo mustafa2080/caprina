@@ -9,6 +9,7 @@ export const employeeProfilesTable = mysqlTable("employee_profiles", {
   jobTitle: varchar("job_title", { length: 255 }),
   department: varchar("department", { length: 255 }),
   monthlySalary: real("monthly_salary").default(0),
+  shiftStart: varchar("shift_start", { length: 5 }).default("09:00"), // HH:MM
   hireDate: varchar("hire_date", { length: 20 }),
   notes: text("notes"),
   avatar: longtext("avatar"),

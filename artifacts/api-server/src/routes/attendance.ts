@@ -32,6 +32,26 @@ function getPayPeriodDates(month: string): { from: string; to: string } {
   return { from, to };
 }
 
+// ─── حساب دقائق التأخير + الخصم بناءً على shiftStart بتاع الموظف ─────────────
+// سماحية 15 دقيقة قبل ما يُحسب تأخير
+const LATE_GRACE_MINUTES = 15;
+// خصم لكل دقيقة تأخير (بعد السماحية) كنسبة من الراتب اليومي — قابلة للتعديل
+function computeLateness(shiftStart: string | null, checkInTime: string, monthlySalary: number): { lateMinutes: number; deduction: number } {
+  const shift = shiftStart || "09:00";
+  const [sh, sm] = shift.split(":").map(Number);
+  const [ch, cm] = checkInTime.split(":").map(Number);
+  const shiftMins = sh * 60 + sm;
+  const checkMins = ch * 60 + cm;
+  const diff = checkMins - shiftMins;
+  if (diff <= LATE_GRACE_MINUTES) return { lateMinutes: 0, deduction: 0 };
+  const lateMinutes = diff;
+  // خصم تناسبي: الراتب اليومي (شهري/30) مقسوم على 8 ساعات عمل = خصم بالدقيقة
+  const dailyRate = (monthlySalary || 0) / 30;
+  const perMinuteRate = dailyRate / (8 * 60);
+  const deduction = Math.round(perMinuteRate * lateMinutes * 100) / 100;
+  return { lateMinutes, deduction };
+}
+
 router.get("/attendance/my", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -80,6 +100,7 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const time = now.toTimeString().slice(0, 5); // HH:MM
+  const { lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0);
 
   const [existing] = await db
     .select()
@@ -92,7 +113,9 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
       .update(attendanceTable)
       .set({
         checkIn: time,
-        status: existing.status === "absent" ? "present" : existing.status,
+        status: lateMinutes > 0 ? "late" : "present",
+        lateMinutes,
+        deduction,
         checkInPhoto: photo ?? null,
         checkInLat: lat ?? null,
         checkInLng: lng ?? null,
@@ -107,8 +130,10 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const insertResult = await db.insert(attendanceTable).values({
     profileId: profile.id,
     date: today,
-    status: "present",
+    status: lateMinutes > 0 ? "late" : "present",
     checkIn: time,
+    lateMinutes,
+    deduction,
     checkInPhoto: photo ?? null,
     checkInLat: lat ?? null,
     checkInLng: lng ?? null,
@@ -281,6 +306,61 @@ router.get("/attendance/:profileId", async (req, res): Promise<void> => {
   const filtered = records.filter((r) => r.date >= periodFrom && r.date <= periodTo);
 
   res.json(filtered);
+});
+
+// ─── POST استثناء/تعديل يوم حضور (عفو عن غياب/تأخير أو خصم يدوي) ─────────────
+// POST /attendance/:id/exception  { action: "excuse_absence" | "excuse_late" | "custom_deduction", reason, deductionAmount? }
+const ExceptionSchema = z.object({
+  action: z.enum(["excuse_absence", "excuse_late", "custom_deduction"]),
+  reason: z.string().min(1).max(500),
+  deductionAmount: z.number().min(0).optional(), // مطلوب فقط لو action = custom_deduction
+});
+
+router.post("/attendance/:id/exception", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const parsed = ExceptionSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const { action, reason, deductionAmount } = parsed.data;
+
+  const [record] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, id));
+  if (!record) { res.status(404).json({ error: "سجل الحضور غير موجود" }); return; }
+
+  if (action === "custom_deduction" && (deductionAmount === undefined)) {
+    res.status(400).json({ error: "deductionAmount مطلوب لهذا الإجراء" }); return;
+  }
+
+  let newStatus = record.status;
+  let newDeduction = record.deduction;
+
+  if (action === "excuse_absence") {
+    newStatus = "excused";
+    newDeduction = 0;
+  } else if (action === "excuse_late") {
+    newStatus = "present";
+    newDeduction = 0;
+  } else if (action === "custom_deduction") {
+    newDeduction = deductionAmount!;
+  }
+
+  await db.update(attendanceTable)
+    .set({ status: newStatus, deduction: newDeduction, notes: reason })
+    .where(eq(attendanceTable.id, id));
+
+  // تسجيل الإجراء في سجل الـ adjustments كمرجع تاريخي
+  const month = record.date.slice(0, 7);
+  await db.insert(payrollAdjustmentsTable).values({
+    profileId: record.profileId,
+    month,
+    type: newDeduction < record.deduction ? "bonus" : "deduction", // "bonus" لو الخصم اتقل (استثناء)
+    amount: Math.abs(record.deduction - newDeduction) || 0.01, // قيمة رمزية لو مفيش فرق مادي
+    reason: `${action === "excuse_absence" ? "عفو عن غياب" : action === "excuse_late" ? "عفو عن تأخير" : "تعديل خصم يدوي"}: ${reason}`,
+    attendanceId: id,
+  });
+
+  const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, id));
+  res.json(updated);
 });
 
 // ─── POST create/upsert attendance record ────────────────────────────────────

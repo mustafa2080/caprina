@@ -6,6 +6,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { startSubscriptionCron } from "./lib/subscriptionCron.js";
+import { startAttendanceCron } from "./lib/attendanceCron.js";
 import { db, usersTable } from "@workspace/db";
 import { hashPassword } from "./lib/auth.js";
 import { eq, sql } from "drizzle-orm";
@@ -156,6 +157,7 @@ async function backfillEmployeeProfileIds() {
 seedDefaultAdmin();
 backfillEmployeeProfileIds();
 startSubscriptionCron(); // ← Cron الاشتراكات
+startAttendanceCron(); // ← Cron الغياب التلقائي
 
 // ─── Ensure app_settings table exists (safe for VPS without migrations) ──────
 async function ensureAppSettingsTable() {
