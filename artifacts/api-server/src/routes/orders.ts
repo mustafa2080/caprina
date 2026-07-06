@@ -1046,7 +1046,8 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
   const invoiceNumber = sharedFields.invoiceNumber ?? generateInvoiceNumber();
   const totalShipping = sharedFields.shippingCost ? Number(sharedFields.shippingCost) : 0;
   const isReplacement = sharedFields.orderType === "replacement";
-  const originalOrderId = isReplacement ? (Number(sharedFields.originalOrderId) || null) : null;
+  // fallback عام لو الـ item مفيهوش originalOrderId خاص بيه (توافق مع نداءات قديمة)
+  const fallbackOriginalOrderId = isReplacement ? (Number(sharedFields.originalOrderId) || null) : null;
   const createdOrders = [];
 
   for (const [itemIndex, item] of items.entries()) {
@@ -1054,6 +1055,8 @@ router.post("/orders/batch", async (req, res): Promise<void> => {
     const shippingCost = itemIndex === 0 ? totalShipping : 0;
     // طلب استبدال: القطعة تخرج بقيمة 0، الشحن فقط هو اللي بيتحسب في الملخص المالي
     const unitPrice = isReplacement ? 0 : item.unitPrice;
+    // كل قطعة بديلة ممكن تكون مرتبطة بقطعة أصلية مختلفة (استبدال أكتر من قطعة في نفس الفاتورة)
+    const originalOrderId = isReplacement ? (Number(item.originalOrderId) || fallbackOriginalOrderId) : null;
     const parsed = CreateOrderBody.safeParse({ ...sharedFields, product: item.product, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, unitPrice, costPrice: item.costPrice ?? null, shippingCost, productId: item.productId ?? null, variantId: item.variantId ?? null, orderType: isReplacement ? "replacement" : "normal", originalOrderId });
     if (!parsed.success) { res.status(400).json({ error: `┘à┘╪ز╪ش ╪║┘è╪▒ ╪╡╪د┘╪ص: ${parsed.error.message}` }); return; }
     const totalPrice = parsed.data.quantity * parsed.data.unitPrice;

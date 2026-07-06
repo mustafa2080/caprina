@@ -384,7 +384,9 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
   // ── وضع الاستبدال: بحث عن العميل بآخر 4 أرقام من الموبايل ──
   const [last4, setLast4] = useState("");
   const debouncedLast4 = useDebounce(last4, 400);
-  const [selectedOriginalOrder, setSelectedOriginalOrder] = useState<any>(null);
+  // وضع الاستبدال بيسمح باختيار أكتر من قطعة من نفس الفاتورة للاستبدال
+  const [selectedOriginalOrders, setSelectedOriginalOrders] = useState<any[]>([]);
+  const selectedOriginalOrder = selectedOriginalOrders[0] ?? null; // أول قطعة — لاستخدامها في بيانات العميل
   const [expandedInvoice, setExpandedInvoice] = useState<any>(null);
   const { data: lookupResults, isFetching: isLookingUp } = useQuery({
     queryKey: ["customer-lookup", debouncedLast4],
@@ -426,19 +428,43 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
     variantRowsMapRef.current.set(index, rows);
   };
 
+  // إضافة قطعة من الفاتورة الأصلية لقائمة القطع المراد استبدالها
   const handleSelectOriginalOrder = (order: any) => {
-    setSelectedOriginalOrder(order);
-    form.setValue("customerName", order.customerName);
-    form.setValue("phone", order.phone ?? "");
-    form.setValue("city", order.city ?? "");
-    form.setValue("address", order.address ?? "");
-    if (order.shippingCompanyId) form.setValue("shippingCompanyId", order.shippingCompanyId);
-    if (order.warehouseId) form.setValue("warehouseId", order.warehouseId);
+    setSelectedOriginalOrders(prev => {
+      if (prev.some(o => o.id === order.id)) return prev; // متكررة
+      const next = [...prev, order];
+      // كل قطعة مختارة للاستبدال لازم يقابلها خانة منتج في الفورم
+      // أول قطعة بتستخدم الخانة الافتراضية الموجودة، وبعد كده بنضيف خانة جديدة تلقائياً
+      if (next.length > 1 && next.length > fields.length) {
+        append(emptyItem());
+      }
+      return next;
+    });
+    // أول قطعة بتحدد بيانات العميل تلقائياً
+    if (selectedOriginalOrders.length === 0) {
+      form.setValue("customerName", order.customerName);
+      form.setValue("phone", order.phone ?? "");
+      form.setValue("city", order.city ?? "");
+      form.setValue("address", order.address ?? "");
+      if (order.shippingCompanyId) form.setValue("shippingCompanyId", order.shippingCompanyId);
+      if (order.warehouseId) form.setValue("warehouseId", order.warehouseId);
+    }
+    // نسيب expandedInvoice مفتوحة عشان يقدر يختار قطعة تانية من نفس الفاتورة لو حابب
+  };
+
+  const handleRemoveOriginalOrder = (orderId: number) => {
+    setSelectedOriginalOrders(prev => prev.filter(o => o.id !== orderId));
+  };
+
+  const handleResetReplacementSelection = () => {
+    setSelectedOriginalOrders([]);
+    setExpandedInvoice(null);
+    setLast4("");
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (replacementMode && !selectedOriginalOrder) {
-      toast({ title: "خطأ", description: "لازم تختار طلب العميل الأصلي الأول (ابحث بآخر 4 أرقام).", variant: "destructive" });
+    if (replacementMode && selectedOriginalOrders.length === 0) {
+      toast({ title: "خطأ", description: "لازم تختار قطعة واحدة على الأقل من طلب العميل الأصلي (ابحث بآخر 4 أرقام).", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -478,12 +504,17 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
         adSource: values.adSource || null, adCampaign: values.adCampaign || null,
         notes: values.notes || null,
         orderType: replacementMode ? "replacement" : "normal",
+        // للتوافق مع القديم: أول قطعة مختارة
         originalOrderId: replacementMode ? selectedOriginalOrder?.id ?? null : null,
-        items: expandedItems.map(item => ({
+        items: expandedItems.map((item, i) => ({
           product: item.product, color: item.color || null, size: item.size || null,
           quantity: item.quantity, unitPrice: replacementMode ? 0 : item.unitPrice,
           costPrice: item.costPrice ?? null,
           productId: item.productId || null, variantId: item.variantId || null,
+          // كل قطعة بديلة بترتبط بالقطعة الأصلية المقابلة لها (لو العميل استبدل أكتر من قطعة)
+          originalOrderId: replacementMode
+            ? (selectedOriginalOrders[i]?.id ?? selectedOriginalOrders[selectedOriginalOrders.length - 1]?.id ?? null)
+            : null,
         })),
       });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -516,7 +547,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
         <div>
           <h1 className="text-xl font-bold">{replacementMode ? "طلب استبدال" : "طلب جديد"}</h1>
           <p className="text-muted-foreground text-xs mt-0.5">
-            {replacementMode ? "ابحث عن العميل ثم أدخل المنتج البديل" : "أدخل تفاصيل الطلب"}
+            {replacementMode ? "ابحث عن العميل واختار قطعة أو أكتر للاستبدال، ثم أدخل المنتجات البديلة" : "أدخل تفاصيل الطلب"}
           </p>
         </div>
       </div>
@@ -542,14 +573,14 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                       value={last4}
                       onChange={e => {
                         setLast4(e.target.value.replace(/\D/g, "").slice(0, 4));
-                        setSelectedOriginalOrder(null);
+                        setExpandedInvoice(null);
                       }}
                     />
                     {isLookingUp && <p className="text-xs text-muted-foreground">جاري البحث...</p>}
                     {!isLookingUp && lookupResults && lookupResults.length === 0 && /^\d{4}$/.test(last4) && (
                       <p className="text-xs text-red-500">مفيش عملاء (قيد الشحن أو مسلّم) بآخر 4 أرقام دي.</p>
                     )}
-                    {!isLookingUp && lookupResults && lookupResults.length > 0 && !selectedOriginalOrder && !expandedInvoice && (
+                    {!isLookingUp && lookupResults && lookupResults.length > 0 && !expandedInvoice && (
                       <div className="space-y-1.5 max-h-56 overflow-y-auto">
                         {lookupResults.map((o: any) => {
                           const invoiceItems = o.invoiceOrders?.length > 1 ? o.invoiceOrders : null;
@@ -576,40 +607,65 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                         })}
                       </div>
                     )}
-                    {expandedInvoice && !selectedOriginalOrder && (
+                    {/* اختيار قطعة أو أكتر من فاتورة متعددة المنتجات — تفضل مفتوحة عشان يقدر يختار كذا قطعة */}
+                    {expandedInvoice && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold">اختر المنتج اللي هيتستبدل:</p>
+                          <p className="text-xs font-bold">اختر القطعة/القطع اللي هتتستبدل (تقدر تختار أكتر من واحدة):</p>
                           <button type="button" onClick={() => setExpandedInvoice(null)} className="text-muted-foreground hover:text-red-500">
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-                        {expandedInvoice.invoiceOrders.map((o: any) => (
-                          <button
-                            key={o.id}
-                            type="button"
-                            onClick={() => handleSelectOriginalOrder(o)}
-                            className="w-full text-right p-2.5 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                          >
-                            <span className="text-xs font-bold">{o.product}</span>
-                            <span className="text-[10px] text-primary/70 font-bold mr-1">{o.color} {o.size}</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">الكمية: {o.quantity}</span>
-                          </button>
-                        ))}
+                        {expandedInvoice.invoiceOrders.map((o: any) => {
+                          const isSelected = selectedOriginalOrders.some(s => s.id === o.id);
+                          return (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => isSelected ? handleRemoveOriginalOrder(o.id) : handleSelectOriginalOrder(o)}
+                              className={`w-full text-right p-2.5 rounded-md border transition-colors ${
+                                isSelected
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border hover:border-primary/50 hover:bg-primary/5"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold">{o.product}</span>
+                                {isSelected && <Badge className="text-[9px] bg-primary text-primary-foreground">مختارة ✓</Badge>}
+                              </div>
+                              <span className="text-[10px] text-primary/70 font-bold mr-1">{o.color} {o.size}</span>
+                              <span className="text-[10px] text-muted-foreground block mt-0.5">الكمية: {o.quantity}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
-                    {selectedOriginalOrder && (
-                      <div className="flex items-center justify-between p-2.5 rounded-md border border-primary/40 bg-primary/5">
-                        <div>
-                          <span className="text-xs font-bold">{selectedOriginalOrder.customerName}</span>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            طلب أصلي #{selectedOriginalOrder.id} — {selectedOriginalOrder.product} {selectedOriginalOrder.color} {selectedOriginalOrder.size}
+                    {/* قائمة القطع المختارة للاستبدال */}
+                    {selectedOriginalOrders.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold">
+                            القطع المختارة للاستبدال ({selectedOriginalOrders.length})
                           </p>
+                          <button type="button" onClick={handleResetReplacementSelection}
+                            className="text-[10px] text-muted-foreground hover:text-red-500 font-bold">
+                            إلغاء الكل
+                          </button>
                         </div>
-                        <button type="button" onClick={() => { setSelectedOriginalOrder(null); setExpandedInvoice(null); setLast4(""); }}
-                          className="text-muted-foreground hover:text-red-500">
-                          <X className="w-4 h-4" />
-                        </button>
+                        {selectedOriginalOrders.map((o: any) => (
+                          <div key={o.id} className="flex items-center justify-between p-2.5 rounded-md border border-primary/40 bg-primary/5">
+                            <div>
+                              <span className="text-xs font-bold">{o.customerName}</span>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                طلب أصلي #{o.id} — {o.product} {o.color} {o.size}
+                              </p>
+                            </div>
+                            <button type="button" onClick={() => handleRemoveOriginalOrder(o.id)}
+                              className="text-muted-foreground hover:text-red-500">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </CardContent>
