@@ -1295,6 +1295,8 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
   profileId: number; monthlySalary: number; isAdmin: boolean; canEdit?: boolean;
 }) {
   const canEditAttendance = canEdit ?? isAdmin;
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
   const { toast } = useToast();
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -1310,6 +1312,17 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
   const [exceptionReason, setExceptionReason] = useState("");
   const [exceptionAmount, setExceptionAmount] = useState("");
   const [savingException, setSavingException] = useState(false);
+  const [graceInput, setGraceInput] = useState("");
+  const [savingGrace, setSavingGrace] = useState(false);
+
+  // جلب سماحية التأخير العامة
+  const { data: graceData } = useQuery({
+    queryKey: ["attendance-late-grace"],
+    queryFn: () => attendanceApi.getLateGrace(),
+  });
+  useEffect(() => {
+    if (graceData?.graceMinutes != null) setGraceInput(String(graceData.graceMinutes));
+  }, [graceData?.graceMinutes]);
 
   // جلب سجل الحضور
   const { data: records = [], isLoading } = useQuery({
@@ -1425,6 +1438,21 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
     } finally { setSavingException(false); }
   };
 
+  const handleSaveGrace = async () => {
+    const val = parseInt(graceInput);
+    if (isNaN(val) || val < 0) {
+      toast({ title: "أدخل رقم صحيح للسماحية", variant: "destructive" }); return;
+    }
+    setSavingGrace(true);
+    try {
+      await attendanceApi.setLateGrace(val);
+      qc.invalidateQueries({ queryKey: ["attendance-late-grace"] });
+      toast({ title: "تم تحديث سماحية التأخير ✅" });
+    } catch (e: any) {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    } finally { setSavingGrace(false); }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header: شهر + تبويب */}
@@ -1441,6 +1469,30 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
           </Button>
         </div>
       </div>
+
+      {/* ─── سماحية التأخير العامة (سوبر أدمن فقط يقدر يعدّل) ─── */}
+      {activeView === "calendar" && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/10 p-2.5 flex-wrap">
+          <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground shrink-0">سماحية التأخير (بالدقائق) لكل الموظفين:</span>
+          {isSuperAdmin ? (
+            <>
+              <Input
+                type="number"
+                min={0}
+                value={graceInput}
+                onChange={e => setGraceInput(e.target.value)}
+                className="h-7 w-20 text-xs"
+              />
+              <Button size="sm" className="h-7 text-xs" disabled={savingGrace} onClick={handleSaveGrace}>
+                {savingGrace ? "جاري الحفظ..." : "حفظ"}
+              </Button>
+            </>
+          ) : (
+            <span className="text-xs font-bold text-foreground">{graceData?.graceMinutes ?? "—"} دقيقة</span>
+          )}
+        </div>
+      )}
 
       {/* بطاقات الإحصائيات */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

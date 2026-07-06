@@ -1,14 +1,15 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   db,
   employeeProfilesTable,
   attendanceTable,
   payrollAdjustmentsTable,
+  appSettingsTable,
 } from "@workspace/db";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
-import { requireAdmin } from "../middlewares/requireRole";
+import { requireAdmin, requireSuperAdmin } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -32,18 +33,33 @@ function getPayPeriodDates(month: string): { from: string; to: string } {
   return { from, to };
 }
 
+// ─── إعداد سماحية التأخير العام (يتحكم فيه السوبر أدمن) ──────────────────────
+const LATE_GRACE_SETTING_KEY = "attendance_late_grace_minutes";
+const DEFAULT_LATE_GRACE_MINUTES = 15;
+
+async function getLateGraceMinutes(): Promise<number> {
+  const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, LATE_GRACE_SETTING_KEY));
+  const parsed = row?.value ? parseInt(row.value) : NaN;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_LATE_GRACE_MINUTES;
+}
+
+async function setLateGraceMinutes(minutes: number): Promise<void> {
+  await db.execute(
+    sql`INSERT INTO app_settings (\`key\`, \`value\`, \`updated_at\`)
+        VALUES (${LATE_GRACE_SETTING_KEY}, ${String(minutes)}, NOW())
+        ON DUPLICATE KEY UPDATE \`value\` = ${String(minutes)}, \`updated_at\` = NOW()`
+  );
+}
+
 // ─── حساب دقائق التأخير + الخصم بناءً على shiftStart بتاع الموظف ─────────────
-// سماحية 15 دقيقة قبل ما يُحسب تأخير
-const LATE_GRACE_MINUTES = 15;
-// خصم لكل دقيقة تأخير (بعد السماحية) كنسبة من الراتب اليومي — قابلة للتعديل
-function computeLateness(shiftStart: string | null, checkInTime: string, monthlySalary: number): { lateMinutes: number; deduction: number } {
+function computeLateness(shiftStart: string | null, checkInTime: string, monthlySalary: number, graceMinutes: number): { lateMinutes: number; deduction: number } {
   const shift = shiftStart || "09:00";
   const [sh, sm] = shift.split(":").map(Number);
   const [ch, cm] = checkInTime.split(":").map(Number);
   const shiftMins = sh * 60 + sm;
   const checkMins = ch * 60 + cm;
   const diff = checkMins - shiftMins;
-  if (diff <= LATE_GRACE_MINUTES) return { lateMinutes: 0, deduction: 0 };
+  if (diff <= graceMinutes) return { lateMinutes: 0, deduction: 0 };
   const lateMinutes = diff;
   // خصم تناسبي: الراتب اليومي (شهري/30) مقسوم على 8 ساعات عمل = خصم بالدقيقة
   const dailyRate = (monthlySalary || 0) / 30;
@@ -100,7 +116,8 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const time = now.toTimeString().slice(0, 5); // HH:MM
-  const { lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0);
+  const graceMinutes = await getLateGraceMinutes();
+  const { lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
 
   const [existing] = await db
     .select()
@@ -282,6 +299,23 @@ router.get("/attendance/my/salary-report", async (req, res): Promise<void> => {
     attendance: records,
     adjustments,
   });
+});
+
+// ─── إعدادات سماحية التأخير العامة (سوبر أدمن فقط) ───────────────────────────
+// لازم تتسجل قبل /attendance/:profileId عشان Express متفسرش "settings" كـ profileId
+// GET /attendance/settings/late-grace
+router.get("/attendance/settings/late-grace", async (req, res): Promise<void> => {
+  const graceMinutes = await getLateGraceMinutes();
+  res.json({ graceMinutes });
+});
+
+// PATCH /attendance/settings/late-grace  { graceMinutes: number }
+const LateGraceSchema = z.object({ graceMinutes: z.number().int().min(0).max(240) });
+router.patch("/attendance/settings/late-grace", requireSuperAdmin, async (req, res): Promise<void> => {
+  const parsed = LateGraceSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await setLateGraceMinutes(parsed.data.graceMinutes);
+  res.json({ graceMinutes: parsed.data.graceMinutes });
 });
 
 // ─── GET attendance for a profile in a month ─────────────────────────────────

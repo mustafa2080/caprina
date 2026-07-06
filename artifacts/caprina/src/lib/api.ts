@@ -1573,6 +1573,11 @@ export const attendanceApi = {
     reason: string;
     deductionAmount?: number;
   }) => apiFetch<AttendanceRecord>(`/attendance/${id}/exception`, { method: "POST", body: JSON.stringify(data) }),
+
+  // إعداد سماحية التأخير العامة (بالدقايق) — القراءة لأي مستخدم، التعديل سوبر أدمن فقط
+  getLateGrace: () => apiFetch<{ graceMinutes: number }>("/attendance/settings/late-grace"),
+  setLateGrace: (graceMinutes: number) =>
+    apiFetch<{ graceMinutes: number }>("/attendance/settings/late-grace", { method: "PATCH", body: JSON.stringify({ graceMinutes }) }),
 };
 
 // ─── Cash Registers API ───────────────────────────────────────────────────────
