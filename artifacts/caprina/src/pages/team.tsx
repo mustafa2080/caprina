@@ -6,6 +6,7 @@ import {
   DollarSign, Calendar, BarChart2, Settings, ArrowLeft, Save, RefreshCw, UserPlus,
   Clock, UserCheck, UserX, Gift, MinusCircle, CheckCircle2, XCircle, AlertTriangle,
   Crown, Medal, Award, Download, Search, Lock,
+  Camera, MapPin,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1304,6 +1305,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
   const [adjReason, setAdjReason] = useState("");
   const [savingAdj, setSavingAdj] = useState(false);
   const [activeView, setActiveView] = useState<"calendar" | "salary">("calendar");
+  const [proofDate, setProofDate] = useState<string | null>(null); // اليوم المختار لعرض صورة/لوكيشن الإثبات
 
   // جلب سجل الحضور
   const { data: records = [], isLoading } = useQuery({
@@ -1454,6 +1456,13 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                 const Icon = cfg?.icon;
                 return (
                   <div key={date} className={`relative rounded-lg border text-center p-1 transition-all ${isToday ? "ring-2 ring-primary" : ""} ${cfg ? cfg.bg : "bg-card"} ${isFuture ? "opacity-40" : ""}`}>
+                    {rec?.checkInPhoto && (
+                      <button type="button" onClick={() => setProofDate(date)}
+                        title="عرض صورة ولوكيشن الحضور"
+                        className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:scale-110 transition-transform z-10">
+                        <Camera className="w-2.5 h-2.5" />
+                      </button>
+                    )}
                     <div className={`text-[10px] font-bold mb-0.5 ${cfg ? cfg.color : "text-foreground"}`}>{d}</div>
                     {Icon && <Icon className={`w-3 h-3 mx-auto ${cfg.color}`} />}
                     {!isFuture && canEditAttendance && (
@@ -1608,6 +1617,52 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
             </div>
           )}
         </div>
+      )}
+
+      {/* ─── بوب أب إثبات الحضور: صورة + لوكيشن ─── */}
+      {proofDate && recMap[proofDate] && (
+        <Dialog open={!!proofDate} onOpenChange={(o) => !o && setProofDate(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <Camera className="w-4 h-4 text-primary" />
+                إثبات الحضور — {proofDate}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              {recMap[proofDate].checkInPhoto ? (
+                <img src={recMap[proofDate].checkInPhoto!} alt="صورة الحضور"
+                  className="w-full aspect-square object-cover rounded-xl border border-border" />
+              ) : (
+                <div className="w-full aspect-square rounded-xl border border-border flex items-center justify-center text-muted-foreground text-xs">
+                  لا توجد صورة
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                وقت الحضور: <strong className="text-foreground">{recMap[proofDate].checkIn ?? "—"}</strong>
+              </div>
+              {recMap[proofDate].checkInLat != null && recMap[proofDate].checkInLng != null ? (
+                <div className="rounded-lg border border-border bg-muted/10 p-2.5 space-y-1.5">
+                  <div className="flex items-start gap-2 text-xs">
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground">
+                      {recMap[proofDate].checkInAddress ?? `${recMap[proofDate].checkInLat}, ${recMap[proofDate].checkInLng}`}
+                    </span>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps?q=${recMap[proofDate].checkInLat},${recMap[proofDate].checkInLng}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    فتح الموقع على خرائط جوجل ←
+                  </a>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">لا يوجد لوكيشن مسجّل لهذا اليوم</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

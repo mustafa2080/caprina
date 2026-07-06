@@ -1143,6 +1143,14 @@ export interface Attendance {
   status: "present" | "absent" | "late" | "half_day" | "holiday" | "excused";
   checkIn: string | null;
   checkOut: string | null;
+  checkInPhoto?: string | null;
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkInAddress?: string | null;
+  checkOutPhoto?: string | null;
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  checkOutAddress?: string | null;
   lateMinutes: number;
   deduction: number;
   notes: string | null;
@@ -1312,10 +1320,10 @@ export const employeeApi = {
     apiFetch<AttendanceSalaryReport>(`/attendance/my/salary-report${month ? `?month=${month}` : ""}`),
   getTodayAttendance: () =>
     apiFetch<Attendance | null>("/attendance/my/today"),
-  checkIn: () =>
-    apiFetch<Attendance>("/attendance/my/check-in", { method: "POST" }),
-  checkOut: () =>
-    apiFetch<Attendance>("/attendance/my/check-out", { method: "POST" }),
+  checkIn: (data?: { photo?: string | null; lat?: number | null; lng?: number | null; address?: string | null }) =>
+    apiFetch<Attendance>("/attendance/my/check-in", { method: "POST", body: JSON.stringify(data ?? {}) }),
+  checkOut: (data?: { photo?: string | null; lat?: number | null; lng?: number | null; address?: string | null }) =>
+    apiFetch<Attendance>("/attendance/my/check-out", { method: "POST", body: JSON.stringify(data ?? {}) }),
   listUsers: () => apiFetch<AppUser[]>("/users"),
   getDailyLogs: (profileId: number, date?: string) =>
     apiFetch<DailyLogDay>(`/employee-daily-logs/${profileId}${date ? `?date=${date}` : ""}`),
@@ -1477,6 +1485,14 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   checkIn: string | null;
   checkOut: string | null;
+  checkInPhoto?: string | null;
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkInAddress?: string | null;
+  checkOutPhoto?: string | null;
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  checkOutAddress?: string | null;
   lateMinutes: number;
   deduction: number;
   notes: string | null;

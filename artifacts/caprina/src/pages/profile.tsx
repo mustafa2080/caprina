@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
@@ -14,6 +14,7 @@ import {
   RefreshCw, CalendarCheck2, Gauge, Award, ShieldAlert,
   Medal, GanttChart, Sparkles, BarChart2, Printer, Download,
   LogIn, LogOut, Lock, Unlock, TrendingUp as TrendUp,
+  MapPin, X, RotateCcw, CircleCheck,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2962,6 +2963,169 @@ function DailyKpiTracker() {
   );
 }
 
+/* ── Attendance Capture Modal: كاميرا + لوكيشن ── */
+function AttendanceCaptureModal({
+  mode, onClose, onConfirm, isPending,
+}: {
+  mode: "checkin" | "checkout";
+  onClose: () => void;
+  onConfirm: (data: { photo: string | null; lat: number | null; lng: number | null; address: string | null }) => void;
+  isPending: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [locStatus, setLocStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (err) {
+      setCameraError("تعذّر الوصول للكاميرا — تأكد من السماح بالصلاحية");
+    }
+  }, []);
+
+  const startLocation = useCallback(() => {
+    setLocStatus("loading");
+    if (!navigator.geolocation) { setLocStatus("error"); return; }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        setCoords({ lat, lng });
+        setLocStatus("ok");
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&accept-language=ar`);
+          const j = await r.json();
+          setAddress(j?.display_name ?? null);
+        } catch { /* العنوان اختياري */ }
+      },
+      () => setLocStatus("error"),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  }, []);
+
+  useEffect(() => {
+    startCamera();
+    startLocation();
+    return () => stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const capture = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    const size = 360;
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const s = Math.min(vw, vh);
+    ctx.translate(size, 0); ctx.scale(-1, 1); // مرآة زي السيلفي
+    ctx.drawImage(video, (vw - s) / 2, (vh - s) / 2, s, s, 0, 0, size, size);
+    setPhoto(canvas.toDataURL("image/jpeg", 0.82));
+    stopCamera();
+  }, [stopCamera]);
+
+  const retake = useCallback(() => { setPhoto(null); startCamera(); }, [startCamera]);
+
+  const canConfirm = !!photo && locStatus === "ok" && !isPending;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" dir="rtl">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between"
+          style={{ background: "linear-gradient(to left, hsl(var(--primary)/0.1), transparent)" }}>
+          <span className="font-black text-sm flex items-center gap-2">
+            <Camera className="w-4 h-4 text-primary" />
+            {mode === "checkin" ? "تسجيل الحضور" : "تسجيل الانصراف"}
+          </span>
+          <button type="button" onClick={() => { stopCamera(); onClose(); }} className="text-muted-foreground hover:text-foreground">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Camera / Preview */}
+          <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-black flex items-center justify-center">
+            {photo ? (
+              <img src={photo} alt="صورة الحضور" className="w-full h-full object-cover" />
+            ) : cameraError ? (
+              <div className="flex flex-col items-center gap-2 text-center px-4 text-rose-400 text-xs">
+                <Camera className="w-8 h-8 opacity-50" />
+                {cameraError}
+              </div>
+            ) : (
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
+            )}
+          </div>
+
+          {!photo && !cameraError && (
+            <button type="button" onClick={capture}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
+                bg-primary text-primary-foreground hover:opacity-90 transition-all">
+              <Camera className="w-4 h-4" />التقاط الصورة
+            </button>
+          )}
+          {photo && (
+            <button type="button" onClick={retake}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold
+                border border-border text-muted-foreground hover:text-foreground transition-all">
+              <RotateCcw className="w-3.5 h-3.5" />إعادة الالتقاط
+            </button>
+          )}
+
+          {/* Location status */}
+          <div className={`rounded-xl border px-3 py-2.5 flex items-center gap-2 text-xs
+            ${locStatus === "ok" ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+              : locStatus === "error" ? "border-rose-500/30 bg-rose-500/5 text-rose-400"
+              : "border-border bg-muted/10 text-muted-foreground"}`}>
+            {locStatus === "loading" && <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />}
+            {locStatus === "ok" && <CircleCheck className="w-3.5 h-3.5 shrink-0" />}
+            {(locStatus === "error" || locStatus === "idle") && <MapPin className="w-3.5 h-3.5 shrink-0" />}
+            <span className="truncate">
+              {locStatus === "loading" && "جاري تحديد الموقع..."}
+              {locStatus === "ok" && (address ?? `${coords?.lat.toFixed(5)}, ${coords?.lng.toFixed(5)}`)}
+              {locStatus === "error" && "تعذّر تحديد الموقع — فعّل صلاحية الموقع"}
+              {locStatus === "idle" && "بانتظار الموقع..."}
+            </span>
+            {locStatus === "error" && (
+              <button type="button" onClick={startLocation} className="mr-auto shrink-0 underline">إعادة المحاولة</button>
+            )}
+          </div>
+
+          {/* Confirm */}
+          <button type="button" disabled={!canConfirm}
+            onClick={() => onConfirm({ photo, lat: coords?.lat ?? null, lng: coords?.lng ?? null, address })}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
+              bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+              hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
+            {isPending ? (
+              <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <CircleCheck className="w-4 h-4" />
+            )}
+            تأكيد {mode === "checkin" ? "الحضور" : "الانصراف"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Tab: Attendance ── */
 const STATUS_META: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
   present:  { label: "حاضر",     color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", dot: "bg-emerald-500" },
@@ -2989,22 +3153,26 @@ function AttendanceTab() {
     refetchInterval: 60_000,
   });
 
+  const [captureMode, setCaptureMode] = useState<"checkin" | "checkout" | null>(null);
+
   const checkInMut = useMutation({
-    mutationFn: () => employeeApi.checkIn(),
+    mutationFn: (data: { photo: string | null; lat: number | null; lng: number | null; address: string | null }) => employeeApi.checkIn(data),
     onSuccess: () => {
       toast({ title: "✅ تم تسجيل الحضور", description: `وقت الدخول: ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` });
       qc.invalidateQueries({ queryKey: ["my-today-attendance"] });
       qc.invalidateQueries({ queryKey: ["my-attendance-report"] });
+      setCaptureMode(null);
     },
     onError: (e: any) => toast({ title: "خطأ", description: e?.message ?? "فشل تسجيل الحضور", variant: "destructive" }),
   });
 
   const checkOutMut = useMutation({
-    mutationFn: () => employeeApi.checkOut(),
+    mutationFn: (data: { photo: string | null; lat: number | null; lng: number | null; address: string | null }) => employeeApi.checkOut(data),
     onSuccess: () => {
       toast({ title: "✅ تم تسجيل الانصراف", description: `وقت الخروج: ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` });
       qc.invalidateQueries({ queryKey: ["my-today-attendance"] });
       qc.invalidateQueries({ queryKey: ["my-attendance-report"] });
+      setCaptureMode(null);
     },
     onError: (e: any) => toast({ title: "خطأ", description: e?.message ?? "فشل تسجيل الانصراف", variant: "destructive" }),
   });
@@ -3118,7 +3286,7 @@ function AttendanceTab() {
                 <button
                   type="button"
                   disabled={!!todayAtt?.checkIn || checkInMut.isPending}
-                  onClick={() => checkInMut.mutate()}
+                  onClick={() => setCaptureMode("checkin")}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
                     bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
                     hover:bg-emerald-500/20 hover:border-emerald-500/60
@@ -3133,7 +3301,7 @@ function AttendanceTab() {
                 <button
                   type="button"
                   disabled={!todayAtt?.checkIn || !!todayAtt?.checkOut || checkOutMut.isPending}
-                  onClick={() => checkOutMut.mutate()}
+                  onClick={() => setCaptureMode("checkout")}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all
                     bg-rose-500/10 border border-rose-500/30 text-rose-400
                     hover:bg-rose-500/20 hover:border-rose-500/60
@@ -3367,6 +3535,19 @@ function AttendanceTab() {
 
       {/* ── Daily KPI Tracker ───────────────────────────────────────── */}
       <DailyKpiTracker />
+
+      {/* ── Capture Modal (كاميرا + لوكيشن) ──────────────────────────── */}
+      {captureMode && (
+        <AttendanceCaptureModal
+          mode={captureMode}
+          isPending={captureMode === "checkin" ? checkInMut.isPending : checkOutMut.isPending}
+          onClose={() => setCaptureMode(null)}
+          onConfirm={(data) => {
+            if (captureMode === "checkin") checkInMut.mutate(data);
+            else checkOutMut.mutate(data);
+          }}
+        />
+      )}
     </div>
   );
 }

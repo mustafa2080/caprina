@@ -9,6 +9,14 @@ export const attendanceTable = mysqlTable("attendance", {
   status:       varchar("status", { length: 20 }).notNull().default("present"), // present | absent | late | half_day | holiday | excused
   checkIn:      varchar("check_in", { length: 8 }),                 // HH:MM
   checkOut:     varchar("check_out", { length: 8 }),                // HH:MM
+  checkInPhoto:    text("check_in_photo"),                          // مسار صورة الحضور
+  checkInLat:      real("check_in_lat"),
+  checkInLng:      real("check_in_lng"),
+  checkInAddress:  varchar("check_in_address", { length: 500 }),
+  checkOutPhoto:   text("check_out_photo"),                         // مسار صورة الانصراف
+  checkOutLat:     real("check_out_lat"),
+  checkOutLng:     real("check_out_lng"),
+  checkOutAddress: varchar("check_out_address", { length: 500 }),
   lateMinutes:  int("late_minutes").default(0),
   deduction:    real("deduction").notNull().default(0),
   notes:        text("notes"),

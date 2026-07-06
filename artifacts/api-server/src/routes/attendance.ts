@@ -56,9 +56,19 @@ router.get("/attendance/my", async (req, res): Promise<void> => {
 
 // ─── POST self check-in (current user from token) ─────────────────────────────
 // POST /attendance/my/check-in
+const CheckInBodySchema = z.object({
+  photo: z.string().optional().nullable(),       // base64 data URL
+  lat: z.number().optional().nullable(),
+  lng: z.number().optional().nullable(),
+  address: z.string().optional().nullable(),
+});
+
 router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const parsedBody = CheckInBodySchema.safeParse(req.body ?? {});
+  const { photo, lat, lng, address } = parsedBody.success ? parsedBody.data : {};
 
   const [profile] = await db
     .select()
@@ -80,7 +90,14 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
     if (existing.checkIn) { res.status(409).json({ error: "تم تسجيل الحضور اليوم بالفعل" }); return; }
     await db
       .update(attendanceTable)
-      .set({ checkIn: time, status: existing.status === "absent" ? "present" : existing.status })
+      .set({
+        checkIn: time,
+        status: existing.status === "absent" ? "present" : existing.status,
+        checkInPhoto: photo ?? null,
+        checkInLat: lat ?? null,
+        checkInLng: lng ?? null,
+        checkInAddress: address ?? null,
+      })
       .where(eq(attendanceTable.id, existing.id));
     const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, existing.id));
     res.json(updated);
@@ -92,6 +109,10 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
     date: today,
     status: "present",
     checkIn: time,
+    checkInPhoto: photo ?? null,
+    checkInLat: lat ?? null,
+    checkInLng: lng ?? null,
+    checkInAddress: address ?? null,
   });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [created] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, insertId));
@@ -103,6 +124,9 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
 router.post("/attendance/my/check-out", async (req, res): Promise<void> => {
   const userId = (req as any).user?.id;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const parsedBody = CheckInBodySchema.safeParse(req.body ?? {});
+  const { photo, lat, lng, address } = parsedBody.success ? parsedBody.data : {};
 
   const [profile] = await db
     .select()
@@ -125,7 +149,13 @@ router.post("/attendance/my/check-out", async (req, res): Promise<void> => {
 
   await db
     .update(attendanceTable)
-    .set({ checkOut: time })
+    .set({
+      checkOut: time,
+      checkOutPhoto: photo ?? null,
+      checkOutLat: lat ?? null,
+      checkOutLng: lng ?? null,
+      checkOutAddress: address ?? null,
+    })
     .where(eq(attendanceTable.id, existing.id));
   const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, existing.id));
   res.json(updated);
