@@ -3533,9 +3533,6 @@ function AttendanceTab() {
         <EmptyState icon={CalendarCheck2} title="لا يوجد سجل حضور" sub="لم يتم تسجيل أي حضور لهذا الشهر بعد" />
       )}
 
-      {/* ── Daily KPI Tracker ───────────────────────────────────────── */}
-      <DailyKpiTracker />
-
       {/* ── Capture Modal (كاميرا + لوكيشن) ──────────────────────────── */}
       {captureMode && (
         <AttendanceCaptureModal
