@@ -1733,6 +1733,10 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                       لا توجد صورة
                     </div>
                   )}
+                  <div className="flex items-center justify-center gap-1 text-[12px] font-bold text-primary bg-primary/10 rounded-lg py-1">
+                    <Clock className="w-3 h-3" />
+                    {recMap[proofDate].checkIn ? formatTime12(recMap[proofDate].checkIn) : "—"}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 justify-center">
@@ -1747,16 +1751,16 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                       لا توجد صورة
                     </div>
                   )}
+                  <div className="flex items-center justify-center gap-1 text-[12px] font-bold text-primary bg-primary/10 rounded-lg py-1">
+                    <Clock className="w-3 h-3" />
+                    {recMap[proofDate].checkOut ? formatTime12(recMap[proofDate].checkOut) : "—"}
+                  </div>
                 </div>
               </div>
 
               {/* ─── البيانات تحت الصور: عمودين جمب بعض ─── */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Clock className="w-3 h-3 shrink-0" />
-                    <strong className="text-foreground">{recMap[proofDate].checkIn ? formatTime12(recMap[proofDate].checkIn) : "—"}</strong>
-                  </div>
                   {recMap[proofDate].checkInLat != null && recMap[proofDate].checkInLng != null ? (
                     <div className="rounded-lg border border-border bg-muted/10 p-2 space-y-1">
                       <div className="flex items-start gap-1.5 text-[10px]">
@@ -1777,10 +1781,6 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Clock className="w-3 h-3 shrink-0" />
-                    <strong className="text-foreground">{recMap[proofDate].checkOut ? formatTime12(recMap[proofDate].checkOut) : "—"}</strong>
-                  </div>
                   {recMap[proofDate].checkOutLat != null && recMap[proofDate].checkOutLng != null ? (
                     <div className="rounded-lg border border-border bg-muted/10 p-2 space-y-1">
                       <div className="flex items-start gap-1.5 text-[10px]">
