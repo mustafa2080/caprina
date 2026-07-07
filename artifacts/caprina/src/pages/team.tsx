@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { employeeApi, usersApi, teamAnalyticsApi, type EmployeeProfile, type EmployeeKpi, type EmployeeReport, type AppUser, type DailyKpiEntry, type DailyLogDay, appSettingsApi, attendanceApi, type AttendanceRecord, type AttendanceStatus, type PayrollAdjustment, type MonthlySalaryReport } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatTime12 } from "@/lib/utils";
 import { PayPeriodPicker, currentPayPeriodValue } from "@/components/pay-period-picker";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -1727,7 +1728,7 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
               )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="w-3.5 h-3.5 shrink-0" />
-                وقت الحضور: <strong className="text-foreground">{recMap[proofDate].checkIn ?? "—"}</strong>
+                وقت الحضور: <strong className="text-foreground">{recMap[proofDate].checkIn ? formatTime12(recMap[proofDate].checkIn) : "—"}</strong>
               </div>
               {recMap[proofDate].checkInLat != null && recMap[proofDate].checkInLng != null ? (
                 <div className="rounded-lg border border-border bg-muted/10 p-2.5 space-y-1.5">

@@ -29,6 +29,7 @@ import {
   type Attendance, type AttendanceSalaryReport, type PayrollAdjustment, type MonthlySalaryReport,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { formatTime12 } from "@/lib/utils";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { MyDashboardTab } from "./team";
@@ -3262,12 +3263,12 @@ function AttendanceTab() {
                     </span>
                     {todayAtt.checkIn && (
                       <span className="text-xs text-muted-foreground">
-                        دخول: <strong className="text-foreground">{todayAtt.checkIn}</strong>
+                        دخول: <strong className="text-foreground">{formatTime12(todayAtt.checkIn)}</strong>
                       </span>
                     )}
                     {todayAtt.checkOut && (
                       <span className="text-xs text-muted-foreground">
-                        خروج: <strong className="text-foreground">{todayAtt.checkOut}</strong>
+                        خروج: <strong className="text-foreground">{formatTime12(todayAtt.checkOut)}</strong>
                       </span>
                     )}
                     {!todayAtt.checkOut && (
@@ -3517,8 +3518,8 @@ function AttendanceTab() {
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.bg} ${meta.border} ${meta.color}`}>{meta.label}</span>
                     </div>
                     <div className="flex gap-3 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
-                      {rec.checkIn  && <span>دخول: <strong className="text-foreground">{rec.checkIn}</strong></span>}
-                      {rec.checkOut && <span>خروج: <strong className="text-foreground">{rec.checkOut}</strong></span>}
+                      {rec.checkIn  && <span>دخول: <strong className="text-foreground">{formatTime12(rec.checkIn)}</strong></span>}
+                      {rec.checkOut && <span>خروج: <strong className="text-foreground">{formatTime12(rec.checkOut)}</strong></span>}
                       {rec.lateMinutes > 0 && <span className="text-amber-400">تأخير: {rec.lateMinutes} دقيقة</span>}
                       {rec.deduction > 0    && <span className="text-rose-400">خصم: {fmt(rec.deduction)}</span>}
                       {rec.notes && <span>{rec.notes}</span>}
