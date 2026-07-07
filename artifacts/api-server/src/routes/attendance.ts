@@ -51,21 +51,44 @@ async function setLateGraceMinutes(minutes: number): Promise<void> {
   );
 }
 
-// ─── حساب دقائق التأخير + الخصم بناءً على shiftStart بتاع الموظف ─────────────
-function computeLateness(shiftStart: string | null, checkInTime: string, monthlySalary: number, graceMinutes: number): { lateMinutes: number; deduction: number } {
-  const shift = shiftStart || "09:00";
-  const [sh, sm] = shift.split(":").map(Number);
+// ─── مواعيد العمل الثابتة (نظام 12 ساعة) ─────────────────────────────────────
+// الشيفت يبدأ 10:00 صباحًا لكل الموظفين، سماح نص ساعة (لحد 10:30)
+// من 10:31 لحد 11:00 → تأخير (بدون خصم، فقط تسجيل حالة "late")
+// من 11:01 لحد 12:00 ظهرًا → خصم نص يوم (status: half_day)
+// من 12:01 ظهرًا لحد نهاية الشيفت (7 مساءً) → غياب تلقائي (يتم تسجيله بواسطة الـ cron)
+const SHIFT_START_MINUTES = 10 * 60;        // 10:00 ص
+const GRACE_MINUTES = 30;                    // لحد 10:30
+const LATE_WINDOW_END_MINUTES = 11 * 60;     // 11:00 ص — نهاية نافذة التأخير
+const HALF_DAY_WINDOW_END_MINUTES = 12 * 60; // 12:00 ظهرًا — نهاية نافذة خصم نص اليوم
+const SHIFT_END_MINUTES = 19 * 60;           // 7:00 م — نهاية الشيفت (غياب تلقائي بعده)
+
+// ─── حساب حالة الحضور + دقائق التأخير + الخصم بناءً على مواعيد العمل الثابتة ──
+function computeLateness(_shiftStart: string | null, checkInTime: string, monthlySalary: number, _graceMinutes: number): { status: "present" | "late" | "half_day" | "absent"; lateMinutes: number; deduction: number } {
   const [ch, cm] = checkInTime.split(":").map(Number);
-  const shiftMins = sh * 60 + sm;
   const checkMins = ch * 60 + cm;
-  const diff = checkMins - shiftMins;
-  if (diff <= graceMinutes) return { lateMinutes: 0, deduction: 0 };
-  const lateMinutes = diff;
-  // خصم تناسبي: الراتب اليومي (شهري/30) مقسوم على 8 ساعات عمل = خصم بالدقيقة
+  const diff = checkMins - SHIFT_START_MINUTES;
+
   const dailyRate = (monthlySalary || 0) / 30;
-  const perMinuteRate = dailyRate / (8 * 60);
-  const deduction = Math.round(perMinuteRate * lateMinutes * 100) / 100;
-  return { lateMinutes, deduction };
+
+  // حضر في الميعاد أو خلال فترة السماح (لحد 10:30)
+  if (diff <= GRACE_MINUTES) {
+    return { status: "present", lateMinutes: 0, deduction: 0 };
+  }
+
+  // من 10:31 لحد 11:00 → تأخير بدون خصم
+  if (checkMins <= LATE_WINDOW_END_MINUTES) {
+    return { status: "late", lateMinutes: diff, deduction: 0 };
+  }
+
+  // من 11:01 لحد 12:00 ظهرًا → خصم نص يوم
+  if (checkMins <= HALF_DAY_WINDOW_END_MINUTES) {
+    const deduction = Math.round((dailyRate / 2) * 100) / 100;
+    return { status: "half_day", lateMinutes: diff, deduction };
+  }
+
+  // بعد 12:00 ظهرًا → يعتبر غياب كامل حتى لو حضر متأخر جدًا
+  const deduction = Math.round(dailyRate * 100) / 100;
+  return { status: "absent", lateMinutes: diff, deduction };
 }
 
 router.get("/attendance/my", async (req, res): Promise<void> => {
@@ -117,7 +140,7 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const today = now.toISOString().slice(0, 10);
   const time = now.toTimeString().slice(0, 5); // HH:MM
   const graceMinutes = await getLateGraceMinutes();
-  const { lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
+  const { status: computedStatus, lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
 
   const [existing] = await db
     .select()
@@ -130,7 +153,7 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
       .update(attendanceTable)
       .set({
         checkIn: time,
-        status: lateMinutes > 0 ? "late" : "present",
+        status: computedStatus,
         lateMinutes,
         deduction,
         checkInPhoto: photo ?? null,
@@ -147,7 +170,7 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const insertResult = await db.insert(attendanceTable).values({
     profileId: profile.id,
     date: today,
-    status: lateMinutes > 0 ? "late" : "present",
+    status: computedStatus,
     checkIn: time,
     lateMinutes,
     deduction,

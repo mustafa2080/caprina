@@ -3,26 +3,25 @@ import { and, eq, isNull, or } from "drizzle-orm";
 
 /**
  * attendanceCron — يشتغل كل 10 دقايق
- * يفحص كل الموظفين اللي عدى على شيفتهم ساعة ومسجلوش حضور
- * وبيحولهم لـ "absent" تلقائيًا لليوم الحالي
+ * مواعيد العمل الثابتة (نظام 12 ساعة): من 10:00 ص لحد 7:00 م
+ * أي موظف يعدي عليه الساعة 12:00 ظهرًا من غير تسجيل حضور
+ * بيتحول لـ "absent" تلقائيًا لليوم الحالي (خصم يوم كامل)
  */
+const ABSENT_CUTOFF_MINUTES = 12 * 60; // 12:00 ظهرًا
+
 export async function runAttendanceAbsentCron(): Promise<void> {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // قبل الـ cutoff (12 ظهرًا) لسه في وقت للموظف يحضر (تأخير / نص يوم)
+  if (nowMinutes < ABSENT_CUTOFF_MINUTES) return;
 
   try {
     const profiles = await db.select().from(employeeProfilesTable);
     let markedCount = 0;
 
     for (const profile of profiles) {
-      const shift = (profile as any).shiftStart || "09:00";
-      const [sh, sm] = shift.split(":").map(Number);
-      const shiftMinutes = sh * 60 + sm;
-
-      // لسه معديش ساعة على بداية الشيفت
-      if (nowMinutes < shiftMinutes + 60) continue;
-
       const [existing] = await db
         .select()
         .from(attendanceTable)
