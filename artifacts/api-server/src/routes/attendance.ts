@@ -14,6 +14,18 @@ import { requireAdmin, requireSuperAdmin } from "../middlewares/requireRole";
 const router: IRouter = Router();
 router.use(requireAuth);
 
+// ─── توقيت القاهرة (السيرفر شغال UTC، فلازم نحول صراحة لتوقيت مصر) ───────────
+const CAIRO_TZ = "Africa/Cairo";
+
+function cairoTimeString(): string {
+  // HH:MM بتوقيت القاهرة (24 ساعة)
+  return new Intl.DateTimeFormat("en-GB", { timeZone: CAIRO_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+}
+
+function cairoTodayString(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: CAIRO_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
 // ─── GET my attendance (current user from token) ──────────────────────────────
 // GET /attendance/my?month=YYYY-MM
 
@@ -136,9 +148,8 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
 
   if (!profile) { res.status(404).json({ error: "لا يوجد بروفايل موظف" }); return; }
 
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const time = now.toTimeString().slice(0, 5); // HH:MM
+  const today = cairoTodayString();
+  const time = cairoTimeString(); // HH:MM بتوقيت القاهرة
   const graceMinutes = await getLateGraceMinutes();
   const { status: computedStatus, lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
 
@@ -200,9 +211,8 @@ router.post("/attendance/my/check-out", async (req, res): Promise<void> => {
 
   if (!profile) { res.status(404).json({ error: "لا يوجد بروفايل موظف" }); return; }
 
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const time = now.toTimeString().slice(0, 5); // HH:MM
+  const today = cairoTodayString();
+  const time = cairoTimeString(); // HH:MM بتوقيت القاهرة
 
   const [existing] = await db
     .select()
@@ -239,7 +249,7 @@ router.get("/attendance/my/today", async (req, res): Promise<void> => {
 
   if (!profile) { res.json(null); return; }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = cairoTodayString();
   const [record] = await db
     .select()
     .from(attendanceTable)

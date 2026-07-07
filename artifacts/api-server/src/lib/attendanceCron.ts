@@ -8,11 +8,15 @@ import { and, eq, isNull, or } from "drizzle-orm";
  * بيتحول لـ "absent" تلقائيًا لليوم الحالي (خصم يوم كامل)
  */
 const ABSENT_CUTOFF_MINUTES = 12 * 60; // 12:00 ظهرًا
+const CAIRO_TZ = "Africa/Cairo";
 
 export async function runAttendanceAbsentCron(): Promise<void> {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  // السيرفر شغال UTC، فلازم نحول الوقت الحالي لتوقيت القاهرة صراحة
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: CAIRO_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const cairoParts = new Intl.DateTimeFormat("en-GB", { timeZone: CAIRO_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const cairoHour = Number(cairoParts.find(p => p.type === "hour")?.value ?? "0");
+  const cairoMinute = Number(cairoParts.find(p => p.type === "minute")?.value ?? "0");
+  const nowMinutes = cairoHour * 60 + cairoMinute;
 
   // قبل الـ cutoff (12 ظهرًا) لسه في وقت للموظف يحضر (تأخير / نص يوم)
   if (nowMinutes < ABSENT_CUTOFF_MINUTES) return;
