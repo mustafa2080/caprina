@@ -1749,6 +1749,44 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
                 <p className="text-xs text-muted-foreground">لا يوجد لوكيشن مسجّل لهذا اليوم</p>
               )}
 
+              {/* ─── قسم إثبات الانصراف ─── */}
+              <div className="pt-3 mt-3 border-t border-border/60 space-y-3">
+                <div className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-primary" />
+                  إثبات الانصراف
+                </div>
+                {recMap[proofDate].checkOutPhoto ? (
+                  <img src={recMap[proofDate].checkOutPhoto!} alt="صورة الانصراف"
+                    className="w-full aspect-square object-cover rounded-xl border border-border" />
+                ) : (
+                  <div className="w-full aspect-square rounded-xl border border-border flex items-center justify-center text-muted-foreground text-xs">
+                    لا توجد صورة
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  وقت الانصراف: <strong className="text-foreground">{recMap[proofDate].checkOut ? formatTime12(recMap[proofDate].checkOut) : "—"}</strong>
+                </div>
+                {recMap[proofDate].checkOutLat != null && recMap[proofDate].checkOutLng != null ? (
+                  <div className="rounded-lg border border-border bg-muted/10 p-2.5 space-y-1.5">
+                    <div className="flex items-start gap-2 text-xs">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground">
+                        {recMap[proofDate].checkOutAddress ?? `${recMap[proofDate].checkOutLat}, ${recMap[proofDate].checkOutLng}`}
+                      </span>
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps?q=${recMap[proofDate].checkOutLat},${recMap[proofDate].checkOutLng}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      فتح الموقع على خرائط جوجل ←
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">لا يوجد لوكيشن مسجّل للانصراف</p>
+                )}
+              </div>
+
               {/* ─── قسم الاستثناء/التعديل (أدمن فقط) ─── */}
               {canEditAttendance && (
                 <div className="rounded-lg border border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10 p-3 space-y-2.5">
