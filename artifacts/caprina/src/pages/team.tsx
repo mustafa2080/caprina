@@ -1710,81 +1710,96 @@ function AttendanceTab({ profileId, monthlySalary, isAdmin, canEdit }: {
       {/* ─── بوب أب إثبات الحضور: صورة + لوكيشن ─── */}
       {proofDate && recMap[proofDate] && (
         <Dialog open={!!proofDate} onOpenChange={(o) => !o && setProofDate(null)}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-sm flex items-center gap-2">
                 <Camera className="w-4 h-4 text-primary" />
-                إثبات الحضور — {proofDate}
+                إثبات الحضور والانصراف — {proofDate}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
-              {recMap[proofDate].checkInPhoto ? (
-                <img src={recMap[proofDate].checkInPhoto!} alt="صورة الحضور"
-                  className="w-full aspect-square object-cover rounded-xl border border-border" />
-              ) : (
-                <div className="w-full aspect-square rounded-xl border border-border flex items-center justify-center text-muted-foreground text-xs">
-                  لا توجد صورة
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="w-3.5 h-3.5 shrink-0" />
-                وقت الحضور: <strong className="text-foreground">{recMap[proofDate].checkIn ? formatTime12(recMap[proofDate].checkIn) : "—"}</strong>
-              </div>
-              {recMap[proofDate].checkInLat != null && recMap[proofDate].checkInLng != null ? (
-                <div className="rounded-lg border border-border bg-muted/10 p-2.5 space-y-1.5">
-                  <div className="flex items-start gap-2 text-xs">
-                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-muted-foreground">
-                      {recMap[proofDate].checkInAddress ?? `${recMap[proofDate].checkInLat}, ${recMap[proofDate].checkInLng}`}
-                    </span>
+              {/* ─── الصورتين جمب بعض ─── */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 justify-center">
+                    <Camera className="w-3 h-3 text-primary" />
+                    إثبات الحضور
                   </div>
-                  <a
-                    href={`https://www.google.com/maps?q=${recMap[proofDate].checkInLat},${recMap[proofDate].checkInLng}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    فتح الموقع على خرائط جوجل ←
-                  </a>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">لا يوجد لوكيشن مسجّل لهذا اليوم</p>
-              )}
-
-              {/* ─── قسم إثبات الانصراف ─── */}
-              <div className="pt-3 mt-3 border-t border-border/60 space-y-3">
-                <div className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-                  <Camera className="w-3.5 h-3.5 text-primary" />
-                  إثبات الانصراف
-                </div>
-                {recMap[proofDate].checkOutPhoto ? (
-                  <img src={recMap[proofDate].checkOutPhoto!} alt="صورة الانصراف"
-                    className="w-full aspect-square object-cover rounded-xl border border-border" />
-                ) : (
-                  <div className="w-full aspect-square rounded-xl border border-border flex items-center justify-center text-muted-foreground text-xs">
-                    لا توجد صورة
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  وقت الانصراف: <strong className="text-foreground">{recMap[proofDate].checkOut ? formatTime12(recMap[proofDate].checkOut) : "—"}</strong>
-                </div>
-                {recMap[proofDate].checkOutLat != null && recMap[proofDate].checkOutLng != null ? (
-                  <div className="rounded-lg border border-border bg-muted/10 p-2.5 space-y-1.5">
-                    <div className="flex items-start gap-2 text-xs">
-                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                      <span className="text-muted-foreground">
-                        {recMap[proofDate].checkOutAddress ?? `${recMap[proofDate].checkOutLat}, ${recMap[proofDate].checkOutLng}`}
-                      </span>
+                  {recMap[proofDate].checkInPhoto ? (
+                    <img src={recMap[proofDate].checkInPhoto!} alt="صورة الحضور"
+                      className="w-full aspect-square object-cover rounded-xl border border-border" />
+                  ) : (
+                    <div className="w-full aspect-square rounded-xl border border-border flex items-center justify-center text-muted-foreground text-[10px] text-center px-1">
+                      لا توجد صورة
                     </div>
-                    <a
-                      href={`https://www.google.com/maps?q=${recMap[proofDate].checkOutLat},${recMap[proofDate].checkOutLng}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                      فتح الموقع على خرائط جوجل ←
-                    </a>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 justify-center">
+                    <Camera className="w-3 h-3 text-primary" />
+                    إثبات الانصراف
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">لا يوجد لوكيشن مسجّل للانصراف</p>
-                )}
+                  {recMap[proofDate].checkOutPhoto ? (
+                    <img src={recMap[proofDate].checkOutPhoto!} alt="صورة الانصراف"
+                      className="w-full aspect-square object-cover rounded-xl border border-border" />
+                  ) : (
+                    <div className="w-full aspect-square rounded-xl border border-border flex items-center justify-center text-muted-foreground text-[10px] text-center px-1">
+                      لا توجد صورة
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ─── البيانات تحت الصور: عمودين جمب بعض ─── */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <strong className="text-foreground">{recMap[proofDate].checkIn ? formatTime12(recMap[proofDate].checkIn) : "—"}</strong>
+                  </div>
+                  {recMap[proofDate].checkInLat != null && recMap[proofDate].checkInLng != null ? (
+                    <div className="rounded-lg border border-border bg-muted/10 p-2 space-y-1">
+                      <div className="flex items-start gap-1.5 text-[10px]">
+                        <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground leading-snug">
+                          {recMap[proofDate].checkInAddress ?? `${recMap[proofDate].checkInLat}, ${recMap[proofDate].checkInLng}`}
+                        </span>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps?q=${recMap[proofDate].checkInLat},${recMap[proofDate].checkInLng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">
+                        فتح على الخريطة ←
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">لا يوجد لوكيشن</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <strong className="text-foreground">{recMap[proofDate].checkOut ? formatTime12(recMap[proofDate].checkOut) : "—"}</strong>
+                  </div>
+                  {recMap[proofDate].checkOutLat != null && recMap[proofDate].checkOutLng != null ? (
+                    <div className="rounded-lg border border-border bg-muted/10 p-2 space-y-1">
+                      <div className="flex items-start gap-1.5 text-[10px]">
+                        <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground leading-snug">
+                          {recMap[proofDate].checkOutAddress ?? `${recMap[proofDate].checkOutLat}, ${recMap[proofDate].checkOutLng}`}
+                        </span>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps?q=${recMap[proofDate].checkOutLat},${recMap[proofDate].checkOutLng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">
+                        فتح على الخريطة ←
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">لا يوجد لوكيشن</p>
+                  )}
+                </div>
               </div>
 
               {/* ─── قسم الاستثناء/التعديل (أدمن فقط) ─── */}
