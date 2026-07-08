@@ -31,7 +31,16 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     throw new Error("غير مصرح");
   }
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `HTTP ${res.status}`) as Error & Record<string, unknown>;
+    // نلحق أي حقول إضافية راجعة من الباك إند (زي flagged) بالـ Error عشان الكولر يقدر يتصرف بناءً عليها
+    if (data && typeof data === "object") {
+      for (const key of Object.keys(data)) {
+        if (key !== "error") (err as any)[key] = (data as any)[key];
+      }
+    }
+    throw err;
+  }
   return data as T;
 }
 
@@ -1319,7 +1328,7 @@ export const employeeApi = {
   getMySalaryReport: (month?: string) =>
     apiFetch<AttendanceSalaryReport>(`/attendance/my/salary-report${month ? `?month=${month}` : ""}`),
   getTodayAttendance: () =>
-    apiFetch<Attendance | null>("/attendance/my/today"),
+    apiFetch<(Attendance & { isFlagged?: boolean }) | null>("/attendance/my/today"),
   checkIn: (data?: { photo?: string | null; lat?: number | null; lng?: number | null; address?: string | null }) =>
     apiFetch<Attendance>("/attendance/my/check-in", { method: "POST", body: JSON.stringify(data ?? {}) }),
   checkOut: (data?: { photo?: string | null; lat?: number | null; lng?: number | null; address?: string | null }) =>

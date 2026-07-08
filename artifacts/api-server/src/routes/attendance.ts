@@ -153,10 +153,21 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const graceMinutes = await getLateGraceMinutes();
   const { status: computedStatus, lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
 
+  // لو الموظف عائب أصلاً (اتعلّم عليه غياب كامل النهاردة)، امنع تسجيل حضور جديد
+  if ((profile as any).isFlagged) {
+    res.status(403).json({ error: "أنت غائب اليوم، لا يمكنك تسجيل الحضور", flagged: true });
+    return;
+  }
+
   const [existing] = await db
     .select()
     .from(attendanceTable)
     .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
+
+  // لو الحالة المحسوبة غياب كامل (بعد الساعة 12 ظهرًا) → علّم البروفايل عائب واقفل الأزرار
+  if (computedStatus === "absent") {
+    await db.update(employeeProfilesTable).set({ isFlagged: true } as any).where(eq(employeeProfilesTable.id, profile.id));
+  }
 
   if (existing) {
     if (existing.checkIn) { res.status(409).json({ error: "تم تسجيل الحضور اليوم بالفعل" }); return; }
@@ -174,6 +185,10 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
       })
       .where(eq(attendanceTable.id, existing.id));
     const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, existing.id));
+    if (computedStatus === "absent") {
+      res.status(403).json({ error: "أنت غائب اليوم", flagged: true, record: updated });
+      return;
+    }
     res.json(updated);
     return;
   }
@@ -192,6 +207,12 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [created] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, insertId));
+
+  if (computedStatus === "absent") {
+    res.status(403).json({ error: "أنت غائب اليوم", flagged: true, record: created });
+    return;
+  }
+
   res.status(201).json(created);
 });
 
@@ -255,7 +276,7 @@ router.get("/attendance/my/today", async (req, res): Promise<void> => {
     .from(attendanceTable)
     .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
 
-  res.json(record ?? null);
+  res.json({ ...(record ?? {}), isFlagged: !!(profile as any).isFlagged });
 });
 
 // ─── GET my salary report (current user from token) ──────────────────────────
@@ -349,6 +370,17 @@ router.patch("/attendance/settings/late-grace", requireSuperAdmin, async (req, r
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await setLateGraceMinutes(parsed.data.graceMinutes);
   res.json({ graceMinutes: parsed.data.graceMinutes });
+});
+
+// ─── PATCH فك علامة "عائب" عن موظف (أدمن فقط) ────────────────────────────────
+// PATCH /attendance/profile/:profileId/unflag
+router.patch("/attendance/profile/:profileId/unflag", requireAdmin, async (req, res): Promise<void> => {
+  const profileId = parseInt(req.params.profileId);
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
+
+  await db.update(employeeProfilesTable).set({ isFlagged: false } as any).where(eq(employeeProfilesTable.id, profileId));
+  const [updated] = await db.select().from(employeeProfilesTable).where(eq(employeeProfilesTable.id, profileId));
+  res.json(updated);
 });
 
 // ─── GET attendance for a profile in a month ─────────────────────────────────

@@ -3164,7 +3164,15 @@ function AttendanceTab() {
       qc.invalidateQueries({ queryKey: ["my-attendance-report"] });
       setCaptureMode(null);
     },
-    onError: (e: any) => toast({ title: "خطأ", description: e?.message ?? "فشل تسجيل الحضور", variant: "destructive" }),
+    onError: (e: any) => {
+      qc.invalidateQueries({ queryKey: ["my-today-attendance"] });
+      setCaptureMode(null);
+      if (e?.flagged) {
+        toast({ title: "🚫 أنت غائب اليوم", description: "تم تجاوز موعد الحضور المسموح به، تم تسجيل غياب كامل اليوم", variant: "destructive" });
+      } else {
+        toast({ title: "خطأ", description: e?.message ?? "فشل تسجيل الحضور", variant: "destructive" });
+      }
+    },
   });
 
   const checkOutMut = useMutation({
@@ -3250,6 +3258,28 @@ function AttendanceTab() {
           {todayLoading ? (
             <div className="flex items-center justify-center py-4">
               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : todayAtt?.isFlagged ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30">
+                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                <span className="text-sm font-bold text-rose-400">🚫 أنت غائب اليوم</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                تم تجاوز موعد الحضور المسموح به، وتسجيل غياب كامل لهذا اليوم. تواصل مع المدير لو ده حصل بالغلط.
+              </p>
+              <div className="flex gap-2">
+                <button type="button" disabled
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
+                    bg-muted/30 border border-border text-muted-foreground opacity-40 cursor-not-allowed">
+                  <LogIn className="w-4 h-4" />تسجيل الحضور
+                </button>
+                <button type="button" disabled
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
+                    bg-muted/30 border border-border text-muted-foreground opacity-40 cursor-not-allowed">
+                  <LogOut className="w-4 h-4" />تسجيل الانصراف
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">

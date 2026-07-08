@@ -1,4 +1,4 @@
-import { mysqlTable, int, real, text, datetime, varchar, longtext } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, real, text, datetime, varchar, longtext, boolean } from "drizzle-orm/mysql-core";
 import { usersTable } from "./users";
 
 export const employeeProfilesTable = mysqlTable("employee_profiles", {
@@ -13,6 +13,7 @@ export const employeeProfilesTable = mysqlTable("employee_profiles", {
   hireDate: varchar("hire_date", { length: 20 }),
   notes: text("notes"),
   avatar: longtext("avatar"),
+  isFlagged: boolean("is_flagged").notNull().default(false), // عائب — غياب كامل بعد الساعة 12 ظهرًا، يوقف أزرار الحضور/الانصراف
   createdAt: datetime("created_at").notNull().default(new Date()),
   updatedAt: datetime("updated_at").notNull().default(new Date()),
 });
