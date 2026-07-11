@@ -153,9 +153,16 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const graceMinutes = await getLateGraceMinutes();
   const { status: computedStatus, lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
 
-  // لو الموظف عائب أصلاً (اتعلّم عليه غياب كامل النهاردة)، امنع تسجيل حضور جديد
+  // لو الموظف عائب أصلاً (اتعلّم عليه غياب كامل يوم سابق)، امنع تسجيل حضور جديد
   if ((profile as any).isFlagged) {
     res.status(403).json({ error: "أنت غائب اليوم، لا يمكنك تسجيل الحضور", flagged: true });
+    return;
+  }
+
+  // بعد الساعة 1:01 ظهرًا → غياب يوم كامل، وممنوع تسجيل الحضور خالص (من غير ما نسجل أي حاجة في الداتابيز)
+  if (computedStatus === "absent") {
+    await db.update(employeeProfilesTable).set({ isFlagged: true } as any).where(eq(employeeProfilesTable.id, profile.id));
+    res.status(403).json({ error: "انتهت فترة تسجيل الحضور اليوم، تم احتسابك غائبًا", flagged: true });
     return;
   }
 
@@ -164,11 +171,7 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
     .from(attendanceTable)
     .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
 
-  // لو الحالة المحسوبة غياب كامل (بعد الساعة 12 ظهرًا) → علّم البروفايل عائب واقفل الأزرار
-  if (computedStatus === "absent") {
-    await db.update(employeeProfilesTable).set({ isFlagged: true } as any).where(eq(employeeProfilesTable.id, profile.id));
-  }
-
+  // الحالتين "late" (تأخير بدون خصم) و "half_day" (خصم نص يوم) بيتفتحلهم تسجيل حضور وانصراف عادي
   if (existing) {
     if (existing.checkIn) { res.status(409).json({ error: "تم تسجيل الحضور اليوم بالفعل" }); return; }
     await db
@@ -185,10 +188,6 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
       })
       .where(eq(attendanceTable.id, existing.id));
     const [updated] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, existing.id));
-    if (computedStatus === "absent") {
-      res.status(403).json({ error: "أنت غائب اليوم", flagged: true, record: updated });
-      return;
-    }
     res.json(updated);
     return;
   }
@@ -207,11 +206,6 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   });
   const insertId = (insertResult as any)[0]?.insertId ?? (insertResult as any).insertId;
   const [created] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, insertId));
-
-  if (computedStatus === "absent") {
-    res.status(403).json({ error: "أنت غائب اليوم", flagged: true, record: created });
-    return;
-  }
 
   res.status(201).json(created);
 });
