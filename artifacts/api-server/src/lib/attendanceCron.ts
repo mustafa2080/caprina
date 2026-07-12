@@ -8,7 +8,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
  * بيتحول لـ "absent" تلقائيًا لليوم الحالي (خصم يوم كامل)
  * (لازم يتطابق مع HALF_DAY_WINDOW_END_MINUTES في routes/attendance.ts — نافذة خصم نص اليوم لحد 1:00 ظهرًا)
  */
-const ABSENT_CUTOFF_MINUTES = 14 * 60; // ⚠️ TEMP للتجربة — الأصل 13*60 (1:00 ظهرًا)، دلوقتي 2:00 — رجّعها بعد الاختبار (لازم تتطابق مع HALF_DAY_WINDOW_END_MINUTES)
+const ABSENT_CUTOFF_MINUTES = 15 * 60; // ⚠️ TEMP للتجربة — الأصل 13*60 (1:00 ظهرًا)، دلوقتي 3:00 — رجّعها بعد الاختبار (لازم تتطابق مع HALF_DAY_WINDOW_END_MINUTES)
 const CAIRO_TZ = "Africa/Cairo";
 
 export async function runAttendanceAbsentCron(): Promise<void> {
