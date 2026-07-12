@@ -2017,29 +2017,37 @@ export default function Dashboard() {
             className="w-full flex items-center justify-between p-3 sm:p-4 text-right hover:bg-emerald-100/40 dark:hover:bg-emerald-900/10 transition-colors"
           >
             <div className="flex items-center gap-2">
-              {showCashBalances ? (
-                <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              ) : (
-                <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
-              )}
-              <div>
+              <Eye className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0 transition-all duration-300 ${showCashBalances ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"}`} />
+              <EyeOff className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground shrink-0 transition-all duration-300 ${!showCashBalances ? "opacity-100 scale-100" : "opacity-0 scale-75 absolute"}`} />
+              <div className="relative">
                 <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
                   إجمالي أرصدة الخزن
                 </p>
-                {showCashBalances ? (
-                  <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
+                <div className="grid grid-cols-1 grid-rows-1 items-center">
+                  <p className={`col-start-1 row-start-1 text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight transition-all duration-300 ${showCashBalances ? "opacity-100 blur-0" : "opacity-0 blur-sm pointer-events-none"}`}>
                     {fc(totalCash)}
                   </p>
-                ) : (
-                  <p className="text-xs sm:text-sm font-bold text-muted-foreground">اضغط لعرض المبلغ</p>
-                )}
+                  <p className={`col-start-1 row-start-1 text-xs sm:text-sm font-bold text-muted-foreground transition-all duration-300 ${!showCashBalances ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+                    اضغط لعرض المبلغ
+                  </p>
+                </div>
               </div>
             </div>
-            <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0 transition-transform duration-200 ${showCashBalances ? "rotate-180" : ""}`} />
+            <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0 transition-transform duration-300 ${showCashBalances ? "rotate-180" : ""}`} />
           </button>
 
-          {showCashBalances && (
-            <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+          {/* منطقة الأرقام — grid-rows animation عشان تفتح/تقفل بسلاسة بدل الإخفاء المفاجئ */}
+          <div
+            className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+              showCashBalances ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div
+                className={`px-3 pb-3 sm:px-4 sm:pb-4 transition-all duration-300 ease-in-out ${
+                  showCashBalances ? "opacity-100 translate-y-0 delay-100" : "opacity-0 -translate-y-1"
+                }`}
+              >
               {/* بطاقتان صغيرتان */}
               <div className="grid grid-cols-2 gap-2 mb-2 sm:mb-3">
                 <div className="bg-background/40 border border-border rounded-lg px-2 py-2 sm:px-4 sm:py-3">
@@ -2072,8 +2080,9 @@ export default function Dashboard() {
                   <p className="font-black text-red-600 dark:text-red-400 text-xs sm:text-sm">{fc(fin.returnLoss)}</p>
                 </div>
               </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
