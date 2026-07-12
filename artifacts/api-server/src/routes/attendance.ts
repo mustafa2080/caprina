@@ -71,7 +71,7 @@ async function setLateGraceMinutes(minutes: number): Promise<void> {
 const SHIFT_START_MINUTES = 10 * 60;        // 10:00 ص
 const GRACE_MINUTES = 30;                    // لحد 10:30
 const LATE_WINDOW_END_MINUTES = 11 * 60;     // 11:00 ص — نهاية نافذة التأخير
-const HALF_DAY_WINDOW_END_MINUTES = 13 * 60; // 1:00 ظهرًا — نهاية نافذة خصم نص اليوم
+const HALF_DAY_WINDOW_END_MINUTES = 13 * 60 + 30; // ⚠️ TEMP للتجربة — الأصل 13*60 (1:00 ظهرًا)، دلوقتي 1:30 — رجّعها بعد الاختبار
 const SHIFT_END_MINUTES = 19 * 60;           // 7:00 م — نهاية الشيفت (غياب تلقائي بعده)
 
 // ─── حساب حالة الحضور + دقائق التأخير + الخصم بناءً على مواعيد العمل الثابتة ──
