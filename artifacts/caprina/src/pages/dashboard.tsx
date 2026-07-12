@@ -13,7 +13,7 @@ import {
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
   Receipt, Building2, FileText, X, AlertOctagon, Users, Truck, Globe,
-  CheckCircle2, CircleDashed, Sparkles, ChevronRight, BadgeDollarSign,
+  CheckCircle2, CircleDashed, Sparkles, ChevronRight, BadgeDollarSign, ChevronDown, EyeOff, Eye,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
@@ -1432,6 +1432,7 @@ export default function Dashboard() {
   const [period, setPeriod] = useState<Period>("today");
   const [showDamagedModal, setShowDamagedModal] = useState(false);
   const [showShortageModal, setShowShortageModal] = useState(false);
+  const [showCashBalances, setShowCashBalances] = useState(false); // إجمالي أرصدة الخزن مقفول افتراضيًا (سرية)
   const [clientPeriod, setClientPeriod] = useState<"thisWeek" | "lastWeek" | "thisMonth">("thisWeek");
   const { data: summary } = useGetOrdersSummary({
     query: { queryKey: ["orders-summary"], staleTime: 60_000, refetchOnWindowFocus: false, refetchInterval: 120_000 },
@@ -2009,49 +2010,70 @@ export default function Dashboard() {
       {/* === FINANCIAL OVERVIEW BANNER === */}
       {canViewFinancials && canSeeFinancials && fin && (
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/5 overflow-hidden">
-          <div className="p-3 sm:p-4">
-            {/* الرقم الكبير */}
-            <div className="mb-2 sm:mb-3">
-              <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
-                إجمالي أرصدة الخزن
-              </p>
-              <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
-                {fc(totalCash)}
-              </p>
-            </div>
-            {/* بطاقتان صغيرتان */}
-            <div className="grid grid-cols-2 gap-2 mb-2 sm:mb-3">
-              <div className="bg-background/40 border border-border rounded-lg px-2 py-2 sm:px-4 sm:py-3">
-                <p className="text-[8px] sm:text-[9px] text-muted-foreground">صافي الربح</p>
-                <p className={`text-sm sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
-                <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.netMargin}%</p>
-              </div>
-              <div className="bg-primary/5 border border-primary/20 rounded-lg px-2 py-2 sm:px-4 sm:py-3">
-                <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق</p>
-                <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
-                <p className="text-[8px] sm:text-[9px] text-muted-foreground">محتمل</p>
-              </div>
-            </div>
-            {/* Stats row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
-              <div className="text-center">
-                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">المقبوض</p>
-                <p className="font-black text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">{fc(fin.cashIn - fin.shippingSpend)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">تكلفة البضاعة</p>
-                <p className="font-black text-amber-700 dark:text-amber-400 text-xs sm:text-sm">{fc(fin.costOfGoods)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">تكلفة الشحن</p>
-                <p className="font-black text-orange-600 dark:text-orange-400 text-xs sm:text-sm">{fc(fin.shippingSpend)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">خسائر المرتجعات</p>
-                <p className="font-black text-red-600 dark:text-red-400 text-xs sm:text-sm">{fc(fin.returnLoss)}</p>
+          {/* الهيدر — قابل للضغط دايمًا لفتح/قفل الأرقام الحساسة */}
+          <button
+            type="button"
+            onClick={() => setShowCashBalances(v => !v)}
+            className="w-full flex items-center justify-between p-3 sm:p-4 text-right hover:bg-emerald-100/40 dark:hover:bg-emerald-900/10 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              {showCashBalances ? (
+                <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
+              )}
+              <div>
+                <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+                  إجمالي أرصدة الخزن
+                </p>
+                {showCashBalances ? (
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
+                    {fc(totalCash)}
+                  </p>
+                ) : (
+                  <p className="text-xs sm:text-sm font-bold text-muted-foreground">اضغط لعرض المبلغ</p>
+                )}
               </div>
             </div>
-          </div>
+            <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground shrink-0 transition-transform duration-200 ${showCashBalances ? "rotate-180" : ""}`} />
+          </button>
+
+          {showCashBalances && (
+            <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+              {/* بطاقتان صغيرتان */}
+              <div className="grid grid-cols-2 gap-2 mb-2 sm:mb-3">
+                <div className="bg-background/40 border border-border rounded-lg px-2 py-2 sm:px-4 sm:py-3">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">صافي الربح</p>
+                  <p className={`text-sm sm:text-lg font-black ${fin.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{fc(fin.netProfit)}</p>
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">{fin.netMargin}%</p>
+                </div>
+                <div className="bg-primary/5 border border-primary/20 rounded-lg px-2 py-2 sm:px-4 sm:py-3">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">في الطريق</p>
+                  <p className="text-sm sm:text-lg font-black text-primary">{fc(fin.pendingRevenue)}</p>
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground">محتمل</p>
+                </div>
+              </div>
+              {/* Stats row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 sm:p-3 bg-background/30 rounded-lg border border-border/40">
+                <div className="text-center">
+                  <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">المقبوض</p>
+                  <p className="font-black text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">{fc(fin.cashIn - fin.shippingSpend)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">تكلفة البضاعة</p>
+                  <p className="font-black text-amber-700 dark:text-amber-400 text-xs sm:text-sm">{fc(fin.costOfGoods)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">تكلفة الشحن</p>
+                  <p className="font-black text-orange-600 dark:text-orange-400 text-xs sm:text-sm">{fc(fin.shippingSpend)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[8px] sm:text-[9px] font-bold text-muted-foreground mb-0.5">خسائر المرتجعات</p>
+                  <p className="font-black text-red-600 dark:text-red-400 text-xs sm:text-sm">{fc(fin.returnLoss)}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
