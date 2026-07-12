@@ -4,10 +4,11 @@ import { and, eq, isNull, or } from "drizzle-orm";
 /**
  * attendanceCron — يشتغل كل 10 دقايق
  * مواعيد العمل الثابتة (نظام 12 ساعة): من 10:00 ص لحد 7:00 م
- * أي موظف يعدي عليه الساعة 12:00 ظهرًا من غير تسجيل حضور
+ * أي موظف يعدي عليه الساعة 1:01 ظهرًا من غير تسجيل حضور
  * بيتحول لـ "absent" تلقائيًا لليوم الحالي (خصم يوم كامل)
+ * (لازم يتطابق مع HALF_DAY_WINDOW_END_MINUTES في routes/attendance.ts — نافذة خصم نص اليوم لحد 1:00 ظهرًا)
  */
-const ABSENT_CUTOFF_MINUTES = 12 * 60; // 12:00 ظهرًا
+const ABSENT_CUTOFF_MINUTES = 13 * 60; // 1:00 ظهرًا
 const CAIRO_TZ = "Africa/Cairo";
 
 export async function runAttendanceAbsentCron(): Promise<void> {
