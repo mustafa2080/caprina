@@ -66,7 +66,7 @@ const AdSourceIcon = ({ value, className = "w-4 h-4 shrink-0" }: { value: string
 const editSchema = z.object({
   customerName:      z.string().min(2, "اسم العميل يجب أن يكون حرفين على الأقل."),
   phone:             z.string().optional().nullable(),
-  city:              z.string().optional().nullable(),
+  city:              z.string().min(1, "المحافظة مطلوبة."),
   address:           z.string().optional().nullable(),
   shippingCost:      z.coerce.number().min(0).optional().nullable(),
   shippingCompanyId: z.coerce.number().optional().nullable(),
@@ -831,7 +831,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
   const invoiceEditSchema = z.object({
     customerName:      z.string().min(2, "الاسم مطلوب"),
     phone:             z.string().optional().nullable(),
-    city:              z.string().optional().nullable(),
+    city:              z.string().min(1, "المحافظة مطلوبة."),
     address:           z.string().optional().nullable(),
     zoneId:            z.coerce.number().optional().nullable(),
     shippingCompanyId: z.coerce.number().optional().nullable(),
@@ -955,22 +955,14 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
                 )} />
                 <FormField control={form.control} name="city" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
-                    <FormControl><Input placeholder="القاهرة..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                  </FormItem>
-                )} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField control={form.control} name="zoneId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المنطقة</FormLabel>
-                    <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
-                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منطقة" /></SelectTrigger>
+                    <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة <span className="text-red-500">*</span></FormLabel>
+                    <Select value={field.value ?? ""} onValueChange={v => field.onChange(v)}>
+                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر محافظة" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">— غير محدد —</SelectItem>
-                        {zones?.map((z: any) => <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>)}
+                        {zones?.map((z: any) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
                   </FormItem>
                 )} />
               </div>
@@ -3372,10 +3364,14 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                         <FormField control={form.control} name="city" render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
-                            <FormControl>
-                              <Input className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20" placeholder="القاهرة، الإسكندرية..." {...field} value={field.value ?? ""} />
-                            </FormControl>
+                            <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة <span className="text-red-500">*</span></FormLabel>
+                            <Select value={field.value ?? ""} onValueChange={v => field.onChange(v)}>
+                              <SelectTrigger className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20"><SelectValue placeholder="اختر محافظة" /></SelectTrigger>
+                              <SelectContent>
+                                {zones?.map((z: any) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="address" render={({ field }) => (

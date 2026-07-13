@@ -110,13 +110,13 @@ export default function ZonesPage() {
               <MapPin className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">المناطق</h1>
-              <p className="text-sm text-muted-foreground">تصنيف إضافي للطلبات، مستقل عن المحافظة — لتحليلات المناطق الذكية راجع صفحة "التحليل الذكي"</p>
+              <h1 className="text-xl font-bold">المحافظة</h1>
+              <p className="text-sm text-muted-foreground">إدارة قائمة المحافظات المستخدمة في الطلبات والشحن — لتحليلات المحافظات الذكية راجع صفحة "التحليل الذكي"</p>
             </div>
           </div>
           {canEdit && (
             <Button onClick={() => { setEditingZone(undefined); setFormOpen(true); }} className="gap-2 shadow-md shadow-primary/20">
-              <Plus className="h-4 w-4" /> إضافة منطقة
+              <Plus className="h-4 w-4" /> إضافة محافظة
             </Button>
           )}
         </div>

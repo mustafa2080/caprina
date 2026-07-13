@@ -70,7 +70,7 @@ const itemSchema = z.object({
 const formSchema = z.object({
   customerName:      z.string().min(2, "اسم العميل يجب أن يكون حرفين على الأقل."),
   phone:             z.string().optional().nullable(),
-  city:              z.string().optional().nullable(),
+  city:              z.string().min(1, "المحافظة مطلوبة."),
   address:           z.string().optional().nullable(),
   shippingCost:      z.coerce.number().min(0).optional().nullable(),
   shippingCompanyId: z.coerce.number().optional().nullable(),
@@ -711,20 +711,14 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                   <div className="grid grid-cols-2 gap-3">
                     <FormField control={form.control} name="city" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
-                        <FormControl><Input placeholder="القاهرة، الإسكندرية..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="zoneId" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المنطقة</FormLabel>
-                        <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
-                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منطقة" /></SelectTrigger>
+                        <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة <span className="text-red-500">*</span></FormLabel>
+                        <Select value={field.value ?? ""} onValueChange={v => field.onChange(v)}>
+                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر محافظة" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">— غير محدد —</SelectItem>
-                            {zones?.map((z: any) => <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>)}
+                            {zones?.map((z: any) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
+                        <FormMessage />
                       </FormItem>
                     )} />
                   </div>
