@@ -51,11 +51,12 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 // ─── Zone Insights: تحليل شامل للمناطق (إيراد، نسبة تسليم، أسباب المرتجعات) ──
-// GET /zones/insights?from=&to=
+// GET /zones/insights?from=&to=&compare=true
 router.get("/zones/insights", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const fromParam = req.query.from as string | undefined;
   const toParam = req.query.to as string | undefined;
+  const compareParam = req.query.compare === "true" || req.query.compare === "1";
 
   const zoneConditions: any[] = [];
   if (tenantId !== null) zoneConditions.push(eq(zonesTable.tenantId, tenantId));
@@ -68,16 +69,29 @@ router.get("/zones/insights", async (req, res): Promise<void> => {
     db.select().from(ordersTable).where(and(...orderConditions)),
   ]);
 
+  const fromDate = fromParam ? new Date(fromParam) : null;
+  const toDate = toParam ? new Date(new Date(toParam).setHours(23, 59, 59, 999)) : null;
+
   // فلترة بالتاريخ (createdAt) لو موجود from/to
   let orders = allOrdersRaw;
-  if (fromParam || toParam) {
-    const fromDate = fromParam ? new Date(fromParam) : null;
-    const toDate = toParam ? new Date(new Date(toParam).setHours(23, 59, 59, 999)) : null;
+  if (fromDate || toDate) {
     orders = allOrdersRaw.filter(o => {
       const d = new Date(o.createdAt);
       if (fromDate && d < fromDate) return false;
       if (toDate && d > toDate) return false;
       return true;
+    });
+  }
+
+  // فترة المقارنة: نفس طول الفترة الحالية، فورًا قبلها مباشرة (لو compare=true ومحددين from/to)
+  let previousOrders: typeof allOrdersRaw = [];
+  if (compareParam && fromDate && toDate) {
+    const durationMs = toDate.getTime() - fromDate.getTime();
+    const prevTo = new Date(fromDate.getTime() - 1); // آخر لحظة قبل بداية الفترة الحالية
+    const prevFrom = new Date(prevTo.getTime() - durationMs);
+    previousOrders = allOrdersRaw.filter(o => {
+      const d = new Date(o.createdAt);
+      return d >= prevFrom && d <= prevTo;
     });
   }
 
@@ -189,14 +203,78 @@ router.get("/zones/insights", async (req, res): Promise<void> => {
     };
   }
 
-  const zoneInsights = Array.from(grouped.entries())
+  let zoneInsights = Array.from(grouped.entries())
     .map(([zoneId, zoneOrders]) => buildZoneInsight(zoneId, zoneOrders))
     .sort((a, b) => b.returnRate - a.returnRate);
 
   // إجمالي عام لكل المناطق مع بعض (للدونات الشامل)
   const overall = buildZoneInsight(-1, orders);
 
-  res.json({ zones: zoneInsights, overall });
+  // ─── مؤشر الاتجاه (trend): مقارنة كل منطقة بالفترة السابقة مباشرة ─────────
+  if (compareParam && fromDate && toDate) {
+    const prevGrouped = new Map<string | null, typeof previousOrders>();
+    for (const o of previousOrders) {
+      const zoneId = (o as any).zoneId as number | null | undefined;
+      let key: string | null = null;
+      if (zoneId != null && zoneNameById.has(zoneId)) {
+        key = zoneNameById.get(zoneId)!;
+      } else {
+        const rawCity = ((o as any).city as string | null | undefined)?.trim();
+        key = rawCity && rawCity.length > 0 ? rawCity : null;
+      }
+      if (!prevGrouped.has(key)) prevGrouped.set(key, []);
+      prevGrouped.get(key)!.push(o);
+    }
+
+    const prevInsightByKey = new Map<string | null, ReturnType<typeof buildZoneInsight>>();
+    for (const [key, zoneOrders] of prevGrouped.entries()) {
+      prevInsightByKey.set(key, buildZoneInsight(key, zoneOrders));
+    }
+
+    zoneInsights = zoneInsights.map(z => {
+      const prev = prevInsightByKey.get(z.zoneId as any);
+      const prevRevenue = prev?.revenue ?? 0;
+      const prevOrdersCount = prev?.ordersCount ?? 0;
+
+      const revenueTrendPct = prevRevenue > 0
+        ? Math.round(((z.revenue - prevRevenue) / prevRevenue) * 100)
+        : (z.revenue > 0 ? 100 : 0);
+      const ordersTrendPct = prevOrdersCount > 0
+        ? Math.round(((z.ordersCount - prevOrdersCount) / prevOrdersCount) * 100)
+        : (z.ordersCount > 0 ? 100 : 0);
+
+      return {
+        ...z,
+        trend: {
+          direction: revenueTrendPct > 0 ? "up" : revenueTrendPct < 0 ? "down" : "flat",
+          revenueTrendPct,
+          ordersTrendPct,
+          previousRevenue: prevRevenue,
+          previousOrdersCount: prevOrdersCount,
+        },
+      };
+    });
+  }
+
+  // ─── مؤشر تركّز المخاطر: هل المبيعات متركزة بشكل خطير في منطقة واحدة؟ ─────
+  const totalRevenueAllZones = zoneInsights.reduce((s, z) => s + z.revenue, 0);
+  const sortedByRevenue = [...zoneInsights].sort((a, b) => b.revenue - a.revenue);
+  const topZoneShare = totalRevenueAllZones > 0 && sortedByRevenue.length > 0
+    ? Math.round((sortedByRevenue[0].revenue / totalRevenueAllZones) * 100)
+    : 0;
+  const top3ZonesShare = totalRevenueAllZones > 0
+    ? Math.round((sortedByRevenue.slice(0, 3).reduce((s, z) => s + z.revenue, 0) / totalRevenueAllZones) * 100)
+    : 0;
+
+  const riskConcentration = {
+    topZoneName: sortedByRevenue[0]?.zoneName ?? null,
+    topZoneSharePct: topZoneShare,
+    top3ZonesSharePct: top3ZonesShare,
+    // خطورة: لو منطقة واحدة بتاخد أكتر من 50% من المبيعات، أو 3 مناطق بياخدوا أكتر من 80%
+    level: topZoneShare >= 50 ? "high" : topZoneShare >= 35 ? "medium" : "low",
+  };
+
+  res.json({ zones: zoneInsights, overall, riskConcentration });
 });
 
 // ─── Create ────────────────────────────────────────────────────────────────

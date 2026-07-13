@@ -1444,7 +1444,16 @@ export default function Dashboard() {
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 5 * 60_000, refetchOnWindowFocus: false });
   const { data: zonesInsights } = useQuery({
     queryKey: ["zones-insights-dashboard"],
-    queryFn: () => zonesApi.insights(),
+    queryFn: () => {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 30);
+      return zonesApi.insights({
+        from: from.toISOString().slice(0, 10),
+        to: to.toISOString().slice(0, 10),
+        compare: true,
+      });
+    },
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
@@ -1872,6 +1881,30 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* مؤشر تركّز المخاطر */}
+            {zonesInsights?.riskConcentration && (
+              <div className={`mt-2.5 rounded-lg border px-2.5 py-1.5 flex items-center gap-2 ${
+                zonesInsights.riskConcentration.level === "high"
+                  ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800"
+                  : zonesInsights.riskConcentration.level === "medium"
+                  ? "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800"
+                  : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800"
+              }`}>
+                <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${
+                  zonesInsights.riskConcentration.level === "high" ? "text-red-600 dark:text-red-400"
+                  : zonesInsights.riskConcentration.level === "medium" ? "text-amber-600 dark:text-amber-400"
+                  : "text-emerald-600 dark:text-emerald-400"
+                }`} />
+                <p className="text-[10px] sm:text-[11px] font-bold text-foreground flex-1 min-w-0 truncate">
+                  {zonesInsights.riskConcentration.level === "high"
+                    ? `تركّز خطر: ${zonesInsights.riskConcentration.topZoneName} لوحدها ${zonesInsights.riskConcentration.topZoneSharePct}% من المبيعات`
+                    : zonesInsights.riskConcentration.level === "medium"
+                    ? `أعلى 3 مناطق بتمثل ${zonesInsights.riskConcentration.top3ZonesSharePct}% من المبيعات`
+                    : `توزيع صحي للمبيعات بين المناطق`}
+                </p>
+              </div>
+            )}
+
             {/* Body: دايرة مختصرة + ملخص مرتب */}
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 mt-3">
               {/* Mini Donut */}
@@ -1952,6 +1985,14 @@ export default function Dashboard() {
                           <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">
                             تسليم {Math.round(z.deliveryRate ?? 0)}%
                           </span>
+                          {z.trend && z.trend.direction !== "flat" && (
+                            <span className={`text-[9px] font-black shrink-0 flex items-center gap-0.5 ${
+                              z.trend.direction === "up" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                            }`}>
+                              {z.trend.direction === "up" ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                              {Math.abs(Math.round(z.trend.revenueTrendPct))}%
+                            </span>
+                          )}
                           <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 shrink-0 tabular-nums">
                             {fmtZoneMetric(z)} ({pct}%)
                           </span>

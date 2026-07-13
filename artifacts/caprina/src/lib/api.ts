@@ -1052,10 +1052,11 @@ export const zonesApi = {
   update: (id: number, data: Partial<{ name: string; notes: string | null }>) =>
     apiFetch<Zone>(`/zones/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/zones/${id}`, { method: "DELETE" }),
-  insights: (params?: { from?: string; to?: string }) => {
+  insights: (params?: { from?: string; to?: string; compare?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
+    if (params?.compare) q.set("compare", "true");
     const qs = q.toString();
     return apiFetch<ZonesInsightsResponse>(`/zones/insights${qs ? `?${qs}` : ""}`);
   },
@@ -1067,6 +1068,14 @@ export interface ZoneReturnReasonItem {
   label: string;
   count: number;
   pct: number;
+}
+
+export interface ZoneTrend {
+  direction: "up" | "down" | "flat";
+  revenueTrendPct: number;
+  ordersTrendPct: number;
+  previousRevenue: number;
+  previousOrdersCount: number;
 }
 
 export interface ZoneInsight {
@@ -1081,11 +1090,20 @@ export interface ZoneInsight {
   closedCount: number;
   byReason: ZoneReturnReasonItem[];
   topReason: ZoneReturnReasonItem | null;
+  trend?: ZoneTrend;
+}
+
+export interface ZonesRiskConcentration {
+  topZoneName: string | null;
+  topZoneSharePct: number;
+  top3ZonesSharePct: number;
+  level: "low" | "medium" | "high";
 }
 
 export interface ZonesInsightsResponse {
   zones: ZoneInsight[];
   overall: ZoneInsight;
+  riskConcentration?: ZonesRiskConcentration;
 }
 
 // ─── Team & Campaign Analytics API ──────────────────────────────────────────
