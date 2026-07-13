@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi, ordersApi } from "@/lib/api";
+import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi, ordersApi, zonesApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/utils";
 import { ProductSearchCombobox } from "@/components/product-search-combobox";
@@ -75,6 +75,7 @@ const formSchema = z.object({
   shippingCost:      z.coerce.number().min(0).optional().nullable(),
   shippingCompanyId: z.coerce.number().optional().nullable(),
   warehouseId:       z.coerce.number().optional().nullable(),
+  zoneId:            z.coerce.number().optional().nullable(),
   assignedUserId:    z.coerce.number().optional().nullable(),
   adSource:          z.string().optional().nullable(),
   adCampaign:        z.string().optional().nullable(),
@@ -398,6 +399,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
   const { data: allVariants = [] }  = useQuery({ queryKey: ["variants"],   queryFn: variantsApi.listAll });
   const { data: shippingCompanies } = useQuery({ queryKey: ["shipping"],   queryFn: shippingApi.list });
   const { data: warehouses }        = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
+  const { data: zones }             = useQuery({ queryKey: ["zones"],      queryFn: zonesApi.list });
   const { canViewFinancials, isEmployee, isAdmin } = useAuth();
   const { data: users }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list, enabled: isAdmin });
 
@@ -406,7 +408,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
     defaultValues: {
       customerName: "", phone: "", city: "", address: "",
       shippingCost: 0, notes: "",
-      warehouseId: null, assignedUserId: null, adSource: null, adCampaign: null,
+      warehouseId: null, zoneId: null, assignedUserId: null, adSource: null, adCampaign: null,
       shippingCompanyId: null, items: [emptyItem()],
     },
   });
@@ -500,6 +502,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
         shippingCost: values.shippingCost || null,
         shippingCompanyId: values.shippingCompanyId || null,
         warehouseId: values.warehouseId || null,
+        zoneId: values.zoneId || null,
         assignedUserId: values.assignedUserId || null,
         adSource: values.adSource || null, adCampaign: values.adCampaign || null,
         notes: values.notes || null,
@@ -712,6 +715,20 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                         <FormControl><Input placeholder="القاهرة، الإسكندرية..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="zoneId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المنطقة</FormLabel>
+                        <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منطقة" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— غير محدد —</SelectItem>
+                            {zones?.map((z: any) => <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
                     <FormField control={form.control} name="address" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />العنوان بالتفصيل</FormLabel>
