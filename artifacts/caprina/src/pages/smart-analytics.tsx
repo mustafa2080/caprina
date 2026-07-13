@@ -859,7 +859,7 @@ function SummaryBar({ data, showProfit }: { data: {
           </div>
           {data.adAttribution.bestSource ? (
             <>
-              <p className="font-black text-sm">{getMeta(data.adAttribution.bestSource.source).emoji} {getMeta(data.adAttribution.bestSource.source).label}</p>
+              <p className="font-black text-sm">{getMeta(data.adAttribution.bestSource.source).label}</p>
               {showProfit && <p className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold">{fc(data.adAttribution.bestSource.profit)}</p>}
               {!showProfit && <p className="text-[10px] text-primary font-bold">{fc(data.adAttribution.bestSource.revenue)}</p>}
             </>
