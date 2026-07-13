@@ -13,13 +13,14 @@ import {
   Plus, Activity, Boxes, ArrowUpRight, ArrowDownRight,
   Star, Wallet, BarChart3, ShoppingCart, AlertTriangle, RefreshCw, Bell, Brain, Zap, Archive, Clock,
   Receipt, Building2, FileText, X, AlertOctagon, Users, Truck, Globe,
-  CheckCircle2, CircleDashed, Sparkles, ChevronRight, BadgeDollarSign, ChevronDown, EyeOff, Eye,
+  CheckCircle2, CircleDashed, Sparkles, ChevronRight, BadgeDollarSign, ChevronDown, EyeOff, Eye, MapPin, Crown,
 } from "lucide-react";
 import {
   analyticsApi, type PeriodProfit, type ProductProfit, type FinancialSummary, type Alert,
   productsApi, cashRegistersApi, shippingApi, manifestsApi, teamAnalyticsApi, type TeamMemberExtStats,
   employeeApi, usersApi, ordersApi, type ShortageVsStockItem,
   type FeasibleOrder, type SkippedOrder, type FeasibleInvoicesResponse,
+  zonesApi,
 } from "@/lib/api";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -1441,6 +1442,12 @@ export default function Dashboard() {
     query: { queryKey: ["recent-orders"], staleTime: 60_000, refetchOnWindowFocus: false, refetchInterval: 120_000 },
   });
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list, staleTime: 5 * 60_000, refetchOnWindowFocus: false });
+  const { data: zonesInsights } = useQuery({
+    queryKey: ["zones-insights-dashboard"],
+    queryFn: () => zonesApi.insights(),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
   const { data: analytics, isLoading: isAnalyticsLoading } = useQuery({
     queryKey: ["analytics-profit", period],
     queryFn: () => analyticsApi.profit({ period }),
@@ -1649,6 +1656,16 @@ export default function Dashboard() {
   const hasCostData = fin && (fin.cashIn > 0 || fin.inventoryAtCost > 0);
   const noCostWarning = fin && fin.cashIn > 0 && fin.costOfGoods === 0;
 
+  // ── أعلى المحافظات طلبًا ──────────────────────────────────────────────
+  const topZones = useMemo(() => {
+    if (!zonesInsights?.zones) return [];
+    return zonesInsights.zones
+      .filter(z => z.zoneId !== null && z.ordersCount > 0)
+      .sort((a, b) => b.ordersCount - a.ordersCount)
+      .slice(0, 3);
+  }, [zonesInsights]);
+  const topZonesTotalOrders = topZones.reduce((s, z) => s + z.ordersCount, 0);
+
   return (
     <>
     <div className="space-y-3 sm:space-y-4 lg:space-y-5 pb-4 sm:pb-0 animate-in fade-in duration-500 min-w-0 overflow-x-hidden">
@@ -1782,6 +1799,68 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* === المحافظات الأشد طلبًا === */}
+      {topZones.length > 0 && (
+        <div className="relative overflow-hidden rounded-xl border border-violet-300 dark:border-violet-800/60 bg-gradient-to-br from-violet-50 via-fuchsia-50/50 to-amber-50/40 dark:from-violet-950/40 dark:via-fuchsia-950/20 dark:to-amber-950/10 p-3 sm:p-4">
+          <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-violet-400/20 blur-3xl" />
+          <div className="relative flex items-start gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 bg-violet-100 dark:bg-violet-900/40">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-xs sm:text-sm font-black text-violet-700 dark:text-violet-400">
+                  ✨ المحافظات الأشد طلبًا
+                </p>
+                <span className="text-[9px] font-black bg-violet-600 text-white px-2 py-0.5 rounded-full">
+                  {fn(topZonesTotalOrders)} طلب
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-xs mt-0.5 text-violet-600/70 dark:text-violet-400/70">
+                أعلى المحافظات من حيث عدد الطلبات — استخدمها لتوجيه المخزون والتسويق
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {topZones.map((z, idx) => {
+                  const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
+                  const isFirst = idx === 0;
+                  return (
+                    <div
+                      key={z.zoneId}
+                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${
+                        isFirst
+                          ? "bg-amber-100/70 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
+                          : "bg-card border-border/70"
+                      }`}
+                    >
+                      {isFirst
+                        ? <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        : <span className="text-xs shrink-0">{medal}</span>
+                      }
+                      <span className={`text-xs font-bold ${isFirst ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                        {z.zoneName}
+                      </span>
+                      <span className="text-[10px] font-black text-violet-600 dark:text-violet-400">
+                        {fn(z.ordersCount)} طلب
+                      </span>
+                      {z.deliveryRate > 0 && (
+                        <span className="text-[9px] text-muted-foreground hidden sm:inline">
+                          • تسليم {Math.round(z.deliveryRate)}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <Link href="/zones" className="shrink-0 hidden sm:block">
+              <button className="text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors whitespace-nowrap">
+                تفاصيل المحافظات ←
+              </button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* === تحليل ذكي: نواقص المخزن vs المتاح === */}
       {shortageVsStock && shortageVsStock.criticalCount > 0 && (() => {
