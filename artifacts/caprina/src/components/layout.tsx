@@ -53,7 +53,7 @@ const ALL_NAV = [
   { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "tools.import",            section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
   { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "tools.export",            section: "section_export_data",        iconColor: "text-orange-300",     group: "tools"        },
   { href: "/archive",           label: "الأرشيف",             icon: Archive,                     permission: "section_archive",         section: "section_archive",            iconColor: "text-stone-400",      group: "tools"        },
-  { href: "/zones",             label: "المحافظة",            icon: MapPin,                      permission: "tools.zones",             section: "section_zones",              iconColor: "text-amber-400",      group: "shipping"     },
+  { href: "/zones",             label: "المناطق",             icon: MapPin,                      permission: "tools.zones",             section: "section_zones",              iconColor: "text-amber-400",      group: "shipping"     },
   { href: "/whatsapp",          label: "إعدادات واتساب",     icon: WhatsAppIcon,                permission: "settings.whatsapp",       section: "section_whatsapp",           iconColor: "text-[#25D366]",      group: "settings"     },
   { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "settings.audit",          section: "section_audit",              iconColor: "text-red-400",        group: "settings"     },
 ];
