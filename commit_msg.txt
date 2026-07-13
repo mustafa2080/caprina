@@ -1,6 +1,0 @@
-إضافة قائمة منسدلة للمنطقة في فورمات تعديل الطلب
-
-- إضافة حقل zoneId في invoiceEditSchema (تعديل بيانات الفاتورة كاملة) مع defaultValues وreset وhandleSubmit
-- إضافة select للمنطقة جمب المحافظة في EditOrderRowDialog (تعديل صف واحد)
-- تمرير zones كـ prop عبر InvoiceView وEditOrderRowDialog وInvoiceEditDialog
-- إضافة useQuery لجلب zones في component الأب وربطها بكل الفورمات

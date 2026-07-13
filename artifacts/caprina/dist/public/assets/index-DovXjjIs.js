@@ -1,2 +1,0 @@
-import{G as t}from"./index-Bvy1F8Pu.js";function o(r){return t({attr:{viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round"},child:[{tag:"circle",attr:{cx:"12",cy:"12",r:"1"},child:[]},{tag:"circle",attr:{cx:"19",cy:"12",r:"1"},child:[]},{tag:"circle",attr:{cx:"5",cy:"12",r:"1"},child:[]}]})(r)}export{o as F};
-//# sourceMappingURL=index-DovXjjIs.js.map
