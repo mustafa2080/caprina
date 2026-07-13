@@ -1052,7 +1052,41 @@ export const zonesApi = {
   update: (id: number, data: Partial<{ name: string; notes: string | null }>) =>
     apiFetch<Zone>(`/zones/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/zones/${id}`, { method: "DELETE" }),
+  insights: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    const qs = q.toString();
+    return apiFetch<ZonesInsightsResponse>(`/zones/insights${qs ? `?${qs}` : ""}`);
+  },
 };
+
+// ─── Zones Insights types (تحليلات المناطق الذكية) ──────────────────────────
+export interface ZoneReturnReasonItem {
+  reason: string;
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface ZoneInsight {
+  zoneId: number | null;
+  zoneName: string;
+  ordersCount: number;
+  revenue: number;
+  deliveredCount: number;
+  deliveryRate: number;
+  returnedCount: number;
+  returnRate: number;
+  closedCount: number;
+  byReason: ZoneReturnReasonItem[];
+  topReason: ZoneReturnReasonItem | null;
+}
+
+export interface ZonesInsightsResponse {
+  zones: ZoneInsight[];
+  overall: ZoneInsight;
+}
 
 // ─── Team & Campaign Analytics API ──────────────────────────────────────────
 export interface TeamMemberStats {

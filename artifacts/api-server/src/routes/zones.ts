@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, zonesTable } from "@workspace/db";
+import { eq, and, desc, isNull } from "drizzle-orm";
+import { db, zonesTable, ordersTable } from "@workspace/db";
 import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -26,6 +26,168 @@ router.get("/zones", async (req, res): Promise<void> => {
     .orderBy(desc(zonesTable.createdAt));
 
   res.json(zones);
+});
+
+// ─── أسباب المرتجعات الثابتة (تطابق order-constants.ts في الفرونت إند) ──────
+const REASON_LABELS: Record<string, string> = {
+  no_answer: "العميل لا يرد",
+  unavailable: "العميل مغلق أو غير متاح",
+  postponed: "العميل طلب التأجيل",
+  no_knowledge: "العميل ليس لديه علم بالشحنة",
+  cancel_request: "العميل طلب إلغاء الشحنة",
+  refused_paid: "العميل رفض الاستلام بعد المعاينة ودفع مصاريف الشحن",
+  refused_unpaid: "العميل رفض الاستلام بعد المعاينة ولم يدفع مصاريف الشحن",
+  damaged: "الشحنة تالفة",
+  unclear_address: "العنوان غير واضح",
+  out_of_coverage: "العنوان خارج نطاق التغطية",
+  time_mismatch: "وقت العميل غير مناسب مع وقت المندوب",
+  other: "سبب آخر",
+  // أسباب قديمة/legacy لسه موجودة في الداتابيز من طلبات سابقة
+  size_mismatch: "مقاس غير مناسب",
+  quality: "جودة المنتج",
+  customer_refused: "عميل غير جاد",
+  customer_requested_return: "طلب العميل مرتجع",
+  delay: "التأخير على العميل",
+};
+
+// ─── Zone Insights: تحليل شامل للمناطق (إيراد، نسبة تسليم، أسباب المرتجعات) ──
+// GET /zones/insights?from=&to=
+router.get("/zones/insights", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const fromParam = req.query.from as string | undefined;
+  const toParam = req.query.to as string | undefined;
+
+  const zoneConditions: any[] = [];
+  if (tenantId !== null) zoneConditions.push(eq(zonesTable.tenantId, tenantId));
+
+  const orderConditions: any[] = [isNull(ordersTable.deletedAt)];
+  if (tenantId !== null) orderConditions.push(eq(ordersTable.tenantId, tenantId));
+
+  const [zones, allOrdersRaw] = await Promise.all([
+    db.select().from(zonesTable).where(zoneConditions.length > 0 ? and(...zoneConditions) : undefined),
+    db.select().from(ordersTable).where(and(...orderConditions)),
+  ]);
+
+  // فلترة بالتاريخ (createdAt) لو موجود from/to
+  let orders = allOrdersRaw;
+  if (fromParam || toParam) {
+    const fromDate = fromParam ? new Date(fromParam) : null;
+    const toDate = toParam ? new Date(new Date(toParam).setHours(23, 59, 59, 999)) : null;
+    orders = allOrdersRaw.filter(o => {
+      const d = new Date(o.createdAt);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+      return true;
+    });
+  }
+
+  const zoneNameMap = new Map<number, string>(zones.map(z => [z.id, z.name]));
+
+  // تجميع الطلبات حسب zoneId (null → "غير محدد")
+  const grouped = new Map<number | null, typeof orders>();
+  for (const o of orders) {
+    const key = (o as any).zoneId ?? null;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(o);
+  }
+
+  function buildZoneInsight(zoneId: number | null, zoneOrders: typeof orders) {
+    // إجمالي الإيراد: من الطلبات المستلمة (كاملة أو جزئية) فقط
+    let revenue = 0;
+    for (const o of zoneOrders) {
+      if (o.status === "received") revenue += o.totalPrice ?? 0;
+      else if (o.status === "partial_received") {
+        const qty = (o as any).partialQuantity ?? o.quantity;
+        revenue += qty * o.unitPrice;
+      }
+    }
+
+    // نسبة التسليم: received / (كل الطلبات ما عدا pending و in_shipping)
+    const eligibleForDelivery = zoneOrders.filter(o => o.status !== "pending" && o.status !== "in_shipping");
+    const deliveredCount = zoneOrders.filter(o => o.status === "received").length;
+    const deliveryRate = eligibleForDelivery.length > 0 ? Math.round((deliveredCount / eligibleForDelivery.length) * 100) : 0;
+
+    // المرتجعات: حساب بالفاتورة (فاتورة واحدة = مرتجع واحد) زي smart-insights
+    const returnedOrders = zoneOrders.filter(o => o.status === "returned");
+    const seenInvoices = new Set<string>();
+    const uniqueReturnedUnits: typeof returnedOrders = [];
+    for (const o of returnedOrders) {
+      const inv = (o as any).invoiceNumber as string | null;
+      if (inv) {
+        if (seenInvoices.has(inv)) continue;
+        seenInvoices.add(inv);
+      }
+      uniqueReturnedUnits.push(o);
+    }
+    const totalReturns = uniqueReturnedUnits.length;
+
+    // نسبة المرتجعات من الطلبات المغلقة فقط (received + partial_received + returned)
+    const closedCount = zoneOrders.filter(o => ["received", "partial_received", "returned"].includes(o.status)).length;
+    const returnRate = closedCount > 0 ? Math.round((totalReturns / closedCount) * 100) : 0;
+
+    // أسباب المرتجعات
+    const reasonCount: Record<string, number> = {};
+    const otherNoteCount: Record<string, number> = {};
+    let noReasonCount = 0;
+    for (const o of uniqueReturnedUnits) {
+      const reason = (o as any).returnReason ?? "__none__";
+      if (reason === "__none__") { noReasonCount++; continue; }
+      reasonCount[reason] = (reasonCount[reason] ?? 0) + 1;
+      if (reason === "other") {
+        const note = ((o as any).returnNote as string | null)?.trim();
+        if (note) otherNoteCount[note] = (otherNoteCount[note] ?? 0) + 1;
+      }
+    }
+
+    const otherTotal = reasonCount["other"] ?? 0;
+    const otherNotesEntries = Object.entries(otherNoteCount).sort((a: any, b: any) => b[1] - a[1]);
+    const otherWithoutNote = otherTotal - otherNotesEntries.reduce((s: number, [, c]: any) => s + c, 0);
+
+    const expandedReasons: Array<{ reason: string; label: string; count: number; pct: number }> = [];
+    for (const [reason, cnt] of Object.entries(reasonCount)) {
+      if (reason === "other") {
+        for (const [note, c] of otherNotesEntries as any) {
+          expandedReasons.push({ reason: "other_note", label: note as string, count: c, pct: totalReturns > 0 ? Math.round((c / totalReturns) * 100) : 0 });
+        }
+        if (otherWithoutNote > 0) {
+          expandedReasons.push({ reason: "other", label: "سبب آخر (غير مفصّل)", count: otherWithoutNote, pct: totalReturns > 0 ? Math.round((otherWithoutNote / totalReturns) * 100) : 0 });
+        }
+      } else {
+        expandedReasons.push({ reason, label: REASON_LABELS[reason] ?? reason, count: cnt, pct: totalReturns > 0 ? Math.round((cnt / totalReturns) * 100) : 0 });
+      }
+    }
+
+    const byReason = [
+      ...expandedReasons,
+      ...(noReasonCount > 0 ? [{ reason: "__none__", label: "غير محدد", count: noReasonCount, pct: totalReturns > 0 ? Math.round((noReasonCount / totalReturns) * 100) : 0 }] : []),
+    ].sort((a, b) => b.count - a.count);
+
+    // أهم سبب مرتجع (لبناء الرسالة التحليلية في الفرونت إند)
+    const topReason = byReason.length > 0 ? byReason[0] : null;
+
+    return {
+      zoneId,
+      zoneName: zoneId !== null ? (zoneNameMap.get(zoneId) ?? "منطقة محذوفة") : "غير محدد",
+      ordersCount: zoneOrders.length,
+      revenue: Math.round(revenue),
+      deliveredCount,
+      deliveryRate,
+      returnedCount: totalReturns,
+      returnRate,
+      closedCount,
+      byReason,
+      topReason,
+    };
+  }
+
+  const zoneInsights = Array.from(grouped.entries())
+    .map(([zoneId, zoneOrders]) => buildZoneInsight(zoneId, zoneOrders))
+    .sort((a, b) => b.returnRate - a.returnRate);
+
+  // إجمالي عام لكل المناطق مع بعض (للدونات الشامل)
+  const overall = buildZoneInsight(-1, orders);
+
+  res.json({ zones: zoneInsights, overall });
 });
 
 // ─── Create ────────────────────────────────────────────────────────────────
