@@ -1084,7 +1084,7 @@ function ZoneActiveShape(props: any) {
 
 type ZoneMetric = "revenue" | "orders" | "deliveryRate" | "returnRate";
 
-function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone: (zoneId: number | null) => void }) {
+function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone: (zoneId: string | null) => void }) {
   const [metric, setMetric] = useState<ZoneMetric>("revenue");
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -1269,7 +1269,7 @@ function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone
 function ZonesAnalyticsCard() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [selectedZoneId, setSelectedZoneId] = useState<number | null | undefined>(undefined);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null | undefined>(undefined);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["zones-insights", from, to],

@@ -1070,7 +1070,7 @@ export interface ZoneReturnReasonItem {
 }
 
 export interface ZoneInsight {
-  zoneId: number | null;
+  zoneId: string | null;
   zoneName: string;
   ordersCount: number;
   revenue: number;

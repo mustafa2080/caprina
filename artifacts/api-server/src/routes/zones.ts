@@ -81,17 +81,16 @@ router.get("/zones/insights", async (req, res): Promise<void> => {
     });
   }
 
-  const zoneNameMap = new Map<number, string>(zones.map(z => [z.id, z.name]));
-
-  // تجميع الطلبات حسب zoneId (null → "غير محدد")
-  const grouped = new Map<number | null, typeof orders>();
+  // تجميع الطلبات حسب المحافظة (city) بدل المنطقة (zoneId) — (null/فارغ → "غير محدد")
+  const grouped = new Map<string | null, typeof orders>();
   for (const o of orders) {
-    const key = (o as any).zoneId ?? null;
+    const rawCity = ((o as any).city as string | null | undefined)?.trim();
+    const key = rawCity && rawCity.length > 0 ? rawCity : null;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(o);
   }
 
-  function buildZoneInsight(zoneId: number | null, zoneOrders: typeof orders) {
+  function buildZoneInsight(cityName: string | null, zoneOrders: typeof orders) {
     // إجمالي الإيراد: من الطلبات المستلمة (كاملة أو جزئية) فقط
     let revenue = 0;
     for (const o of zoneOrders) {
@@ -166,8 +165,8 @@ router.get("/zones/insights", async (req, res): Promise<void> => {
     const topReason = byReason.length > 0 ? byReason[0] : null;
 
     return {
-      zoneId,
-      zoneName: zoneId !== null ? (zoneNameMap.get(zoneId) ?? "منطقة محذوفة") : "غير محدد",
+      zoneId: cityName,
+      zoneName: cityName ?? "غير محدد",
       ordersCount: zoneOrders.length,
       revenue: Math.round(revenue),
       deliveredCount,
