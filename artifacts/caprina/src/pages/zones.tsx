@@ -307,14 +307,24 @@ const ZONE_DONUT_COLORS = [
 function ZoneActiveShape(props: any) {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
   const name = String(payload.zoneName ?? "غير محدد");
+  // نحسب أقصى عرض نص مسموح به جوه القطر الداخلي عشان النص ميطلعش برة الدونات
+  const maxChars = Math.max(6, Math.floor((innerRadius * 1.7) / 7));
   return (
     <g tabIndex={-1} style={{ outline: "none" }}>
-      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 6} outerRadius={outerRadius + 10} startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.18} cornerRadius={6} />
-      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 3} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={6} tabIndex={-1} style={{ outline: "none", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))" }} />
-      <text x={cx} y={cy - 6} textAnchor="middle" fill={fill} fontSize={13} fontWeight={800} style={{ pointerEvents: "none", userSelect: "none" }}>
-        <tspan x={cx}>{name.length > 16 ? name.slice(0, 16) + "…" : name}</tspan>
+      <Sector
+        cx={cx} cy={cy} innerRadius={outerRadius + 6} outerRadius={outerRadius + 10}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.18} cornerRadius={6}
+        style={{ transition: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      />
+      <Sector
+        cx={cx} cy={cy} innerRadius={innerRadius - 3} outerRadius={outerRadius + 6}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={6} tabIndex={-1}
+        style={{ outline: "none", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))", transition: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      />
+      <text x={cx} y={cy - 8} textAnchor="middle" fill={fill} fontSize={12} fontWeight={800} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <tspan x={cx}>{name.length > maxChars ? name.slice(0, maxChars) + "…" : name}</tspan>
       </text>
-      <text x={cx} y={cy + 20} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={26} fontWeight={900} style={{ pointerEvents: "none", userSelect: "none" }}>{`${(percent * 100).toFixed(0)}%`}</text>
+      <text x={cx} y={cy + 16} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={20} fontWeight={900} style={{ pointerEvents: "none", userSelect: "none" }}>{`${(percent * 100).toFixed(0)}%`}</text>
     </g>
   );
 }
@@ -371,29 +381,39 @@ function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone
             </div>
           ) : (
             <>
-              {activeIndex === null && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-                  <p className="text-3xl font-black text-foreground leading-none tabular-nums">
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 transition-opacity duration-300"
+                style={{ opacity: activeIndex === null ? 1 : 0 }}
+              >
+                <div className="flex flex-col items-center justify-center px-4" style={{ maxWidth: "56%" }}>
+                  <p className="font-black text-foreground leading-none tabular-nums text-center break-words" style={{ fontSize: "clamp(15px, 3.4vw, 26px)" }}>
                     {metric === "revenue" ? fc(totalMetric) : fn(totalMetric)}
                   </p>
-                  <p className="text-[11px] font-semibold text-muted-foreground mt-1.5 tracking-wide">
+                  <p className="text-[10px] font-semibold text-muted-foreground mt-1.5 tracking-wide whitespace-nowrap">
                     {metric === "revenue" ? "إجمالي الإيراد" : "إجمالي الطلبات"}
                   </p>
                 </div>
-              )}
+              </div>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart tabIndex={-1} style={{ outline: "none" }}>
                   <Pie
+                    key={metric}
                     data={colored} cx="50%" cy="50%" innerRadius="55%" outerRadius="78%" paddingAngle={colored.length > 1 ? 3 : 0}
                     dataKey={metric === "revenue" ? "revenue" : "ordersCount"} nameKey="zoneName" stroke="none" cornerRadius={5}
                     startAngle={90} endAngle={-270} labelLine={false}
                     activeIndex={activeIndex ?? undefined} activeShape={ZoneActiveShape}
-                    animationBegin={0} animationDuration={600} animationEasing="ease-out"
+                    isAnimationActive animationBegin={0} animationDuration={500} animationEasing="ease-in-out"
                     onMouseEnter={(_, index) => setActiveIndex(index)} onMouseLeave={() => setActiveIndex(null)}
                     onClick={(entry: any) => onOpenZone(entry.zoneId)}
-                    style={{ cursor: "pointer", outline: "none" }}
+                    style={{ cursor: "pointer", outline: "none", transition: "opacity 200ms ease" }}
                   >
-                    {colored.map((d, i) => <Cell key={i} fill={d.color} stroke="hsl(var(--card))" strokeWidth={2} />)}
+                    {colored.map((d, i) => (
+                      <Cell
+                        key={i} fill={d.color} stroke="hsl(var(--card))" strokeWidth={2}
+                        style={{ transition: "filter 200ms ease, opacity 200ms ease" }}
+                        opacity={activeIndex === null || activeIndex === i ? 1 : 0.35}
+                      />
+                    ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
