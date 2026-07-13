@@ -297,6 +297,147 @@ function ZoneDetailView({ zone, onBack }: { zone: ZoneInsight; onBack: () => voi
   );
 }
 
+// ─── دونات المناطق (مش الأسباب) — قسمة حسب الإيراد أو عدد الطلبات ───────────
+const ZONE_DONUT_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e",
+  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#64748b",
+  "#14b8a6", "#a855f7",
+];
+
+function ZoneActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value, valueLabel } = props;
+  return (
+    <g tabIndex={-1} style={{ outline: "none" }}>
+      <Sector cx={cx} cy={cy} innerRadius={outerRadius + 5} outerRadius={outerRadius + 9} startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.2} cornerRadius={6} />
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 4} outerRadius={outerRadius + 7} startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={6} tabIndex={-1} style={{ outline: "none" }} />
+      <text x={cx} y={cy - 14} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={22} fontWeight={900} style={{ pointerEvents: "none", userSelect: "none" }}>{value}</text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={10} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <tspan x={cx}>{String(payload.zoneName).length > 18 ? String(payload.zoneName).slice(0, 18) + "…" : payload.zoneName}</tspan>
+      </text>
+      <text x={cx} y={cy + 26} textAnchor="middle" fill={fill} fontSize={14} fontWeight={800} style={{ pointerEvents: "none", userSelect: "none" }}>{`${(percent * 100).toFixed(0)}%`}</text>
+    </g>
+  );
+}
+
+type ZoneMetric = "revenue" | "orders";
+
+function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone: (zoneId: number | null) => void }) {
+  const [metric, setMetric] = useState<ZoneMetric>("revenue");
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  // مناطق فيها بيانات فعلية فقط (استبعاد المناطق بدون طلبات) للدونات
+  const withData = useMemo(() => zones.filter(z => z.ordersCount > 0), [zones]);
+
+  const colored = useMemo(() => withData
+    .map((z, i) => ({ ...z, color: ZONE_DONUT_COLORS[i % ZONE_DONUT_COLORS.length] }))
+    .sort((a, b) => (metric === "revenue" ? b.revenue - a.revenue : b.ordersCount - a.ordersCount)),
+    [withData, metric]
+  );
+
+  const totalMetric = colored.reduce((s, z) => s + (metric === "revenue" ? z.revenue : z.ordersCount), 0);
+
+  // القايمة الجانبية: الأعلى مبيعًا/طلبات أولاً
+  const sortedList = colored;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* دونات المناطق */}
+      <div>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className="font-black text-sm flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" /> المناطق الأشد مبيعًا
+          </h3>
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+            <button
+              onClick={() => setMetric("revenue")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "revenue" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              الإيراد
+            </button>
+            <button
+              onClick={() => setMetric("orders")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "orders" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              عدد الطلبات
+            </button>
+          </div>
+        </div>
+
+        <div className="relative" style={{ height: 260 }}>
+          {activeIndex === null && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+              <p className="text-3xl font-black text-foreground leading-none">
+                {metric === "revenue" ? fc(totalMetric) : fn(totalMetric)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{metric === "revenue" ? "إجمالي الإيراد" : "إجمالي الطلبات"}</p>
+            </div>
+          )}
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart tabIndex={-1} style={{ outline: "none" }}>
+              <Pie
+                data={colored} cx="50%" cy="50%" innerRadius="52%" outerRadius="80%" paddingAngle={3}
+                dataKey={metric === "revenue" ? "revenue" : "ordersCount"} nameKey="zoneName" stroke="none" cornerRadius={5}
+                startAngle={90} endAngle={-270} labelLine={false}
+                activeIndex={activeIndex ?? undefined} activeShape={ZoneActiveShape}
+                animationBegin={0} animationDuration={600} animationEasing="ease-out"
+                onMouseEnter={(_, index) => setActiveIndex(index)} onMouseLeave={() => setActiveIndex(null)}
+                onClick={(entry: any) => onOpenZone(entry.zoneId)}
+                style={{ cursor: "pointer", outline: "none" }}
+              >
+                {colored.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1 mt-3">
+          {colored.map((z) => {
+            const value = metric === "revenue" ? z.revenue : z.ordersCount;
+            const pct = totalMetric > 0 ? Math.round((value / totalMetric) * 100) : 0;
+            return (
+              <button
+                key={z.zoneId ?? "__none__"} type="button"
+                onClick={() => onOpenZone(z.zoneId)}
+                className="w-full flex items-center gap-3 rounded-lg px-2 py-1 transition-all text-right hover:bg-muted/40"
+              >
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: z.color }} />
+                <span className="text-xs font-semibold text-foreground flex-1 truncate" title={z.zoneName}>{z.zoneName}</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0" style={{ background: z.color + "1a", color: z.color }}>
+                  {metric === "revenue" ? fc(value) : fn(value)}
+                </span>
+                <span className="text-xs font-black w-9 text-right shrink-0" style={{ color: z.color }}>{pct}%</span>
+              </button>
+            );
+          })}
+          {colored.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground text-xs">
+              <Package className="w-6 h-6 mx-auto mb-2 opacity-30" />
+              لا توجد بيانات كافية بعد
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* قايمة المناطق مرتبة (الأعلى مبيعًا أولاً) مع نظرة سريعة على المرتجعات */}
+      <div>
+        <h3 className="font-black text-sm mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" /> تفاصيل كل منطقة (اضغط لعرض أسباب المرتجعات)
+        </h3>
+        <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+          {sortedList.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-xs">لا توجد بيانات كافية بعد</div>
+          ) : (
+            sortedList.map(zone => (
+              <ZoneSummaryCard key={zone.zoneId ?? "__none__"} zone={zone} onOpen={() => onOpenZone(zone.zoneId)} />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ZonesAnalyticsTab() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -336,31 +477,7 @@ function ZonesAnalyticsTab() {
       {selectedZone ? (
         <ZoneDetailView zone={selectedZone} onBack={() => setSelectedZoneId(undefined)} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* دونات شامل لكل المناطق */}
-          <div>
-            <h3 className="font-black text-sm mb-4 flex items-center gap-2">
-              <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" /> أسباب المرتجعات — كل المناطق
-            </h3>
-            <ReasonsDonut items={data.overall.byReason} total={data.overall.returnedCount} centerLabel="إجمالي المرتجعات" />
-          </div>
-
-          {/* قايمة المناطق مرتبة من الأسوأ للأفضل */}
-          <div>
-            <h3 className="font-black text-sm mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" /> المناطق (الأعلى مرتجعًا أولاً)
-            </h3>
-            <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
-              {data.zones.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground text-xs">لا توجد بيانات كافية بعد</div>
-              ) : (
-                data.zones.map(zone => (
-                  <ZoneSummaryCard key={zone.zoneId ?? "__none__"} zone={zone} onOpen={() => setSelectedZoneId(zone.zoneId)} />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        <ZonesOverview zones={data.zones} onOpenZone={(id) => setSelectedZoneId(id)} />
       )}
     </div>
   );
