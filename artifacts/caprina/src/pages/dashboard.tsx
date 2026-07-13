@@ -22,7 +22,7 @@ import {
   type FeasibleOrder, type SkippedOrder, type FeasibleInvoicesResponse,
   zonesApi,
 } from "@/lib/api";
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { PiPlantFill } from "react-icons/pi";
 import { FiMoreHorizontal } from "react-icons/fi";
@@ -1657,14 +1657,24 @@ export default function Dashboard() {
   const noCostWarning = fin && fin.cashIn > 0 && fin.costOfGoods === 0;
 
   // ── أعلى المحافظات طلبًا ──────────────────────────────────────────────
-  const topZones = useMemo(() => {
+  const ZONE_DONUT_COLORS_DASH = ["#7c3aed", "#d946ef", "#f59e0b", "#10b981", "#3b82f6", "#94a3b8"];
+  const allRankedZones = useMemo(() => {
     if (!zonesInsights?.zones) return [];
+    // نعتمد على الاسم (zoneName) كمفتاح فريد — بيشمل المناطق المربوطة بـ zoneId
+    // وكمان المحافظات اللي بترجع بالـ fallback على city (zoneId فاضي بس zoneName موجود)
     return zonesInsights.zones
-      .filter(z => z.zoneId !== null && z.ordersCount > 0)
-      .sort((a, b) => b.ordersCount - a.ordersCount)
-      .slice(0, 3);
+      .filter(z => z.zoneName && z.ordersCount > 0)
+      .sort((a, b) => b.ordersCount - a.ordersCount);
   }, [zonesInsights]);
-  const topZonesTotalOrders = topZones.reduce((s, z) => s + z.ordersCount, 0);
+  const topZones = useMemo(() => allRankedZones.slice(0, 5), [allRankedZones]);
+  const topZonesTotalOrders = allRankedZones.reduce((s, z) => s + z.ordersCount, 0);
+  const topZonesColored = useMemo(
+    () => topZones.map((z, i) => ({ ...z, color: ZONE_DONUT_COLORS_DASH[i % ZONE_DONUT_COLORS_DASH.length] })),
+    [topZones]
+  );
+  const topZonesAvgDelivery = topZones.length > 0
+    ? Math.round(topZones.reduce((s, z) => s + (z.deliveryRate ?? 0), 0) / topZones.length)
+    : 0;
 
   return (
     <>
@@ -1804,60 +1814,113 @@ export default function Dashboard() {
       {topZones.length > 0 && (
         <div className="relative overflow-hidden rounded-xl border border-violet-300 dark:border-violet-800/60 bg-gradient-to-br from-violet-50 via-fuchsia-50/50 to-amber-50/40 dark:from-violet-950/40 dark:via-fuchsia-950/20 dark:to-amber-950/10 p-3 sm:p-4">
           <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-violet-400/20 blur-3xl" />
-          <div className="relative flex items-start gap-2.5 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 bg-violet-100 dark:bg-violet-900/40">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-violet-600 dark:text-violet-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-xs sm:text-sm font-black text-violet-700 dark:text-violet-400">
-                  ✨ المحافظات الأشد طلبًا
-                </p>
-                <span className="text-[9px] font-black bg-violet-600 text-white px-2 py-0.5 rounded-full">
-                  {fn(topZonesTotalOrders)} طلب
-                </span>
+          <div className="relative">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 bg-violet-100 dark:bg-violet-900/40">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs sm:text-sm font-black text-violet-700 dark:text-violet-400">
+                      ✨ المحافظات الأشد طلبًا
+                    </p>
+                    <span className="text-[9px] font-black bg-violet-600 text-white px-2 py-0.5 rounded-full">
+                      {fn(topZonesTotalOrders)} طلب
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs mt-0.5 text-violet-600/70 dark:text-violet-400/70 hidden sm:block">
+                    أعلى المحافظات من حيث عدد الطلبات — استخدمها لتوجيه المخزون والتسويق
+                  </p>
+                </div>
               </div>
-              <p className="text-[10px] sm:text-xs mt-0.5 text-violet-600/70 dark:text-violet-400/70">
-                أعلى المحافظات من حيث عدد الطلبات — استخدمها لتوجيه المخزون والتسويق
-              </p>
-              <div className="flex flex-wrap gap-2 mt-2.5">
-                {topZones.map((z, idx) => {
-                  const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
-                  const isFirst = idx === 0;
-                  return (
-                    <div
-                      key={z.zoneId}
-                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${
-                        isFirst
-                          ? "bg-amber-100/70 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
-                          : "bg-card border-border/70"
-                      }`}
+              <Link href="/zones" className="shrink-0">
+                <button className="text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors whitespace-nowrap">
+                  تفاصيل المحافظات ←
+                </button>
+              </Link>
+            </div>
+
+            {/* Body: دايرة مختصرة + ملخص مرتب */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 mt-3">
+              {/* Mini Donut */}
+              <div className="relative shrink-0" style={{ width: 108, height: 108 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart tabIndex={-1} style={{ outline: "none" }}>
+                    <Pie
+                      data={topZonesColored} cx="50%" cy="50%" innerRadius="62%" outerRadius="100%"
+                      paddingAngle={topZonesColored.length > 1 ? 3 : 0} dataKey="ordersCount" nameKey="zoneName"
+                      stroke="none" cornerRadius={4} startAngle={90} endAngle={-270}
+                      isAnimationActive animationDuration={500}
                     >
-                      {isFirst
-                        ? <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        : <span className="text-xs shrink-0">{medal}</span>
-                      }
-                      <span className={`text-xs font-bold ${isFirst ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
-                        {z.zoneName}
-                      </span>
-                      <span className="text-[10px] font-black text-violet-600 dark:text-violet-400">
-                        {fn(z.ordersCount)} طلب
-                      </span>
-                      {z.deliveryRate > 0 && (
-                        <span className="text-[9px] text-muted-foreground hidden sm:inline">
-                          • تسليم {Math.round(z.deliveryRate)}%
+                      {topZonesColored.map((z, i) => (
+                        <Cell key={i} fill={z.color} stroke="hsl(var(--card))" strokeWidth={2} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="font-black text-foreground leading-none tabular-nums" style={{ fontSize: 18 }}>
+                    {fn(topZonesTotalOrders)}
+                  </p>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-0.5">طلب</p>
+                </div>
+              </div>
+
+              {/* ملخص سريع + ترتيب */}
+              <div className="flex-1 min-w-0 w-full space-y-2">
+                {/* شريط ملخص */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="rounded-lg bg-card/70 border border-border/60 px-2 py-1.5 text-center">
+                    <p className="text-[9px] text-muted-foreground font-semibold">أعلى منطقة</p>
+                    <p className="text-[11px] font-black text-amber-600 dark:text-amber-400 truncate" title={topZones[0]?.zoneName ?? ""}>
+                      {topZones[0]?.zoneName}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-card/70 border border-border/60 px-2 py-1.5 text-center">
+                    <p className="text-[9px] text-muted-foreground font-semibold">عدد المناطق</p>
+                    <p className="text-[11px] font-black text-violet-600 dark:text-violet-400">{fn(allRankedZones.length)}</p>
+                  </div>
+                  <div className="rounded-lg bg-card/70 border border-border/60 px-2 py-1.5 text-center">
+                    <p className="text-[9px] text-muted-foreground font-semibold">متوسط التسليم</p>
+                    <p className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">{topZonesAvgDelivery}%</p>
+                  </div>
+                </div>
+
+                {/* ترتيب المناطق */}
+                <div className="space-y-1">
+                  {topZonesColored.map((z, idx) => {
+                    const pct = topZonesTotalOrders > 0 ? Math.round((z.ordersCount / topZonesTotalOrders) * 100) : 0;
+                    const isFirst = idx === 0;
+                    return (
+                      <div
+                        key={z.zoneId ?? z.zoneName}
+                        className={`flex items-center gap-2 rounded-lg border px-2 py-1 ${
+                          isFirst
+                            ? "bg-amber-100/70 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
+                            : "bg-card/50 border-border/50"
+                        }`}
+                      >
+                        {isFirst
+                          ? <Crown className="w-3 h-3 text-amber-500 shrink-0" />
+                          : <span className="w-2 h-2 rounded-full shrink-0" style={{ background: z.color }} />
+                        }
+                        <span className={`text-[11px] font-bold flex-1 truncate ${isFirst ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                          {z.zoneName}
                         </span>
-                      )}
-                    </div>
-                  );
-                })}
+                        <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">
+                          تسليم {Math.round(z.deliveryRate ?? 0)}%
+                        </span>
+                        <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 shrink-0 tabular-nums w-14 text-left">
+                          {fn(z.ordersCount)} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            <Link href="/zones" className="shrink-0 hidden sm:block">
-              <button className="text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors whitespace-nowrap">
-                تفاصيل المحافظات ←
-              </button>
-            </Link>
           </div>
         </div>
       )}
