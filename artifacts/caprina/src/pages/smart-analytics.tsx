@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { analyticsApi, ordersApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem } from "@/lib/api";
+import { analyticsApi, ordersApi, zonesApi, type AdSourceStat, type SmartProduct, type DeadStockItem, type ReturnReasonItem, type HighReturnProduct, type StockPredictorItem, type ZoneInsight, type ZoneReturnReasonItem } from "@/lib/api";
 import { apiFetch } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Brain, Star, Archive, RotateCcw, TrendingDown, TrendingUp,
   AlertTriangle, Clock, Package, ArrowUpRight, Zap, ChevronDown, Globe,
-  X, Download, ExternalLink,
+  X, Download, ExternalLink, MapPin, ChevronLeft,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { FaFacebook, FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
@@ -909,6 +909,363 @@ function SummaryBar({ data, showProfit }: { data: {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// ─── Zones Analytics (تحليلات المناطق الذكية) — منقولة من صفحة المناطق ─────
+// ══════════════════════════════════════════════════════════════════════════
+// ملاحظة: REASON_DONUT_COLORS / ReasonActiveShape / ReasonsDonut معرّفين بالفعل
+// أعلاه في قسم "Return Insights" ونعيد استخدامهم هنا لعرض أسباب مرتجعات المنطقة.
+
+// ─── رسالة تحليلية ذكية مبنية على أعلى سبب مرتجع في المنطقة ─────────────────
+const REASON_SMART_ADVICE: Record<string, string> = {
+  no_answer: "نسبة كبيرة من العملاء هنا ما بيردوش. جرّب تأكيد الطلب بمكالمة أو رسالة واتساب قبل الشحن مباشرة.",
+  unavailable: "العميل بيبقى مغلق أو مش متاح وقت التوصيل. اتفق مع المندوب على ميعاد بديل أو اتصل قبل التوصيل بساعة.",
+  postponed: "طلبات كتير بتتأجل من العميل نفسه. حاول تحدد ميعاد التسليم مع العميل من البداية بدل ما يتفاجئ.",
+  no_knowledge: "العميل مش عارف إن فيه شحنة جايله. تأكد إن رسالة التأكيد بعد الطلب بتوصل فعليًا (واتساب/SMS).",
+  cancel_request: "نسبة إلغاء عالية من العميل نفسه بعد الطلب. راجع وضوح السعر والمواصفات وقت البيع.",
+  refused_paid: "العميل بيرفض بعد ما يشوف المنتج وبيدفع مصاريف الشحن. المشكلة غالبًا في المنتج نفسه أو الوصف — راجع الصور والمواصفات.",
+  refused_unpaid: "رفض استلام مرتفع بدون دفع مصاريف الشحن، يعني في احتمال طلبات وهمية أو عدم جدية. فكّر في تفعيل تأكيد مسبق بالدفع الجزئي.",
+  damaged: "نسبة شحنات تالفة عالية في المنطقة دي. راجع التغليف أو شركة الشحن المسؤولة عن التوصيل هنا.",
+  unclear_address: "عناوين غير واضحة بتسبب مرتجعات. اطلب من فريق البيع تأكيد العنوان بالتفصيل وقت تسجيل الطلب.",
+  out_of_coverage: "المنطقة دي فيها عناوين خارج نطاق التغطية الفعلي لشركة الشحن. فكّر تغيّر شركة الشحن لهذه المنطقة أو توضح حدود التغطية.",
+  time_mismatch: "توقيت المندوب مش مناسب لعملاء المنطقة دي. جرّب تنسيق مواعيد توصيل بديلة (مساءً مثلاً).",
+  other: "أغلب المرتجعات هنا بسبب غير مصنف. راجع ملاحظات المرتجعات يدويًا لفهم السبب الحقيقي.",
+};
+
+function zoneSmartAdvice(zone: ZoneInsight): string {
+  if (zone.returnedCount === 0) return "لا توجد مرتجعات مسجلة في هذه المنطقة حتى الآن. أداء ممتاز، استمر في نفس الأسلوب.";
+  if (!zone.topReason) return "توجد مرتجعات لكن بدون سبب محدد. تأكد إن فريق الشحن بيسجل سبب المرتجع دايمًا.";
+  const advice = REASON_SMART_ADVICE[zone.topReason.reason];
+  if (advice) return advice;
+  return `أعلى سبب مرتجع هنا هو "${zone.topReason.label}" بنسبة ${zone.topReason.pct}%. راجع تفاصيل هذا السبب لتحسين الأداء.`;
+}
+
+function zoneVerdict(zone: ZoneInsight): { label: string; color: string; icon: React.ElementType } {
+  if (zone.closedCount < 3) return { label: "بيانات غير كافية", color: "text-muted-foreground", icon: Package };
+  if (zone.returnRate >= 40) return { label: "ركّز هنا — مرتجعات عالية جدًا", color: "text-red-600 dark:text-red-400", icon: AlertTriangle };
+  if (zone.returnRate >= 20) return { label: "راقب هذه المنطقة", color: "text-amber-600 dark:text-amber-400", icon: TrendingDown };
+  return { label: "أداء جيد", color: "text-emerald-600 dark:text-emerald-400", icon: TrendingUp };
+}
+
+// ─── كارت ملخص منطقة في القايمة المرتبة ─────────────────────────────────────
+function ZoneSummaryCard({ zone, onOpen }: { zone: ZoneInsight; onOpen: () => void }) {
+  const verdict = zoneVerdict(zone);
+  const VerdictIcon = verdict.icon;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full text-right p-4 rounded-xl border border-border/60 hover:border-primary/40 bg-card hover:shadow-md hover:shadow-primary/5 transition-all group"
+    >
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <MapPin className="w-4 h-4" />
+          </div>
+          <h3 className="font-bold text-sm truncate">{zone.zoneName}</h3>
+        </div>
+        <ChevronLeft className="w-4 h-4 text-muted-foreground shrink-0 group-hover:-translate-x-1 transition-transform" />
+      </div>
+
+      <div className={`flex items-center gap-1.5 mb-3 text-xs font-bold ${verdict.color}`}>
+        <VerdictIcon className="w-3.5 h-3.5" />
+        {verdict.label}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg bg-muted/40 py-2">
+          <p className="text-[10px] text-muted-foreground mb-0.5">الإيراد</p>
+          <p className="text-xs font-black">{fc(zone.revenue)}</p>
+        </div>
+        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 py-2">
+          <p className="text-[10px] text-muted-foreground mb-0.5">نسبة التسليم</p>
+          <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">{zone.deliveryRate}%</p>
+        </div>
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 py-2">
+          <p className="text-[10px] text-muted-foreground mb-0.5">نسبة المرتجعات</p>
+          <p className="text-xs font-black text-red-600 dark:text-red-400">{zone.returnRate}%</p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── تفاصيل منطقة واحدة (دونات + رسالة ذكية) ────────────────────────────────
+function ZoneDetailView({ zone, onBack }: { zone: ZoneInsight; onBack: () => void }) {
+  const verdict = zoneVerdict(zone);
+  const VerdictIcon = verdict.icon;
+  return (
+    <div className="space-y-5">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronLeft className="w-3.5 h-3.5 rotate-180" /> رجوع لكل المناطق
+      </button>
+
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+            <MapPin className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="font-black text-base">{zone.zoneName}</h2>
+            <p className="text-xs text-muted-foreground">{fn(zone.ordersCount)} طلب إجمالاً</p>
+          </div>
+        </div>
+        <Badge className={`gap-1.5 border-0 font-bold text-xs px-3 py-1.5 ${verdict.color} bg-current/10`}>
+          <VerdictIcon className="w-3.5 h-3.5" /> {verdict.label}
+        </Badge>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground mb-1">الإيراد</p>
+          <p className="text-sm font-black">{fc(zone.revenue)}</p>
+        </div>
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 p-3 text-center">
+          <p className="text-[10px] text-muted-foreground mb-1">نسبة التسليم</p>
+          <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">{zone.deliveryRate}%</p>
+        </div>
+        <div className="rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/20 p-3 text-center">
+          <p className="text-[10px] text-muted-foreground mb-1">نسبة المرتجعات</p>
+          <p className="text-sm font-black text-red-600 dark:text-red-400">{zone.returnRate}%</p>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground mb-1">عدد المرتجعات</p>
+          <p className="text-sm font-black">{fn(zone.returnedCount)}</p>
+        </div>
+      </div>
+
+      {/* رسالة تحليلية ذكية */}
+      <div className={`flex items-start gap-3 rounded-xl border p-4 ${verdict.color} bg-current/5 border-current/20`}>
+        <VerdictIcon className="w-5 h-5 shrink-0 mt-0.5" />
+        <p className="text-xs font-semibold leading-relaxed text-foreground">{zoneSmartAdvice(zone)}</p>
+      </div>
+
+      {/* دونات أسباب المرتجعات */}
+      <div>
+        <h3 className="font-black text-sm mb-4 flex items-center gap-2">
+          <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" /> أسباب المرتجعات في {zone.zoneName}
+        </h3>
+        <ReturnReasonsDonut items={zone.byReason} total={zone.returnedCount} />
+      </div>
+    </div>
+  );
+}
+
+// ─── دونات المناطق (مش الأسباب) — قسمة حسب الإيراد أو عدد الطلبات ───────────
+const ZONE_DONUT_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#f43f5e",
+  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#64748b",
+  "#14b8a6", "#a855f7",
+];
+
+function ZoneActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
+  const name = String(payload.zoneName ?? "غير محدد");
+  const maxChars = Math.max(6, Math.floor((innerRadius * 1.7) / 7));
+  return (
+    <g tabIndex={-1} style={{ outline: "none" }}>
+      <Sector
+        cx={cx} cy={cy} innerRadius={outerRadius + 6} outerRadius={outerRadius + 10}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.18} cornerRadius={6}
+        style={{ transition: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      />
+      <Sector
+        cx={cx} cy={cy} innerRadius={innerRadius - 3} outerRadius={outerRadius + 6}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} cornerRadius={6} tabIndex={-1}
+        style={{ outline: "none", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))", transition: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      />
+      <text x={cx} y={cy - 8} textAnchor="middle" fill={fill} fontSize={12} fontWeight={800} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <tspan x={cx}>{name.length > maxChars ? name.slice(0, maxChars) + "…" : name}</tspan>
+      </text>
+      <text x={cx} y={cy + 16} textAnchor="middle" fill="hsl(var(--foreground))" fontSize={20} fontWeight={900} style={{ pointerEvents: "none", userSelect: "none" }}>{`${(percent * 100).toFixed(0)}%`}</text>
+    </g>
+  );
+}
+
+type ZoneMetric = "revenue" | "orders";
+
+function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone: (zoneId: number | null) => void }) {
+  const [metric, setMetric] = useState<ZoneMetric>("revenue");
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const withData = useMemo(() => zones.filter(z => z.ordersCount > 0), [zones]);
+
+  const colored = useMemo(() => withData
+    .map((z, i) => ({ ...z, color: ZONE_DONUT_COLORS[i % ZONE_DONUT_COLORS.length] }))
+    .sort((a, b) => (metric === "revenue" ? b.revenue - a.revenue : b.ordersCount - a.ordersCount)),
+    [withData, metric]
+  );
+
+  const totalMetric = colored.reduce((s, z) => s + (metric === "revenue" ? z.revenue : z.ordersCount), 0);
+  const sortedList = colored;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className="font-black text-sm flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" /> المناطق الأشد مبيعًا
+          </h3>
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+            <button
+              onClick={() => setMetric("revenue")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "revenue" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              الإيراد
+            </button>
+            <button
+              onClick={() => setMetric("orders")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "orders" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              عدد الطلبات
+            </button>
+          </div>
+        </div>
+
+        <div className="relative rounded-2xl border border-border/60 bg-gradient-to-b from-muted/20 to-transparent p-2" style={{ height: 260 }}>
+          {colored.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-2">
+              <Package className="w-8 h-8 opacity-25" />
+              <p className="text-xs font-semibold">لا توجد بيانات كافية بعد</p>
+            </div>
+          ) : (
+            <>
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 transition-opacity duration-300"
+                style={{ opacity: activeIndex === null ? 1 : 0 }}
+              >
+                <div className="flex flex-col items-center justify-center px-4" style={{ maxWidth: "56%" }}>
+                  <p className="font-black text-foreground leading-none tabular-nums text-center break-words" style={{ fontSize: "clamp(15px, 3.4vw, 26px)" }}>
+                    {metric === "revenue" ? fc(totalMetric) : fn(totalMetric)}
+                  </p>
+                  <p className="text-[10px] font-semibold text-muted-foreground mt-1.5 tracking-wide whitespace-nowrap">
+                    {metric === "revenue" ? "إجمالي الإيراد" : "إجمالي الطلبات"}
+                  </p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart tabIndex={-1} style={{ outline: "none" }}>
+                  <Pie
+                    key={metric}
+                    data={colored} cx="50%" cy="50%" innerRadius="55%" outerRadius="78%" paddingAngle={colored.length > 1 ? 3 : 0}
+                    dataKey={metric === "revenue" ? "revenue" : "ordersCount"} nameKey="zoneName" stroke="none" cornerRadius={5}
+                    startAngle={90} endAngle={-270} labelLine={false}
+                    activeIndex={activeIndex ?? undefined} activeShape={ZoneActiveShape}
+                    isAnimationActive animationBegin={0} animationDuration={500} animationEasing="ease-in-out"
+                    onMouseEnter={(_, index) => setActiveIndex(index)} onMouseLeave={() => setActiveIndex(null)}
+                    onClick={(entry: any) => onOpenZone(entry.zoneId)}
+                    style={{ cursor: "pointer", outline: "none", transition: "opacity 200ms ease" }}
+                  >
+                    {colored.map((d, i) => (
+                      <Cell
+                        key={i} fill={d.color} stroke="hsl(var(--card))" strokeWidth={2}
+                        style={{ transition: "filter 200ms ease, opacity 200ms ease" }}
+                        opacity={activeIndex === null || activeIndex === i ? 1 : 0.35}
+                      />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </div>
+
+        {colored.length > 0 && (
+          <div className="flex flex-col gap-1 max-h-56 overflow-y-auto pr-1 mt-3">
+            {colored.map((z, i) => {
+              const value = metric === "revenue" ? z.revenue : z.ordersCount;
+              const pct = totalMetric > 0 ? Math.round((value / totalMetric) * 100) : 0;
+              const isActive = activeIndex === i;
+              return (
+                <button
+                  key={z.zoneId ?? "__none__"} type="button"
+                  onClick={() => onOpenZone(z.zoneId)}
+                  onMouseEnter={() => setActiveIndex(i)} onMouseLeave={() => setActiveIndex(null)}
+                  className={`w-full flex items-center gap-3 rounded-lg px-2.5 py-1.5 transition-all text-right ${isActive ? "bg-muted/60" : "hover:bg-muted/30"}`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-transparent transition-shadow" style={{ background: z.color, boxShadow: isActive ? `0 0 0 3px ${z.color}33` : "none" }} />
+                  <span className="text-xs font-bold text-foreground flex-1 truncate" title={z.zoneName ?? "غير محدد"}>{z.zoneName ?? "غير محدد"}</span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md shrink-0 tabular-nums" style={{ background: z.color + "1a", color: z.color }}>
+                    {metric === "revenue" ? fc(value) : fn(value)}
+                  </span>
+                  <span className="text-xs font-black w-9 text-right shrink-0 tabular-nums" style={{ color: z.color }}>{pct}%</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-black text-sm mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" /> تفاصيل كل منطقة (اضغط لعرض أسباب المرتجعات)
+        </h3>
+        <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+          {sortedList.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-xs">لا توجد بيانات كافية بعد</div>
+          ) : (
+            sortedList.map(zone => (
+              <ZoneSummaryCard key={zone.zoneId ?? "__none__"} zone={zone} onOpen={() => onOpenZone(zone.zoneId)} />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── تبويب تحليلات المناطق كامل (فلتر تاريخ + دونات/قايمة أو تفاصيل منطقة) ──
+function ZonesAnalyticsCard() {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [selectedZoneId, setSelectedZoneId] = useState<number | null | undefined>(undefined);
+
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["zones-insights", from, to],
+    queryFn: () => zonesApi.insights({ from: from || undefined, to: to || undefined }),
+  });
+
+  const selectedZone = useMemo(() => {
+    if (selectedZoneId === undefined || !data) return null;
+    return data.zones.find(z => z.zoneId === selectedZoneId) ?? null;
+  }, [selectedZoneId, data]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 flex-wrap justify-between">
+        <SectionHeader icon={MapPin} title="تحليلات المناطق" subtitle="أداء المبيعات والمرتجعات لكل منطقة جغرافية" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm bg-muted/30 border border-border rounded-xl px-3 py-1.5">
+            <span className="text-muted-foreground text-xs">من</span>
+            <input type="date" className="bg-transparent text-sm outline-none w-32" value={from} onChange={e => setFrom(e.target.value)} />
+            <span className="text-muted-foreground text-xs">إلى</span>
+            <input type="date" className="bg-transparent text-sm outline-none w-32" value={to} onChange={e => setTo(e.target.value)} />
+          </div>
+          <button
+            onClick={() => refetch()} disabled={isFetching}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-muted/10 hover:bg-muted/30 text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} /> تحديث
+          </button>
+          <Link href="/zones">
+            <button className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-primary/30 text-primary hover:bg-primary/5 text-xs font-semibold transition-colors">
+              إدارة المناطق <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </Link>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">جاري تحميل التحليلات...</div>
+      ) : !data ? null : selectedZone ? (
+        <ZoneDetailView zone={selectedZone} onBack={() => setSelectedZoneId(undefined)} />
+      ) : (
+        <ZonesOverview zones={data.zones} onOpenZone={(id) => setSelectedZoneId(id)} />
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SmartAnalytics() {
   const { isAdmin, canViewFinancials, can } = useAuth();
@@ -975,6 +1332,13 @@ export default function SmartAnalytics() {
           <Card className="border-border bg-card">
             <CardContent className="p-5">
               <StarsSection stars={data.stars} deadStock={data.deadStock} showProfit={canViewFinancials} />
+            </CardContent>
+          </Card>
+
+          {/* Zones Analytics */}
+          <Card className="border-border bg-card">
+            <CardContent className="p-5">
+              <ZonesAnalyticsCard />
             </CardContent>
           </Card>
 
