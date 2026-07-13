@@ -561,7 +561,18 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
               </div>
               <div>
                 <label className="text-xs font-medium mb-1.5 block">المحافظة</label>
-                <Input value={city} onChange={e => setCity(e.target.value)} placeholder="القاهرة، الجيزة..." className="h-9 text-sm" />
+                <Combobox
+                  value={city ?? ""}
+                  onValueChange={v => {
+                    setCity(v);
+                    const matched = (zones as any[] ?? []).find((z: any) => z.name === v);
+                    setZoneId(matched ? matched.id : null);
+                  }}
+                  options={(zones as any[] ?? []).map((z: any) => ({ value: z.name, label: z.name }))}
+                  placeholder="اختر محافظة"
+                  searchPlaceholder="ابحث عن محافظة..."
+                  emptyText="لا توجد محافظة بهذا الاسم"
+                />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1.5 block">المنطقة</label>
