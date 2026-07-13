@@ -81,11 +81,21 @@ router.get("/zones/insights", async (req, res): Promise<void> => {
     });
   }
 
-  // تجميع الطلبات حسب المحافظة (city) بدل المنطقة (zoneId) — (null/فارغ → "غير محدد")
+  // تجميع الطلبات: لو الطلب مربوط بمنطقة (zoneId) نستخدم اسم المنطقة،
+  // ولو مش مربوط (zoneId فاضي) نرجع لعمود المحافظة (city) كـ fallback — (null/فارغ → "غير محدد")
+  const zoneNameById = new Map<number, string>();
+  for (const z of zones) zoneNameById.set(z.id, z.name);
+
   const grouped = new Map<string | null, typeof orders>();
   for (const o of orders) {
-    const rawCity = ((o as any).city as string | null | undefined)?.trim();
-    const key = rawCity && rawCity.length > 0 ? rawCity : null;
+    const zoneId = (o as any).zoneId as number | null | undefined;
+    let key: string | null = null;
+    if (zoneId != null && zoneNameById.has(zoneId)) {
+      key = zoneNameById.get(zoneId)!;
+    } else {
+      const rawCity = ((o as any).city as string | null | undefined)?.trim();
+      key = rawCity && rawCity.length > 0 ? rawCity : null;
+    }
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(o);
   }

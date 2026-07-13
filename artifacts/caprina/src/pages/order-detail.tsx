@@ -574,17 +574,6 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
                   emptyText="لا توجد محافظة بهذا الاسم"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium mb-1.5 block">المنطقة</label>
-                <Combobox
-                  value={zoneId != null ? String(zoneId) : ""}
-                  onValueChange={v => setZoneId(v ? Number(v) : null)}
-                  options={(zones as any[] ?? []).map((z: any) => ({ value: String(z.id), label: z.name }))}
-                  placeholder="اختر منطقة"
-                  searchPlaceholder="ابحث عن منطقة..."
-                  emptyText="لا توجد منطقة بهذا الاسم"
-                />
-              </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium mb-1.5 block">العنوان التفصيلي</label>
                 <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="الشارع، الحي..." className="h-9 text-sm" />
