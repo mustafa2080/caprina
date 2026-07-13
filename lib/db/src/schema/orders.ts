@@ -15,6 +15,7 @@ export const ordersTable = mysqlTable("orders", {
   phone: varchar("phone", { length: 50 }),
   city: varchar("city", { length: 255 }),
   address: text("address"),
+  zoneId: int("zone_id"), // المنطقة (تصنيف/وصف إضافي، مستقل عن المحافظة)
   product: varchar("product", { length: 255 }).notNull(),
   color: varchar("color", { length: 100 }),
   size: varchar("size", { length: 100 }),

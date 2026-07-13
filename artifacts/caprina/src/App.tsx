@@ -73,6 +73,7 @@ const AuditLogsPage         = lazy(() => import("@/pages/audit-logs"));
 const ShippingManifestPage  = lazy(() => import("@/pages/shipping-manifest"));
 const ShippingCompanyDetail = lazy(() => import("@/pages/shipping-company-detail"));
 const WarehousesPage        = lazy(() => import("@/pages/warehouses"));
+const ZonesPage             = lazy(() => import("@/pages/zones"));
 const TeamPerformancePage   = lazy(() => import("@/pages/team-performance"));
 const AdsAnalyticsPage      = lazy(() => import("@/pages/ads-analytics"));
 const TeamPage              = lazy(() => import("@/pages/team"));
@@ -338,6 +339,7 @@ function Router() {
           <Route path="/users/manage"             component={() => <ProtectedRoute permission="settings.users" component={UsersPage} />} />
           <Route path="/audit-logs"               component={() => <ProtectedRoute permission="settings.audit" component={AuditLogsPage} />} />
           <Route path="/warehouses"               component={() => <ProtectedRoute permission="inventory.view" component={WarehousesPage} />} />
+          <Route path="/zones"                    component={() => <ProtectedRoute permission="tools.zones" component={ZonesPage} />} />
           <Route path="/team-performance"         component={() => <ProtectedRoute permission="team.performance" component={TeamPerformancePage} />} />
           <Route path="/ads-analytics"            component={() => <ProtectedRoute permission="analytics.ads" component={AdsAnalyticsPage} />} />
           <Route path="/team"                     component={() => <ProtectedRoute permission="team.manage" component={TeamPage} />} />

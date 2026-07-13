@@ -221,6 +221,7 @@ const PERM_TO_SECTION: Record<string, string> = {
   // الأدوات
   "tools.import":              "section_import",
   "tools.export":              "section_export_data",
+  "tools.zones":               "section_zones",
   // الإعدادات
   "settings.brand":            "section_dashboard",
   "settings.audit":            "section_audit",
@@ -249,6 +250,7 @@ const SECTION_TO_PRIMARY_PERM: Record<string, string> = {
   "section_invoices":            "invoices.view",
   "section_import":              "tools.import",
   "section_export_data":         "tools.export",
+  "section_zones":               "tools.zones",
   "section_users":               "settings.users",
   "section_sessions_report":     "settings.sessions",
   "section_audit":               "settings.audit",
@@ -275,6 +277,7 @@ const ALL_SECTIONS: Array<{ key: string; label: string; icon: string; color: str
   { key: "section_invoices",            label: "الفواتير",             icon: "🧾", color: "text-yellow-400",  bg: "bg-yellow-500/10 border-yellow-500/30" },
   { key: "section_import",              label: "استيراد Excel",        icon: "📤", color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/30" },
   { key: "section_export_data",         label: "تصدير البيانات",       icon: "📥", color: "text-orange-300",  bg: "bg-orange-400/10 border-orange-400/30" },
+  { key: "section_zones",               label: "المناطق",              icon: "📍", color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/30" },
   { key: "section_users",               label: "إدارة المستخدمين",     icon: "🔐", color: "text-green-400",   bg: "bg-green-500/10 border-green-500/30" },
   { key: "section_sessions_report",     label: "تقرير الجلسات",        icon: "🕐", color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/30" },
   { key: "section_audit",               label: "سجل العمليات",         icon: "🛡️", color: "text-red-400",     bg: "bg-red-500/10 border-red-500/30" },
@@ -376,6 +379,7 @@ const SECTION_GROUPS: Array<{
     permissions: [
       { key: "tools.import", label: "استيراد Excel",    desc: "رفع وقراءة ملفات البيانات" },
       { key: "tools.export", label: "تصدير البيانات",   desc: "تحميل البيانات بصيغ مختلفة" },
+      { key: "tools.zones",  label: "المناطق",          desc: "إدارة تصنيفات المناطق للطلبات" },
     ],
   },
   {
@@ -428,7 +432,7 @@ const DEFAULT_PERMISSIONS: Record<string, () => string[]> = {
     // صلاحيات الفريق
     "team.view", "team.performance", "team.manage", "team.salaries",
     // صلاحيات الأدوات
-    "tools.import", "tools.export",
+    "tools.import", "tools.export", "tools.zones",
     // صلاحيات الإعدادات
     "settings.brand", "settings.users", "settings.audit", "settings.sessions", "settings.whatsapp",
     // الأقسام المرئية — مولّدة تلقائياً من ALL_SECTIONS

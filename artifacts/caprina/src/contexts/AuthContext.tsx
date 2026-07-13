@@ -115,6 +115,7 @@ export const ALL_PERMISSIONS = {
   tools: [
     { key: "tools.import", label: "استيراد Excel",     desc: "رفع وقراءة ملفات البيانات" },
     { key: "tools.export", label: "تصدير البيانات",    desc: "تحميل البيانات بصيغ مختلفة" },
+    { key: "tools.zones",  label: "المناطق",           desc: "إدارة تصنيفات المناطق للطلبات" },
   ],
   // 9. الإعدادات والدعم
   settings: [
@@ -152,7 +153,7 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     "analytics.view","analytics.financial","analytics.products","analytics.ads","analytics.smart",
     "finance.view","finance.sales","finance.expenses","finance.cash","finance.suppliers","finance.reports",
     "team.view","team.performance","team.manage","team.salaries",
-    "tools.import","tools.export",
+    "tools.import","tools.export","tools.zones",
     "settings.brand","settings.users","settings.audit","settings.sessions","settings.whatsapp",
   ],
   employee: [

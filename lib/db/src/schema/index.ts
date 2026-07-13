@@ -8,6 +8,7 @@ export * from "./users";
 export * from "./audit_logs";
 export * from "./warehouses";
 export * from "./warehouse_stock";
+export * from "./zones";
 export * from "./employee_profiles";
 export * from "./employee_kpis";
 export * from "./employee_daily_logs";

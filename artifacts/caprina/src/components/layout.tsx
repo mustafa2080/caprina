@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { firstLogoBase64 } from "@/lib/first-logo";
 import { secondLogoBase64 } from "@/lib/second-logo";
-import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen, User } from "lucide-react";
+import { LayoutDashboard, Package, Plus, Boxes, Truck, FileText, Upload, Activity, BarChart3, Users, Shield, LogOut, ChevronDown, KeyRound, Warehouse, Megaphone, UserCheck, UserCog, Sun, Moon, Brain, Archive, Clock, MessageCircle, Menu, X, Download, DollarSign, ShoppingCart, ShoppingBag, Receipt, Building2, Wallet, ChevronLeft, Crown, Settings, PanelRightClose, PanelRightOpen, User, MapPin } from "lucide-react";
 import { BrandFull, BrandLogoMark } from "@/components/brand-logo";
 import { BrandSettingsDialog } from "@/components/brand-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,7 @@ const ALL_NAV = [
   { href: "/import",            label: "استيراد Excel",       icon: Upload,                      permission: "tools.import",            section: "section_import",             iconColor: "text-amber-400",      group: "tools"        },
   { href: "/export",            label: "تصدير البيانات",      icon: Download,                    permission: "tools.export",            section: "section_export_data",        iconColor: "text-orange-300",     group: "tools"        },
   { href: "/archive",           label: "الأرشيف",             icon: Archive,                     permission: "section_archive",         section: "section_archive",            iconColor: "text-stone-400",      group: "tools"        },
+  { href: "/zones",             label: "المناطق",             icon: MapPin,                      permission: "tools.zones",             section: "section_zones",              iconColor: "text-amber-400",      group: "tools"        },
   { href: "/whatsapp",          label: "إعدادات واتساب",     icon: WhatsAppIcon,                permission: "settings.whatsapp",       section: "section_whatsapp",           iconColor: "text-[#25D366]",      group: "settings"     },
   { href: "/audit-logs",        label: "سجل التعديلات",       icon: Shield,                      permission: "settings.audit",          section: "section_audit",              iconColor: "text-red-400",        group: "settings"     },
 ];

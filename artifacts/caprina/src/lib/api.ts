@@ -595,6 +595,7 @@ export interface BatchCreateOrderBody {
   phone?: string | null;
   city?: string | null;
   address?: string | null;
+  zoneId?: number | null;
   shippingCost?: number | null;
   shippingCompanyId?: number | null;
   warehouseId?: number | null;
@@ -1031,6 +1032,26 @@ export const warehousesApi = {
     apiFetch<WarehouseStockItem>(`/warehouses/${warehouseId}/stock/${stockId}`, { method: "PATCH", body: JSON.stringify({ quantity }) }),
   addStock: (warehouseId: number, data: { productId?: number | null; variantId?: number | null; quantity: number }) =>
     apiFetch<WarehouseStockItem>(`/warehouses/${warehouseId}/stock`, { method: "POST", body: JSON.stringify(data) }),
+};
+
+// ─── Zones API (المناطق) ─────────────────────────────────────────────────────
+export interface Zone {
+  id: number;
+  tenantId: number | null;
+  name: string;
+  notes: string | null;
+  ordersCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const zonesApi = {
+  list: () => apiFetch<Zone[]>("/zones"),
+  create: (data: { name: string; notes?: string | null }) =>
+    apiFetch<Zone>("/zones", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<{ name: string; notes: string | null }>) =>
+    apiFetch<Zone>(`/zones/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: number) => apiFetch<void>(`/zones/${id}`, { method: "DELETE" }),
 };
 
 // ─── Team & Campaign Analytics API ──────────────────────────────────────────
