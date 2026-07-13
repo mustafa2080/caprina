@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Combobox } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
 import { ToastAction } from "@/components/ui/toast";
 import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi, warehousesApi, usersApi, cashRegistersApi, apiFetch, zonesApi } from "@/lib/api";
@@ -564,11 +565,14 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
               </div>
               <div>
                 <label className="text-xs font-medium mb-1.5 block">المنطقة</label>
-                <select value={zoneId ?? ""} onChange={e => setZoneId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">— غير محدد —</option>
-                  {(zones as any[] ?? []).map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
-                </select>
+                <Combobox
+                  value={zoneId != null ? String(zoneId) : ""}
+                  onValueChange={v => setZoneId(v ? Number(v) : null)}
+                  options={(zones as any[] ?? []).map((z: any) => ({ value: String(z.id), label: z.name }))}
+                  placeholder="اختر منطقة"
+                  searchPlaceholder="ابحث عن منطقة..."
+                  emptyText="لا توجد منطقة بهذا الاسم"
+                />
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium mb-1.5 block">العنوان التفصيلي</label>
