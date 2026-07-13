@@ -1082,7 +1082,7 @@ function ZoneActiveShape(props: any) {
   );
 }
 
-type ZoneMetric = "revenue" | "orders";
+type ZoneMetric = "revenue" | "orders" | "deliveryRate" | "returnRate";
 
 function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone: (zoneId: number | null) => void }) {
   const [metric, setMetric] = useState<ZoneMetric>("revenue");
@@ -1090,9 +1090,16 @@ function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone
 
   const withData = useMemo(() => zones.filter(z => z.ordersCount > 0), [zones]);
 
+  const isPieMetric = metric === "revenue" || metric === "orders";
+
   const colored = useMemo(() => withData
     .map((z, i) => ({ ...z, color: ZONE_DONUT_COLORS[i % ZONE_DONUT_COLORS.length] }))
-    .sort((a, b) => (metric === "revenue" ? b.revenue - a.revenue : b.ordersCount - a.ordersCount)),
+    .sort((a, b) => {
+      if (metric === "revenue") return b.revenue - a.revenue;
+      if (metric === "orders") return b.ordersCount - a.ordersCount;
+      if (metric === "deliveryRate") return b.deliveryRate - a.deliveryRate;
+      return b.returnRate - a.returnRate; // returnRate: الأعلى مرتجعًا في الأول عشان يشد الانتباه
+    }),
     [withData, metric]
   );
 
@@ -1104,9 +1111,9 @@ function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone
       <div>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="font-black text-sm flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary" /> المناطق الأشد مبيعًا
+            <MapPin className="w-4 h-4 text-primary" /> ترتيب المناطق
           </h3>
-          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 flex-wrap">
             <button
               onClick={() => setMetric("revenue")}
               className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "revenue" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -1119,9 +1126,52 @@ function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone
             >
               عدد الطلبات
             </button>
+            <button
+              onClick={() => setMetric("deliveryRate")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "deliveryRate" ? "bg-emerald-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              أعلى تسليم
+            </button>
+            <button
+              onClick={() => setMetric("returnRate")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${metric === "returnRate" ? "bg-red-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              أعلى مرتجع
+            </button>
           </div>
         </div>
 
+        {!isPieMetric ? (
+          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/20 to-transparent p-3 space-y-2 max-h-[340px] overflow-y-auto">
+            {colored.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-muted-foreground gap-2 py-10">
+                <Package className="w-8 h-8 opacity-25" />
+                <p className="text-xs font-semibold">لا توجد بيانات كافية بعد</p>
+              </div>
+            ) : (
+              colored.map((z, i) => {
+                const value = metric === "deliveryRate" ? z.deliveryRate : z.returnRate;
+                const isGood = metric === "deliveryRate";
+                return (
+                  <button
+                    key={z.zoneId ?? "__none__"} type="button"
+                    onClick={() => onOpenZone(z.zoneId)}
+                    className="w-full flex items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-muted/40 transition-all text-right"
+                  >
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${i === 0 ? (isGood ? "bg-emerald-500 text-white" : "bg-red-500 text-white") : "bg-muted text-muted-foreground"}`}>
+                      {i + 1}
+                    </span>
+                    <span className="text-xs font-bold text-foreground flex-1 truncate" title={z.zoneName ?? "غير محدد"}>{z.zoneName ?? "غير محدد"}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{fn(z.ordersCount)} طلب</span>
+                    <span className={`text-sm font-black w-14 text-left shrink-0 tabular-nums ${isGood ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {value}%
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        ) : (
         <div className="relative rounded-2xl border border-border/60 bg-gradient-to-b from-muted/20 to-transparent p-2" style={{ height: 260 }}>
           {colored.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-2">
@@ -1169,8 +1219,9 @@ function ZonesOverview({ zones, onOpenZone }: { zones: ZoneInsight[]; onOpenZone
             </>
           )}
         </div>
+        )}
 
-        {colored.length > 0 && (
+        {isPieMetric && colored.length > 0 && (
           <div className="flex flex-col gap-1 max-h-56 overflow-y-auto pr-1 mt-3">
             {colored.map((z, i) => {
               const value = metric === "revenue" ? z.revenue : z.ordersCount;
