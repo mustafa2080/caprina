@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ToastAction } from "@/components/ui/toast";
-import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi, warehousesApi, usersApi, cashRegistersApi, apiFetch } from "@/lib/api";
+import { shippingApi, ordersApi, productsApi, variantsApi, manifestsApi, warehousesApi, usersApi, cashRegistersApi, apiFetch, zonesApi } from "@/lib/api";
 import { type WhatsAppOrderData } from "@/lib/whatsapp";
 import { WhatsAppDialog } from "@/components/whatsapp-dialog";
 import { formatCurrency } from "@/lib/utils";
@@ -383,10 +383,10 @@ function AddProductDialog({ open, onOpenChange, order, onSuccess }: {
 }
 
 // -- Edit Single Order Row Dialog (Full Form)
-function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, products, allVariants, warehouses, users, onSuccess }: {
+function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, products, allVariants, warehouses, users, zones, onSuccess }: {
   open: boolean; onOpenChange: (v: boolean) => void; order: any;
   shippingCompanies: any[]; products: any[]; allVariants: any[];
-  warehouses: any[]; users: any[]; onSuccess: () => void;
+  warehouses: any[]; users: any[]; zones?: any[]; onSuccess: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -404,6 +404,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
+  const [zoneId, setZoneId] = useState<number | null>(null);
   const [address, setAddress] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [shippingCompanyId, setShippingCompanyId] = useState<number | null>(null);
@@ -446,6 +447,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       setCustomerName(o.customerName ?? "");
       setPhone(o.phone ?? "");
       setCity(o.city ?? "");
+      setZoneId(o.zoneId ?? null);
       setAddress(o.address ?? "");
       setTrackingNumber(o.trackingNumber ?? "");
       setShippingCompanyId(o.shippingCompanyId ?? null);
@@ -494,6 +496,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
           customerName: customerName.trim(),
           phone: phone || null,
           city: city || null,
+          zoneId: zoneId ?? null,
           address: address || null,
           trackingNumber: trackingNumber || null,
           shippingCompanyId: shippingCompanyId ?? null,
@@ -558,6 +561,14 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
               <div>
                 <label className="text-xs font-medium mb-1.5 block">المحافظة</label>
                 <Input value={city} onChange={e => setCity(e.target.value)} placeholder="القاهرة، الجيزة..." className="h-9 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block">المنطقة</label>
+                <select value={zoneId ?? ""} onChange={e => setZoneId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full h-9 text-sm rounded-md border border-input bg-card px-2 focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="">— غير محدد —</option>
+                  {(zones as any[] ?? []).map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
+                </select>
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium mb-1.5 block">العنوان التفصيلي</label>
@@ -787,10 +798,10 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
 }
 
 // ── Invoice Edit Dialog (تعديل بيانات الفاتورة كاملة) ──────────────────────
-function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingCompanies, warehouses, users, canViewFinancials, products, allVariants, onSuccess }: {
+function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingCompanies, warehouses, users, zones, canViewFinancials, products, allVariants, onSuccess }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   primaryOrder: any; orders: any[];
-  shippingCompanies: any[]; warehouses: any[]; users: any[];
+  shippingCompanies: any[]; warehouses: any[]; users: any[]; zones?: any[];
   canViewFinancials: boolean;
   products: any[]; allVariants: any[];
   onSuccess: () => void;
@@ -822,6 +833,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
     phone:             z.string().optional().nullable(),
     city:              z.string().optional().nullable(),
     address:           z.string().optional().nullable(),
+    zoneId:            z.coerce.number().optional().nullable(),
     shippingCompanyId: z.coerce.number().optional().nullable(),
     shippingCost:      z.coerce.number().min(0).optional().nullable(),
     warehouseId:       z.coerce.number().optional().nullable(),
@@ -840,6 +852,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
       phone:             primaryOrder?.phone ?? "",
       city:              primaryOrder?.city ?? "",
       address:           primaryOrder?.address ?? "",
+      zoneId:            primaryOrder?.zoneId ?? null,
       shippingCompanyId: primaryOrder?.shippingCompanyId ?? null,
       shippingCost:      primaryOrder?.shippingCost ?? 0,
       warehouseId:       primaryOrder?.warehouseId ?? null,
@@ -858,6 +871,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
         phone:             primaryOrder.phone ?? "",
         city:              primaryOrder.city ?? "",
         address:           primaryOrder.address ?? "",
+        zoneId:            primaryOrder.zoneId ?? null,
         shippingCompanyId: primaryOrder.shippingCompanyId ?? null,
         shippingCost:      primaryOrder.shippingCost ?? 0,
         warehouseId:       primaryOrder.warehouseId ?? null,
@@ -879,6 +893,7 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
           phone:             values.phone || null,
           city:              values.city || null,
           address:           values.address || null,
+          zoneId:            values.zoneId || null,
           shippingCompanyId: values.shippingCompanyId || null,
           shippingCost:      values.shippingCost ?? null,
           warehouseId:       values.warehouseId || null,
@@ -942,6 +957,20 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
                   <FormItem>
                     <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة</FormLabel>
                     <FormControl><Input placeholder="القاهرة..." className="h-9 text-sm" {...field} value={field.value ?? ""} /></FormControl>
+                  </FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={form.control} name="zoneId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المنطقة</FormLabel>
+                    <Select value={field.value?.toString() ?? "none"} onValueChange={v => field.onChange(v === "none" ? null : Number(v))}>
+                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر منطقة" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— غير محدد —</SelectItem>
+                        {zones?.map((z: any) => <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </FormItem>
                 )} />
               </div>
@@ -1182,10 +1211,10 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
   );
 }
 
-function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users, canEdit, canDelete, canCreate, externalShowAddProduct, onExternalShowAddProductChange, externalShowEdit, onExternalShowEditChange }: {
+function InvoiceView({ orders, currentId, shippingCompanies, products, allVariants, onRefresh, isAdmin, canViewFinancials, canViewProfitability, formatCurrency, warehouses, users, zones, canEdit, canDelete, canCreate, externalShowAddProduct, onExternalShowAddProductChange, externalShowEdit, onExternalShowEditChange }: {
   orders: any[]; currentId: number; shippingCompanies: any[]; products: any[]; allVariants: any[];
   onRefresh: () => void; isAdmin: boolean; canViewFinancials: boolean; canViewProfitability: boolean; formatCurrency: (n: number) => string;
-  warehouses: any[]; users: any[]; canEdit: boolean; canDelete: boolean; canCreate: boolean;
+  warehouses: any[]; users: any[]; zones?: any[]; canEdit: boolean; canDelete: boolean; canCreate: boolean;
   externalShowAddProduct?: boolean; onExternalShowAddProductChange?: (v: boolean) => void;
   externalShowEdit?: boolean; onExternalShowEditChange?: (v: boolean) => void;
 }) {
@@ -1669,6 +1698,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         order={editingOrder} shippingCompanies={shippingCompanies}
         products={products} allVariants={allVariants}
         warehouses={warehouses} users={users}
+        zones={zones}
         onSuccess={onRefresh}
       />
       <AddProductDialog
@@ -1700,6 +1730,7 @@ function InvoiceView({ orders, currentId, shippingCompanies, products, allVarian
         shippingCompanies={shippingCompanies}
         warehouses={warehouses}
         users={users}
+        zones={zones}
         canViewFinancials={canViewFinancials}
         products={products}
         allVariants={allVariants}
@@ -1952,6 +1983,7 @@ export default function OrderDetail() {
   const { data: products } = useQuery({ queryKey: ["products"], queryFn: productsApi.list });
   const { data: allVariants } = useQuery({ queryKey: ["variants"], queryFn: variantsApi.listAll });
   const { data: warehouses }        = useQuery({ queryKey: ["warehouses"], queryFn: warehousesApi.list });
+  const { data: zones }             = useQuery({ queryKey: ["zones"],      queryFn: zonesApi.list });
   const { data: users, isLoading: usersLoading }             = useQuery({ queryKey: ["users"],      queryFn: usersApi.list, enabled: isAdmin });
   const { data: manifestStatus } = useQuery({
     queryKey: ["order-manifest-status", id],
@@ -2868,6 +2900,7 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
             allVariants={allVariants ?? []}
             warehouses={warehouses ?? []}
             users={users ?? []}
+            zones={zones ?? []}
             isAdmin={isAdmin}
             canViewFinancials={canViewFinancials}
             canViewProfitability={canViewProfitability}
