@@ -22,6 +22,7 @@ import { productsApi, variantsApi, shippingApi, warehousesApi, usersApi, ordersA
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/utils";
 import { ProductSearchCombobox } from "@/components/product-search-combobox";
+import { Combobox } from "@/components/ui/combobox";
 import { useState, useRef, useEffect, useMemo } from "react";
 
 // أيقونات SVG لمصادر الإعلان
@@ -712,16 +713,18 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                     <FormField control={form.control} name="city" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة <span className="text-red-500">*</span></FormLabel>
-                        <Select value={field.value ?? ""} onValueChange={v => {
-                          field.onChange(v);
-                          const matched = zones?.find((z: any) => z.name === v);
-                          form.setValue("zoneId", matched ? matched.id : null);
-                        }}>
-                          <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر محافظة" /></SelectTrigger>
-                          <SelectContent>
-                            {zones?.map((z: any) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          value={field.value ?? ""}
+                          onValueChange={v => {
+                            field.onChange(v);
+                            const matched = zones?.find((z: any) => z.name === v);
+                            form.setValue("zoneId", matched ? matched.id : null);
+                          }}
+                          options={(zones ?? []).map((z: any) => ({ value: z.name, label: z.name }))}
+                          placeholder="اختر محافظة"
+                          searchPlaceholder="ابحث عن محافظة..."
+                          emptyText="لا توجد محافظة بهذا الاسم"
+                        />
                         <FormMessage />
                       </FormItem>
                     )} />
