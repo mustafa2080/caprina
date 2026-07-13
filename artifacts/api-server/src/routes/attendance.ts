@@ -153,10 +153,24 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   const graceMinutes = await getLateGraceMinutes();
   const { status: computedStatus, lateMinutes, deduction } = computeLateness((profile as any).shiftStart, time, profile.monthlySalary ?? 0, graceMinutes);
 
-  // لو الموظف عائب أصلاً (اتعلّم عليه غياب كامل يوم سابق)، امنع تسجيل حضور جديد
+  // ─── تصفير تلقائي للفلاج القديم ─────────────────────────────────────────
+  // الفلاج المفروض يمنع تسجيل الحضور في نفس يوم الغياب بس، مش للأبد.
+  // لو الفلاج متحط من يوم سابق (updated_at مختلف عن النهارده)، يبقى فلاج قديم
+  // وننضفه تلقائيًا قبل ما نكمل، عشان الموظف يقدر يسجل حضوره الجديد النهارده عادي.
   if ((profile as any).isFlagged) {
-    res.status(403).json({ error: "أنت غائب اليوم، لا يمكنك تسجيل الحضور", flagged: true });
-    return;
+    const updatedAtDate = profile.updatedAt
+      ? new Intl.DateTimeFormat("en-CA", { timeZone: CAIRO_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(profile.updatedAt as any))
+      : null;
+
+    if (updatedAtDate !== today) {
+      // فلاج قديم من يوم سابق → نمسحه تلقائيًا ونكمل تسجيل الحضور بشكل طبيعي
+      await db.update(employeeProfilesTable).set({ isFlagged: false } as any).where(eq(employeeProfilesTable.id, profile.id));
+      (profile as any).isFlagged = false;
+    } else {
+      // الفلاج ده اتحط النهارده فعلاً → امنع تسجيل حضور تاني
+      res.status(403).json({ error: "أنت غائب اليوم، لا يمكنك تسجيل الحضور", flagged: true });
+      return;
+    }
   }
 
   // بعد الساعة 1:01 ظهرًا → غياب يوم كامل، وممنوع تسجيل الحضور خالص (من غير ما نسجل أي حاجة في الداتابيز)
