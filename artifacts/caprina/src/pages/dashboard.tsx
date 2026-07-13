@@ -1658,16 +1658,27 @@ export default function Dashboard() {
 
   // ── أعلى المحافظات طلبًا ──────────────────────────────────────────────
   const ZONE_DONUT_COLORS_DASH = ["#7c3aed", "#d946ef", "#f59e0b", "#10b981", "#3b82f6", "#94a3b8"];
+  type ZoneDashMetric = "ordersCount" | "revenue" | "deliveryRate" | "returnRate";
+  const ZONE_DASH_METRICS: { key: ZoneDashMetric; label: string; suffix?: string; isCurrency?: boolean }[] = [
+    { key: "ordersCount", label: "عدد الطلبات" },
+    { key: "revenue", label: "المبيعات", isCurrency: true },
+    { key: "deliveryRate", label: "نسبة التسليم", suffix: "%" },
+    { key: "returnRate", label: "نسبة المرتجعات", suffix: "%" },
+  ];
+  const [zoneDashMetric, setZoneDashMetric] = useState<ZoneDashMetric>("ordersCount");
+  const [zoneDashExpanded, setZoneDashExpanded] = useState<string | null>(null);
   const allRankedZones = useMemo(() => {
     if (!zonesInsights?.zones) return [];
     // نعتمد على الاسم (zoneName) كمفتاح فريد — بيشمل المناطق المربوطة بـ zoneId
     // وكمان المحافظات اللي بترجع بالـ fallback على city (zoneId فاضي بس zoneName موجود)
-    return zonesInsights.zones
-      .filter(z => z.zoneName && z.ordersCount > 0)
-      .sort((a, b) => b.ordersCount - a.ordersCount);
+    return zonesInsights.zones.filter(z => z.zoneName && z.ordersCount > 0);
   }, [zonesInsights]);
-  const topZones = useMemo(() => allRankedZones.slice(0, 5), [allRankedZones]);
+  const rankedZonesByMetric = useMemo(() => {
+    return [...allRankedZones].sort((a, b) => (b[zoneDashMetric] ?? 0) - (a[zoneDashMetric] ?? 0));
+  }, [allRankedZones, zoneDashMetric]);
+  const topZones = useMemo(() => rankedZonesByMetric.slice(0, 5), [rankedZonesByMetric]);
   const topZonesTotalOrders = allRankedZones.reduce((s, z) => s + z.ordersCount, 0);
+  const zoneMetricTotal = topZones.reduce((s, z) => s + (z[zoneDashMetric] ?? 0), 0);
   const topZonesColored = useMemo(
     () => topZones.map((z, i) => ({ ...z, color: ZONE_DONUT_COLORS_DASH[i % ZONE_DONUT_COLORS_DASH.length] })),
     [topZones]
@@ -1675,6 +1686,13 @@ export default function Dashboard() {
   const topZonesAvgDelivery = topZones.length > 0
     ? Math.round(topZones.reduce((s, z) => s + (z.deliveryRate ?? 0), 0) / topZones.length)
     : 0;
+  const activeZoneMetricDef = ZONE_DASH_METRICS.find(m => m.key === zoneDashMetric)!;
+  const fmtZoneMetric = (z: (typeof topZonesColored)[number]) => {
+    const v = z[zoneDashMetric] ?? 0;
+    if (activeZoneMetricDef.isCurrency) return fc(v);
+    if (activeZoneMetricDef.suffix) return `${Math.round(v)}${activeZoneMetricDef.suffix}`;
+    return fn(v);
+  };
 
   return (
     <>
@@ -1831,15 +1849,27 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <p className="text-[10px] sm:text-xs mt-0.5 text-violet-600/70 dark:text-violet-400/70 hidden sm:block">
-                    أعلى المحافظات من حيث عدد الطلبات — استخدمها لتوجيه المخزون والتسويق
+                    أعلى المحافظات حسب {activeZoneMetricDef.label} — اضغط على أي منطقة لتفاصيلها
                   </p>
                 </div>
               </div>
-              <Link href="/zones" className="shrink-0">
-                <button className="text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors whitespace-nowrap">
-                  تفاصيل المحافظات ←
-                </button>
-              </Link>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* قائمة منسدلة لاختيار المقياس */}
+                <select
+                  value={zoneDashMetric}
+                  onChange={(e) => setZoneDashMetric(e.target.value as ZoneDashMetric)}
+                  className="text-[10px] sm:text-xs font-bold px-2 py-1.5 rounded-lg bg-card border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 cursor-pointer outline-none"
+                >
+                  {ZONE_DASH_METRICS.map(m => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </select>
+                <Link href="/zones" className="shrink-0">
+                  <button className="text-[10px] sm:text-xs font-black px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors whitespace-nowrap">
+                    التفاصيل ←
+                  </button>
+                </Link>
+              </div>
             </div>
 
             {/* Body: دايرة مختصرة + ملخص مرتب */}
@@ -1850,7 +1880,7 @@ export default function Dashboard() {
                   <PieChart tabIndex={-1} style={{ outline: "none" }}>
                     <Pie
                       data={topZonesColored} cx="50%" cy="50%" innerRadius="62%" outerRadius="100%"
-                      paddingAngle={topZonesColored.length > 1 ? 3 : 0} dataKey="ordersCount" nameKey="zoneName"
+                      paddingAngle={topZonesColored.length > 1 ? 3 : 0} dataKey={zoneDashMetric} nameKey="zoneName"
                       stroke="none" cornerRadius={4} startAngle={90} endAngle={-270}
                       isAnimationActive animationDuration={500}
                     >
@@ -1861,10 +1891,12 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="font-black text-foreground leading-none tabular-nums" style={{ fontSize: 18 }}>
-                    {fn(topZonesTotalOrders)}
+                  <p className="font-black text-foreground leading-none tabular-nums" style={{ fontSize: activeZoneMetricDef.isCurrency ? 13 : 18 }}>
+                    {activeZoneMetricDef.isCurrency ? fc(zoneMetricTotal) : activeZoneMetricDef.suffix ? `${Math.round(zoneMetricTotal / (topZones.length || 1))}%` : fn(zoneMetricTotal)}
                   </p>
-                  <p className="text-[8px] font-bold text-muted-foreground mt-0.5">طلب</p>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-0.5">
+                    {activeZoneMetricDef.key === "ordersCount" ? "طلب" : activeZoneMetricDef.key === "revenue" ? "مبيعات" : "متوسط"}
+                  </p>
                 </div>
               </div>
 
@@ -1891,30 +1923,64 @@ export default function Dashboard() {
                 {/* ترتيب المناطق */}
                 <div className="space-y-1">
                   {topZonesColored.map((z, idx) => {
-                    const pct = topZonesTotalOrders > 0 ? Math.round((z.ordersCount / topZonesTotalOrders) * 100) : 0;
+                    const metricVal = z[zoneDashMetric] ?? 0;
+                    const pct = zoneMetricTotal > 0 ? Math.round((metricVal / zoneMetricTotal) * 100) : 0;
                     const isFirst = idx === 0;
+                    const key = z.zoneId ?? z.zoneName;
+                    const isExpanded = zoneDashExpanded === key;
                     return (
                       <div
-                        key={z.zoneId ?? z.zoneName}
-                        className={`flex items-center gap-2 rounded-lg border px-2 py-1 ${
+                        key={key}
+                        className={`rounded-lg border overflow-hidden ${
                           isFirst
                             ? "bg-amber-100/70 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
                             : "bg-card/50 border-border/50"
                         }`}
                       >
-                        {isFirst
-                          ? <Crown className="w-3 h-3 text-amber-500 shrink-0" />
-                          : <span className="w-2 h-2 rounded-full shrink-0" style={{ background: z.color }} />
-                        }
-                        <span className={`text-[11px] font-bold flex-1 truncate ${isFirst ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
-                          {z.zoneName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">
-                          تسليم {Math.round(z.deliveryRate ?? 0)}%
-                        </span>
-                        <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 shrink-0 tabular-nums w-14 text-left">
-                          {fn(z.ordersCount)} ({pct}%)
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setZoneDashExpanded(isExpanded ? null : key)}
+                          className="w-full flex items-center gap-2 px-2 py-1 text-right"
+                        >
+                          {isFirst
+                            ? <Crown className="w-3 h-3 text-amber-500 shrink-0" />
+                            : <span className="w-2 h-2 rounded-full shrink-0" style={{ background: z.color }} />
+                          }
+                          <span className={`text-[11px] font-bold flex-1 truncate ${isFirst ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>
+                            {z.zoneName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">
+                            تسليم {Math.round(z.deliveryRate ?? 0)}%
+                          </span>
+                          <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 shrink-0 tabular-nums">
+                            {fmtZoneMetric(z)} ({pct}%)
+                          </span>
+                          <ChevronDown className={`w-3 h-3 text-muted-foreground shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                        </button>
+                        {isExpanded && (
+                          <div className="px-2 pb-2 pt-1 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                            <div className="rounded-md bg-card/70 px-2 py-1 text-center">
+                              <p className="text-[8px] text-muted-foreground font-semibold">المبيعات</p>
+                              <p className="text-[10px] font-black text-foreground">{fc(z.revenue ?? 0)}</p>
+                            </div>
+                            <div className="rounded-md bg-card/70 px-2 py-1 text-center">
+                              <p className="text-[8px] text-muted-foreground font-semibold">تم التسليم</p>
+                              <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">{fn(z.deliveredCount ?? 0)}</p>
+                            </div>
+                            <div className="rounded-md bg-card/70 px-2 py-1 text-center">
+                              <p className="text-[8px] text-muted-foreground font-semibold">مرتجعات</p>
+                              <p className="text-[10px] font-black text-red-600 dark:text-red-400">
+                                {fn(z.returnedCount ?? 0)} ({Math.round(z.returnRate ?? 0)}%)
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-card/70 px-2 py-1 text-center">
+                              <p className="text-[8px] text-muted-foreground font-semibold">أعلى سبب مرتجع</p>
+                              <p className="text-[10px] font-black text-foreground truncate" title={z.topReason?.label ?? "—"}>
+                                {z.topReason ? `${z.topReason.label} (${z.topReason.pct}%)` : "—"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
