@@ -956,7 +956,11 @@ function InvoiceEditDialog({ open, onOpenChange, primaryOrder, orders, shippingC
                 <FormField control={form.control} name="city" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة <span className="text-red-500">*</span></FormLabel>
-                    <Select value={field.value ?? ""} onValueChange={v => field.onChange(v)}>
+                    <Select value={field.value ?? ""} onValueChange={v => {
+                      field.onChange(v);
+                      const matched = zones?.find((z: any) => z.name === v);
+                      form.setValue("zoneId", matched ? matched.id : null);
+                    }}>
                       <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder="اختر محافظة" /></SelectTrigger>
                       <SelectContent>
                         {zones?.map((z: any) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
@@ -3365,7 +3369,11 @@ tr.row-returned td{color:#aaa;text-decoration:line-through}
                         <FormField control={form.control} name="city" render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />المحافظة <span className="text-red-500">*</span></FormLabel>
-                            <Select value={field.value ?? ""} onValueChange={v => field.onChange(v)}>
+                            <Select value={field.value ?? ""} onValueChange={v => {
+                              field.onChange(v);
+                              const matched = zones?.find((z: any) => z.name === v);
+                              form.setValue("zoneId", matched ? matched.id : null);
+                            }}>
                               <SelectTrigger className="h-9 text-sm bg-background border-border/70 focus-visible:border-primary focus-visible:ring-primary/20"><SelectValue placeholder="اختر محافظة" /></SelectTrigger>
                               <SelectContent>
                                 {zones?.map((z: any) => <SelectItem key={z.id} value={z.name}>{z.name}</SelectItem>)}
