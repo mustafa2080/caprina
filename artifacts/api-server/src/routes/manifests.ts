@@ -631,22 +631,20 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
     }
     const confirmedReturnIds = new Set(confirmedReturnLinks.map(l => l.orderId));
 
-    // ── ب) الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned غير مؤكَّدة ──
-    // ملحوظة: partial_received اتشال من هنا تمامًا — الاستلام الجزئي مبقاش بيترحّل خالص.
-    // بيتقفل مع البيان زي "مسلَّم" (إيراد الجزء المستلم محسوب بالفعل)، والباقي اللي عند
-    // الشحن بيفضل ظاهر في حاوية المرتجعات (تم/لم يتم الاستلام) لحد ما يتحسم، بغض النظر
-    // عن إغلاق البيان من عدمه.
+    // ── ب) الطلبات اللي "مازال في شركة الشحن" = pending/postponed/in_shipping + returned/partial_received غير مؤكَّدة ──
+    // returned غير مؤكَّد وكمان partial_received غير مؤكَّد (لسه فيه بضاعة باقية عند الشحن)
+    // بيترحّلوا للبيان الجديد عشان يفضلوا متابَعين لحد ما تتحسم حالتهم بزرار "تم/لم يتم الاستلام".
+    // partial_received المؤكَّد (returnReceived=1) بيتقفل نهائيًا — اتعالج فوق في كتلة (أ).
     const pendingLinks = await db.select().from(shippingManifestOrdersTable).where(
       and(
         eq(shippingManifestOrdersTable.manifestId, id),
         or(
           inArray(shippingManifestOrdersTable.deliveryStatus, ["postponed", "pending", "in_shipping"]),
           // returned غير مؤكَّد → يترحّل للبيان الجديد
-          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived)))
-          // partial_received لا يترحّل أبدًا — بيتقفل مع البيان سواء returnReceived=0 أو 1
-          // لو returnReceived=1 → اتعالج فوق في confirmedReturnLinks
-          // لو returnReceived=0 → الكتلة (أ) فوق مش بتعالجه (returnReceived مش 1)،
-          //   بس برضو ميترحلش — هيفضل في البيان الحالي كـ partial_received غير مؤكَّد
+          and(eq(shippingManifestOrdersTable.deliveryStatus, "returned"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived))),
+          // partial_received غير مؤكَّد → يترحّل للبيان الجديد كمان (نفس منطق returned)
+          // partial_received المؤكَّد (returnReceived=1) اتعالج فوق في كتلة (أ) ومش بيوصل هنا
+          and(eq(shippingManifestOrdersTable.deliveryStatus, "partial_received"), or(sql`${shippingManifestOrdersTable.returnReceived} = 0`, isNull(shippingManifestOrdersTable.returnReceived)))
         )
       )
     );
@@ -674,8 +672,8 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
         await reverseShipping(buildOrderRef(order), order.quantity, order.id);
       }
 
-      // ── partial_received مبقاش بيوصل للكتلة دي خالص (اتشال من pendingLinks فوق) ──
-      // الاستلام الجزئي بيتقفل مع البيان نهائيًا زي "مسلَّم" بدون أي ترحيل أو حركة مخزون هنا.
+      // ── partial_received غير المؤكَّد بيوصل هنا وبيترحّل زي returned غير المؤكَّد ──
+      // partial_received المؤكَّد (returnReceived=1) اتقفل نهائيًا فوق في كتلة (أ) ومش بيوصل هنا.
       // الباقي اللي عند الشحن بيفضل ظاهر في حاوية المرتجعات في كل البيانات (مفتوحة أو مقفولة)
       // لحد ما يتحسم بزرار "تم/لم يتم الاستلام".
 
