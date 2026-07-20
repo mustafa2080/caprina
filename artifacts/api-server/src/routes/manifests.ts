@@ -715,6 +715,16 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
 
       console.log(`[CLOSE manifest ${id}] new manifest ${newManifest.id} inserted links:`, JSON.stringify(safePendingLinks.map(l => { const newStatus = (l.deliveryStatus === "postponed" || l.deliveryStatus === "delayed") ? l.deliveryStatus : l.deliveryStatus; return { orderId: l.orderId, prevStatus: l.deliveryStatus, newStatus }; })));
 
+      // ── امسح الصفوف القديمة من البيان القديم بعد ترحيلها للبيان الجديد ──────
+      // بدون الحذف ده، الصف القديم يفضل ظاهر في حاوية "مرتجعات" بتاعة البيان
+      // القديم كمان، فيتكرر الأوردر في كل بيان اتقفل بعده (bug التكرار التراكمي)
+      await db.delete(shippingManifestOrdersTable).where(
+        and(
+          eq(shippingManifestOrdersTable.manifestId, id),
+          inArray(shippingManifestOrdersTable.orderId, safePendingLinks.map((l) => l.orderId))
+        )
+      );
+
       // ── جيب الطلبات وأضفها للبيان الجديد بدون خصم مخزون إضافي ─────────────
       // المخزون اتخصم بالفعل لما الطلبات دخلت البيان الأول، ومفيش حركة جديدة
       // إلا لو اتأكد الاستلام (وده بيتعامل معاه في كتلة confirmedReturnLinks فوق
