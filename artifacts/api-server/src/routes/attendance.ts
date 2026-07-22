@@ -158,16 +158,14 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
   // لو الفلاج متحط من يوم سابق (updated_at مختلف عن النهارده)، يبقى فلاج قديم
   // وننضفه تلقائيًا قبل ما نكمل، عشان الموظف يقدر يسجل حضوره الجديد النهارده عادي.
   if ((profile as any).isFlagged) {
-    const updatedAtDate = profile.updatedAt
-      ? new Intl.DateTimeFormat("en-CA", { timeZone: CAIRO_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(profile.updatedAt as any))
-      : null;
+    const flaggedDate = (profile as any).flaggedDate ?? null;
 
-    if (updatedAtDate !== today) {
-      // فلاج قديم من يوم سابق → نمسحه تلقائيًا ونكمل تسجيل الحضور بشكل طبيعي
-      await db.update(employeeProfilesTable).set({ isFlagged: false } as any).where(eq(employeeProfilesTable.id, profile.id));
+    if (flaggedDate !== today) {
+      // فلاج قديم من يوم سابق (أو تاريخه مش متسجل) → نمسحه تلقائيًا ونكمل تسجيل الحضور بشكل طبيعي
+      await db.update(employeeProfilesTable).set({ isFlagged: false, flaggedDate: null } as any).where(eq(employeeProfilesTable.id, profile.id));
       (profile as any).isFlagged = false;
     } else {
-      // الفلاج ده اتحط النهارده فعلاً → امنع تسجيل حضور تاني
+      // الفلاج ده اتحط النهارده فعلاً (بتوقيت القاهرة) → امنع تسجيل حضور تاني
       res.status(403).json({ error: "أنت غائب اليوم، لا يمكنك تسجيل الحضور", flagged: true });
       return;
     }
@@ -175,7 +173,7 @@ router.post("/attendance/my/check-in", async (req, res): Promise<void> => {
 
   // بعد الساعة 1:01 ظهرًا → غياب يوم كامل، وممنوع تسجيل الحضور خالص (من غير ما نسجل أي حاجة في الداتابيز)
   if (computedStatus === "absent") {
-    await db.update(employeeProfilesTable).set({ isFlagged: true } as any).where(eq(employeeProfilesTable.id, profile.id));
+    await db.update(employeeProfilesTable).set({ isFlagged: true, flaggedDate: today } as any).where(eq(employeeProfilesTable.id, profile.id));
     res.status(403).json({ error: "انتهت فترة تسجيل الحضور اليوم، تم احتسابك غائبًا", flagged: true });
     return;
   }

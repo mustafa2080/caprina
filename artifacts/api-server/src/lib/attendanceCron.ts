@@ -38,6 +38,9 @@ export async function runAttendanceAbsentCron(): Promise<void> {
         await db.update(attendanceTable)
           .set({ status: "absent" })
           .where(eq(attendanceTable.id, existing.id));
+        await db.update(employeeProfilesTable)
+          .set({ isFlagged: true, flaggedDate: today } as any)
+          .where(eq(employeeProfilesTable.id, profile.id));
         markedCount++;
         continue;
       }
@@ -48,6 +51,9 @@ export async function runAttendanceAbsentCron(): Promise<void> {
         date: today,
         status: "absent",
       });
+      await db.update(employeeProfilesTable)
+        .set({ isFlagged: true, flaggedDate: today } as any)
+        .where(eq(employeeProfilesTable.id, profile.id));
       markedCount++;
     }
 

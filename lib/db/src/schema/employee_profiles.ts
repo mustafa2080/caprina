@@ -13,7 +13,8 @@ export const employeeProfilesTable = mysqlTable("employee_profiles", {
   hireDate: varchar("hire_date", { length: 20 }),
   notes: text("notes"),
   avatar: longtext("avatar"),
-  isFlagged: boolean("is_flagged").notNull().default(false), // عائب — غياب كامل بعد الساعة 12 ظهرًا، يوقف أزرار الحضور/الانصراف
+  isFlagged: boolean("is_flagged").notNull().default(false), // عائب — غياب كامل بعد الساعة 1 ظهرًا، يوقف أزرار الحضور/الانصراف
+  flaggedDate: varchar("flagged_date", { length: 10 }), // YYYY-MM-DD بتوقيت القاهرة — اليوم اللي اتحط فيه الفلاج (بدون أي تحويل timezone، مقارنة نص بنص)
   createdAt: datetime("created_at").notNull().default(new Date()),
   updatedAt: datetime("updated_at").notNull().default(new Date()),
 });
