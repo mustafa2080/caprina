@@ -277,12 +277,25 @@ router.get("/attendance/my/today", async (req, res): Promise<void> => {
   if (!profile) { res.json(null); return; }
 
   const today = cairoTodayString();
+
+  // ─── تصفير تلقائي للفلاج القديم ─────────────────────────────────────────
+  // نفس منطق التنضيف الموجود في POST /attendance/my/check-in، عشان لو الموظف
+  // فتح الصفحة الصبح وعنده فلاج من يوم سابق مايتحسبش عليه غياب وهمي.
+  let isFlagged = !!(profile as any).isFlagged;
+  if (isFlagged) {
+    const flaggedDate = (profile as any).flaggedDate ?? null;
+    if (flaggedDate !== today) {
+      await db.update(employeeProfilesTable).set({ isFlagged: false, flaggedDate: null } as any).where(eq(employeeProfilesTable.id, profile.id));
+      isFlagged = false;
+    }
+  }
+
   const [record] = await db
     .select()
     .from(attendanceTable)
     .where(and(eq(attendanceTable.profileId, profile.id), eq(attendanceTable.date, today)));
 
-  res.json({ ...(record ?? {}), isFlagged: !!(profile as any).isFlagged });
+  res.json({ ...(record ?? {}), isFlagged });
 });
 
 // ─── GET my salary report (current user from token) ──────────────────────────
