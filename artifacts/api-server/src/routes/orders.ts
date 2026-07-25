@@ -973,18 +973,27 @@ router.get("/orders", async (req, res): Promise<void> => {
 
 // ظ¤ظ¤ظ¤ Create order (single) ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 
-// customer lookup by last-4-digits phone (for replacement order form)
+// customer lookup by phone digits (أي عدد أرقام) أو باسم العميل (for replacement order form)
 router.get("/orders/customer-lookup", async (req, res): Promise<void> => {
-  const last4 = String(req.query.last4 ?? "").trim();
-  if (!/^\d{4}$/.test(last4)) { res.status(400).json({ error: "لازم 4 أرقام بالظبط" }); return; }
+  const raw = String(req.query.last4 ?? "").trim();
+  if (raw.length < 3) { res.status(400).json({ error: "اكتب 3 أحرف/أرقام على الأقل" }); return; }
+
+  const digitsOnly = raw.replace(/\D/g, "");
+  const isDigitsQuery = digitsOnly.length >= 3 && digitsOnly.length === raw.length;
 
   const tenantId = getTenantId(req);
   const matches = await db.select().from(ordersTable).where(
     and(
       isNull(ordersTable.deletedAt),
       tenantId ? eq(ordersTable.tenantId, tenantId) : undefined,
-      or(eq(ordersTable.status, "in_shipping"), eq(ordersTable.status, "received")),
-      like(ordersTable.phone, `%${last4}`)
+      or(
+        eq(ordersTable.status, "in_shipping"),
+        eq(ordersTable.status, "received"),
+        eq(ordersTable.status, "partial_received")
+      ),
+      isDigitsQuery
+        ? like(ordersTable.phone, `%${digitsOnly}%`)
+        : like(ordersTable.customerName, `%${raw}%`)
     )
   ).orderBy(desc(ordersTable.createdAt)).limit(50);
 

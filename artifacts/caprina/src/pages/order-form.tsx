@@ -393,7 +393,7 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
   const { data: lookupResults, isFetching: isLookingUp } = useQuery({
     queryKey: ["customer-lookup", debouncedLast4],
     queryFn: () => ordersApi.customerLookup(debouncedLast4),
-    enabled: replacementMode && /^\d{4}$/.test(debouncedLast4),
+    enabled: replacementMode && debouncedLast4.trim().length >= 3,
   });
 
   const { data: products = [] }     = useQuery({ queryKey: ["products"],   queryFn: productsApi.list });
@@ -571,18 +571,17 @@ export default function OrderForm({ replacementMode = false }: { replacementMode
                   </CardHeader>
                   <CardContent className="px-4 pb-4 space-y-2">
                     <Input
-                      placeholder="آخر 4 أرقام من موبايل العميل"
+                      placeholder="اسم العميل أو أي أرقام من رقم الموبايل"
                       className="h-9 text-sm"
-                      maxLength={4}
                       value={last4}
                       onChange={e => {
-                        setLast4(e.target.value.replace(/\D/g, "").slice(0, 4));
+                        setLast4(e.target.value);
                         setExpandedInvoice(null);
                       }}
                     />
                     {isLookingUp && <p className="text-xs text-muted-foreground">جاري البحث...</p>}
-                    {!isLookingUp && lookupResults && lookupResults.length === 0 && /^\d{4}$/.test(last4) && (
-                      <p className="text-xs text-red-500">مفيش عملاء (قيد الشحن أو مسلّم) بآخر 4 أرقام دي.</p>
+                    {!isLookingUp && lookupResults && lookupResults.length === 0 && last4.trim().length >= 3 && (
+                      <p className="text-xs text-red-500">مفيش عملاء (قيد الشحن أو مسلّم أو مسلّم جزئي) مطابقين للبحث ده.</p>
                     )}
                     {!isLookingUp && lookupResults && lookupResults.length > 0 && !expandedInvoice && (
                       <div className="space-y-1.5 max-h-56 overflow-y-auto">
