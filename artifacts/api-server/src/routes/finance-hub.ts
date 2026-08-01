@@ -11,7 +11,11 @@ router.get("/finance/hub", async (req, res): Promise<void> => {
     const { from, to } = req.query;
     const tenantId = getTenantId(req);
     const now = new Date();
-    const curFrom = from ? new Date(from as string) : new Date(now.getFullYear(), now.getMonth(), 1);
+    // نقطة صفر للحسابات المالية: أي تاريخ "من" قبلها يُرفع تلقائيًا لها
+    // (بدون حذف أو تعديل أي بيانات — استبعاد على مستوى القراءة فقط)
+    const FINANCIAL_BASELINE_DATE = new Date("2026-08-01T00:00:00Z");
+    const requestedFrom = from ? new Date(from as string) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const curFrom = requestedFrom < FINANCIAL_BASELINE_DATE ? FINANCIAL_BASELINE_DATE : requestedFrom;
     const curTo   = to   ? new Date(to   as string) : now;
     const curToEnd = new Date(curTo); curToEnd.setHours(23, 59, 59, 999);
 

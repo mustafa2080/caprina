@@ -243,8 +243,13 @@ router.get("/analytics/profit", requirePermission("orders.financials"), async (r
     console.error('[smart-insights] productImageMap error:', imgErr);
   }
 
+  // نقطة صفر للحسابات المالية: أي أوردر قبل التاريخ ده يُستبعد من كل حسابات الأرباح
+  // (بدون حذف أو تعديل أي بيانات في orders/products — استبعاد على مستوى القراءة فقط)
+  const FINANCIAL_BASELINE_DATE = new Date("2026-08-01T00:00:00Z");
+  const ordersAfterBaseline = allOrdersRaw.filter(o => new Date(o.createdAt) >= FINANCIAL_BASELINE_DATE);
+
   // تحديد نطاق الفلتر
-  let filteredOrders = allOrdersRaw;
+  let filteredOrders = ordersAfterBaseline;
   if (fromParam || toParam || period) {
     let fromDate: Date | null = null;
     let toDate: Date | null = null;
@@ -419,8 +424,13 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
       .from(shippingManifestOrdersTable),
   ]);
 
+  // نقطة صفر للحسابات المالية: أي أوردر قبل التاريخ ده يُستبعد من كل حسابات الأرباح
+  // (بدون حذف أو تعديل أي بيانات في orders/products — استبعاد على مستوى القراءة فقط)
+  const FS_FINANCIAL_BASELINE_DATE = new Date("2026-08-01T00:00:00Z");
+  const ordersAfterFsBaseline = allOrdersRaw.filter(o => new Date(o.createdAt) >= FS_FINANCIAL_BASELINE_DATE);
+
   // فلتر التاريخ
-  let allOrders = allOrdersRaw;
+  let allOrders = ordersAfterFsBaseline;
   if (fromParam || toParam || period) {
     let fromDate: Date | null = null;
     let toDate: Date | null = null;
@@ -434,7 +444,7 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
       fromDate = fromParam ? new Date(fromParam) : null;
       toDate   = toParam   ? new Date(new Date(toParam).setHours(23, 59, 59, 999)) : null;
     }
-    allOrders = allOrdersRaw.filter(o => {
+    allOrders = ordersAfterFsBaseline.filter(o => {
       const d = new Date(o.createdAt);
       if (fromDate && d < fromDate) return false;
       if (toDate   && d > toDate)   return false;
