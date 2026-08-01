@@ -677,7 +677,7 @@ router.get("/analytics/product-performance", requirePermission("orders.financial
   if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   // تصفير التحليلات: استبعاد أي طلب اتعمل قبل تاريخ الـ cutoff من حساب أداء المنتجات فقط
   // (الطلبات نفسها فاضلة موجودة في قسم الطلبات، ده بيأثر على صفحة التحليلات بس)
-  const PRODUCT_PERFORMANCE_CUTOFF = new Date("2026-08-01T00:00:00Z");
+  const PRODUCT_PERFORMANCE_CUTOFF = new Date("2026-08-01T14:36:43Z");
   ppBaseConditions.push(gte(ordersTable.createdAt, PRODUCT_PERFORMANCE_CUTOFF));
 
   // نجيب الـ columns المطلوبة بس — مش كل الجدول
@@ -2108,6 +2108,8 @@ export async function warmAnalyticsCache() {
     if (getCached(cacheKey)) return; // موجود بالفعل
 
     const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
+    const PRODUCT_PERFORMANCE_CUTOFF = new Date("2026-08-01T14:36:43Z");
+    ppBaseConditions.push(gte(ordersTable.createdAt, PRODUCT_PERFORMANCE_CUTOFF));
     const [allOrders, products, variants] = await Promise.all([
       db.select({
         id: ordersTable.id, product: ordersTable.product,
