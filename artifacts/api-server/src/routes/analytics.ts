@@ -472,15 +472,11 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   let returnDamagedValue = 0; // تكلفة التوالف = المرتجعات التالفة (isDamaged=1) × تكلفة البضاعة
 
   const completedOrders: Array<{ profit: number; value: number; cost: number }> = [];
-  // نحسب الشحن مرة واحدة فقط لكل فاتورة لتفادي التضاعف
-  const processedShippingInvoices = new Set<string>();
-
   for (const o of allOrders) {
     const rc = resolveCost(o, variantMap, productMap);
-    // تكلفة الشحن الثابتة على الأوردر فقط (بدون توزيع manualShippingCost — يُضاف من البيان مباشرة)
-    const sc = (o.shippingCost ?? 0);
-    const invKey = (o.invoiceNumber ?? `solo-${o.id}`) as string;
-    const isNewInvoice = !processedShippingInvoices.has(invKey);
+    // ملاحظة: تكلفة الشحن لا تُحسب إلا إذا كان الأوردر مرتبطًا فعليًا ببيان شحن (manifest)
+    // — حقل order.shippingCost لم يعد يُستخدم في حساب المصروفات، فقط manifestCost الحقيقي
+    const discount = (o.discountAmount ?? 0);
 
     // تكلفة شحن البيان: تُضاف مرة واحدة عند أول أوردر مستلم/مرتجع ينتمي للبيان
     const manifestId = orderToManifest.get(o.id);
@@ -489,24 +485,21 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
       : 0;
 
     if (o.status === "received") {
-      const revenue = o.quantity * o.unitPrice;
+      const revenue = o.quantity * o.unitPrice - discount;
       const cost = o.quantity * rc;
       cashIn += revenue;
       costOfGoods += cost;
-      if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
       if (manifestCost > 0 && manifestId !== undefined) { countedManifestsForShipping.add(manifestId); shippingSpend += manifestCost; }
-      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0) - manifestCost, value: revenue, cost: cost + (isNewInvoice ? sc : 0) + manifestCost });
+      completedOrders.push({ profit: revenue - cost - manifestCost, value: revenue, cost: cost + manifestCost });
     } else if (o.status === "partial_received") {
       const qty = o.partialQuantity ?? o.quantity;
-      const revenue = qty * o.unitPrice;
+      const revenue = qty * o.unitPrice - discount;
       const cost = qty * rc;
       cashIn += revenue;
       costOfGoods += cost;
-      if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
       if (manifestCost > 0 && manifestId !== undefined) { countedManifestsForShipping.add(manifestId); shippingSpend += manifestCost; }
-      completedOrders.push({ profit: revenue - cost - (isNewInvoice ? sc : 0) - manifestCost, value: revenue, cost: cost + (isNewInvoice ? sc : 0) + manifestCost });
+      completedOrders.push({ profit: revenue - cost - manifestCost, value: revenue, cost: cost + manifestCost });
     } else if (o.status === "returned") {
-      if (isNewInvoice) { processedShippingInvoices.add(invKey); shippingSpend += sc; }
       if (manifestCost > 0 && manifestId !== undefined) { countedManifestsForShipping.add(manifestId); shippingSpend += manifestCost; }
       returnRevLost += o.quantity * o.unitPrice;
       if (o.isDamaged === 1) {

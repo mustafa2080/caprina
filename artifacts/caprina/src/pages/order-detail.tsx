@@ -410,6 +410,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
   const [trackingNumber, setTrackingNumber] = useState("");
   const [shippingCompanyId, setShippingCompanyId] = useState<number | null>(null);
   const [shippingCost, setShippingCost] = useState<number | null>(null);
+  const [discountAmount, setDiscountAmount] = useState<number | null>(null);
   const [warehouseId, setWarehouseId] = useState<number | null>(null);
   const [assignedUserId, setAssignedUserId] = useState<number | null>(null);
   const [adSource, setAdSource] = useState<string | null>(null);
@@ -452,6 +453,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
       setAddress(o.address ?? "");
       setTrackingNumber(o.trackingNumber ?? "");
       setShippingCompanyId(o.shippingCompanyId ?? null);
+      setDiscountAmount(o.discountAmount ?? null);
       setShippingCost(o.shippingCost ?? null);
       setWarehouseId(o.warehouseId ?? null);
       setAssignedUserId(o.assignedUserId ?? null);
@@ -502,6 +504,7 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
           trackingNumber: trackingNumber || null,
           shippingCompanyId: shippingCompanyId ?? null,
           shippingCost: shippingCost ?? null,
+          discountAmount: discountAmount ?? null,
           warehouseId: warehouseId ?? null,
           assignedUserId: assignedUserId ?? null,
           adSource: adSource ?? null,
@@ -740,6 +743,13 @@ function EditOrderRowDialog({ open, onOpenChange, order: o, shippingCompanies, p
                 <div>
                   <label className="text-xs font-medium mb-1.5 block">تكلفة الشحن (ج.م)</label>
                   <Input type="number" min={0} value={shippingCost ?? ""} onChange={e => setShippingCost(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
+                  <p className="text-[10px] text-muted-foreground mt-1">ملاحظة فقط — لا تُحسب ضمن التقارير المالية إلا عبر بيان الشحن</p>
+                </div>
+              )}
+              {canViewFinancials && (
+                <div>
+                  <label className="text-xs font-medium mb-1.5 block">خصم على هذا الطلب (ج.م)</label>
+                  <Input type="number" min={0} value={discountAmount ?? ""} onChange={e => setDiscountAmount(e.target.value ? Number(e.target.value) : null)} className="h-9 text-sm" />
                 </div>
               )}
             </div>

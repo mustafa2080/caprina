@@ -37,6 +37,7 @@ export const ordersTable = mysqlTable("orders", {
   adCampaign: varchar("ad_campaign", { length: 255 }),
   costPrice: real("cost_price"),
   shippingCost: real("shipping_cost").default(0),
+  discountAmount: real("discount_amount").default(0), // خصم يُطبَّق على هذا الأوردر بالذات، يُخصم من ربحه مباشرة
   notes: text("notes"),
   returnReason: text("return_reason"),
   returnNote: text("return_note"),
