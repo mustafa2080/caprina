@@ -515,6 +515,13 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
         returnLoss += damagedCost;
       }
     } else if (o.status === "in_shipping") {
+      // ملاحظة: "في الطريق" مستثناة من فلترة الـ baseline — بتتحسب من كل الطلبات الفعلية الجارية حاليًا
+    }
+  }
+
+  // "في الطريق" = كل الطلبات الجارية حاليًا (in_shipping) بدون فلترة baseline
+  for (const o of allOrdersRaw) {
+    if (o.status === "in_shipping") {
       pendingRevenue += o.quantity * o.unitPrice;
     }
   }
