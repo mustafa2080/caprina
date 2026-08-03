@@ -1,4 +1,4 @@
-import { eq, like, and, sum } from "drizzle-orm";
+import { eq, like, and, or, sum } from "drizzle-orm";
 import { db, productsTable, productVariantsTable, inventoryMovementsTable, warehouseStockTable, warehousesTable } from "@workspace/db";
 import type { MovementReason } from "@workspace/db";
 
@@ -200,13 +200,36 @@ export async function adjustWarehouseStock(
       const [wh] = await db.select({ id: warehousesTable.id }).from(warehousesTable).where(eq(warehousesTable.id, warehouseId));
       if (!wh) return warehouseId; // المخزن اتحذف — تجاهل العملية
       // صف جديد — فقط للإضافة
-      await db.insert(warehouseStockTable).values({
-        warehouseId,
-        variantId: variantId ?? null,
-        productId: productId ?? null,
-        quantity: delta,
-        updatedAt: new Date(),
-      });
+      try {
+        await db.insert(warehouseStockTable).values({
+          warehouseId,
+          variantId: variantId ?? null,
+          productId: productId ?? null,
+          quantity: delta,
+          updatedAt: new Date(),
+        });
+      } catch (insertErr) {
+        // فشل الـ insert (غالبًا تعارض مع صف موجود بنفس warehouseId+productId
+        // أو warehouseId+variantId اتسجل بمعيار مختلف عن stockCondition) →
+        // ابحث عن أي صف مطابق فعليًا (variantId أو productId) وحدّثه بدل ما نفشل العملية
+        const fallbackCondition = and(
+          eq(warehouseStockTable.warehouseId, warehouseId),
+          variantId && productId
+            ? or(eq(warehouseStockTable.variantId, variantId), eq(warehouseStockTable.productId, productId))
+            : variantId
+              ? eq(warehouseStockTable.variantId, variantId)
+              : eq(warehouseStockTable.productId, productId!),
+        );
+        const [existingRow] = await db.select().from(warehouseStockTable).where(fallbackCondition);
+        if (existingRow) {
+          const newQty = Math.max(0, existingRow.quantity + delta);
+          await db.update(warehouseStockTable)
+            .set({ quantity: newQty, updatedAt: new Date(), variantId: variantId ?? existingRow.variantId, productId: productId ?? existingRow.productId })
+            .where(eq(warehouseStockTable.id, existingRow.id));
+        } else {
+          throw insertErr; // مفيش صف بديل — الخطأ الأصلي فعلاً حقيقي
+        }
+      }
     }
     return warehouseId;
   }
