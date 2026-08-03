@@ -180,6 +180,17 @@ export async function adjustWarehouseStock(
 ): Promise<number | null> {
   if (!variantId && !productId) return null;
 
+  // ── تحقق من صحة المرجع: امنع أي محاولة insert بمرجع محذوف (orphan reference) ──
+  if (variantId) {
+    const [v] = await db.select({ id: productVariantsTable.id }).from(productVariantsTable).where(eq(productVariantsTable.id, variantId));
+    if (!v) variantId = null; // الـ variant اتمسح من الكتالوج — تجاهله
+  }
+  if (productId) {
+    const [p] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.id, productId));
+    if (!p) productId = null; // المنتج اتمسح من الكتالوج — تجاهله
+  }
+  if (!variantId && !productId) return null; // كلاهما orphan — مفيش أي مرجع صالح نعدّل عليه
+
   const stockCondition = (whId: number) => and(
     eq(warehouseStockTable.warehouseId, whId),
     variantId
