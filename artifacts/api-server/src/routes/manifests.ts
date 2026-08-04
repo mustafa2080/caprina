@@ -649,14 +649,12 @@ router.patch("/shipping-manifests/:id", requireAdmin, async (req, res): Promise<
       )
     );
 
-    // فلتر دفاعي: استبعد أي طلب تم تأكيده في الكتلة (أ) من الترحيل
-    // ده يحمي من حالة تزامن أو تأخير في تحديث shippingManifestOrdersTable
-    // returned/partial_received غير المؤكَّدة تفضل ظاهرة في البيان القديم (اللي اتقفل) نفسه
-    // في حاوية المرتجعات لحد ما حد يأكد الاستلام — من غير ما تترحّل ولا تتمسح خالص.
+    // فلتر دفاعي: استبعد فقط أي طلب تم تأكيده بالفعل في الكتلة (أ) من الترحيل
+    // ده يحمي من حالة تزامن أو تأخير في تحديث shippingManifestOrdersTable.
+    // returned/partial_received غير المؤكَّدة لازم تترحّل فعليًا للبيان الجديد
+    // (مش تتقفل مع البيان القديم) عشان تفضل متابَعة كسجل نشط لحد ما تتحسم.
     const safePendingLinks = pendingLinks.filter(
       l => !confirmedReturnIds.has(l.orderId)
-        && l.deliveryStatus !== "returned"
-        && l.deliveryStatus !== "partial_received"
     );
 
     console.log(`[CLOSE manifest ${id}] confirmedReturns=${confirmedReturnLinks.length} pendingLinks=${pendingLinks.length} safePendingLinks=${safePendingLinks.length}`, JSON.stringify(safePendingLinks.map(l => ({ orderId: l.orderId, deliveryStatus: l.deliveryStatus, returnReceived: l.returnReceived, partialQuantity: l.partialQuantity }))));
