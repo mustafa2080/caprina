@@ -446,13 +446,15 @@ export default function Orders() {
       warehouse_ready: "إشعار الشحن",
       in_shipping:     "متابعة الشحن",
       delayed:         "متابعة بعد التأجيل",
+      received:        "تأكيد الاستلام",
     };
 
     const TEMPLATE_KEYWORDS: Record<string, string[]> = {
-      pending:         ["تأكيد"],
+      pending:         ["تأكيد الأوردر", "تأكيد"],
       warehouse_ready: ["إشعار الشحن", "اشعار الشحن"],
       in_shipping:     ["متابعة الشحن"],
       delayed:         ["تأجيل", "مؤجل", "متابعة بعد"],
+      received:        ["تأكيد الاستلام", "الاستلام", "استلام"],
     };
 
     // أول حاجة: دور بالاسم بالظبط
@@ -515,6 +517,7 @@ export default function Orders() {
         warehouse_ready: "تم إرسال إشعار الشحن",
         in_shipping:     "تم فتح متابعة الشحن",
         delayed:         "تم فتح متابعة التأجيل",
+        received:        "تم إرسال تأكيد الاستلام للعميل",
       };
       toast({ title: "تم فتح واتساب ✅", description: statusMsg[status] ?? "الرسالة جاهزة للإرسال" });
     }
@@ -841,7 +844,7 @@ export default function Orders() {
             <div className="sm:hidden divide-y divide-border">
               {filtered.map((order) => {
                 const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
-                const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed"]);
+                const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed","received"]);
                 const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
                 const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                 const retReason = (order as any).returnReason as string | null;
@@ -1000,7 +1003,7 @@ export default function Orders() {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
-                    const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed"]);
+                    const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed","received"]);
                     const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
                     const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                     const isSelected  = isGroupSelected(order);

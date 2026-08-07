@@ -47,6 +47,7 @@ export function applyTemplate(templateBody: string, order: WhatsAppOrderData): s
   const shipping = Math.abs(order.shippingCost ?? 0);
   const productPrice = order.totalPrice;                  // سعر المنتج بدون شحن
   const total = productPrice + shipping;                  // الإجمالي = المنتج + الشحن
+  const deliveryDate = new Intl.DateTimeFormat("ar-EG", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
   return templateBody
     .replace(/\{customerName\}/g, order.customerName)
     .replace(/\{orderNumber\}/g, order.id.toString().padStart(4, "0"))
@@ -55,7 +56,8 @@ export function applyTemplate(templateBody: string, order: WhatsAppOrderData): s
     .replace(/\{amount\}/g, formatCurrency(total))
     .replace(/\{productPrice\}/g, formatCurrency(productPrice > 0 ? productPrice : total))
     .replace(/\{shippingCost\}/g, shipping > 0 ? formatCurrency(shipping) : "—")
-    .replace(/\{status\}/g, order.status);
+    .replace(/\{status\}/g, order.status)
+    .replace(/\{deliveryDate\}/g, deliveryDate);
 }
 
 export function buildWhatsAppLink(phone: string, message: string): string {
@@ -110,6 +112,7 @@ export const TEMPLATE_VARIABLES = [
   { var: "{quantity}", label: "الكمية" },
   { var: "{amount}", label: "المبلغ الإجمالي" },
   { var: "{status}", label: "حالة الأوردر" },
+  { var: "{deliveryDate}", label: "تاريخ الاستلام" },
 ];
 
 export const SHIPPING_TEMPLATE_VARIABLES = [
