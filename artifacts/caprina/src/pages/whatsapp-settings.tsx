@@ -66,6 +66,17 @@ export default function WhatsAppSettingsPage() {
     `يسعدنا خدمتك دائماً، ولو عندك أي استفسار إحنا في خدمتك 🙏\n\n` +
     `شكراً لثقتك في CAPRINA ❤️`;
 
+  // ─── قالب تأكيد الاستلام الجزئي ─────────────────────────────────────────
+  const PARTIAL_RECEIVED_TEMPLATE_NAME = "تأكيد الاستلام الجزئي";
+  const DEFAULT_PARTIAL_RECEIVED_BODY =
+    `أهلاً يا {customerName} 👋\n\n` +
+    `بنحيطكم علماً إنه تم استلام جزء من طلبكم رقم *#${"{orderNumber}"}* من *CAPRINA* ⚠️\n\n` +
+    `📌 المنتج: *{product}* × {quantity}\n` +
+    `💰 المبلغ: *{amount}*\n` +
+    `📅 تاريخ الاستلام: *{deliveryDate}*\n\n` +
+    `باقي الطلب لسه في الطريق وهنوافيكم بأي تحديث أول بأول 🚚\n\n` +
+    `شكراً لصبركم وثقتكم في CAPRINA ❤️`;
+
   // ─── قالب متابعة الشحن ──────────────────────────────────────────────────
   const SHIPPING_TEMPLATE_NAME = "متابعة الشحن";
   const DEFAULT_SHIPPING_BODY =
@@ -83,6 +94,7 @@ export default function WhatsAppSettingsPage() {
   const templates = settings?.templates ?? [];
   const notifyTpl = templates.find(t => t.name === NOTIFY_TEMPLATE_NAME) ?? null;
   const receivedTpl = templates.find(t => t.name === RECEIVED_TEMPLATE_NAME) ?? null;
+  const partialReceivedTpl = templates.find(t => t.name === PARTIAL_RECEIVED_TEMPLATE_NAME) ?? null;
   const shippingTpl = templates.find(t => t.name === SHIPPING_TEMPLATE_NAME) ?? null;
 
   const [notifyBody, setNotifyBody] = useState(DEFAULT_NOTIFY_BODY);
@@ -92,6 +104,10 @@ export default function WhatsAppSettingsPage() {
   const [receivedBody, setReceivedBody] = useState(DEFAULT_RECEIVED_BODY);
   const [savingReceived, setSavingReceived] = useState(false);
   const [editingReceived, setEditingReceived] = useState(false);
+
+  const [partialReceivedBody, setPartialReceivedBody] = useState(DEFAULT_PARTIAL_RECEIVED_BODY);
+  const [savingPartialReceived, setSavingPartialReceived] = useState(false);
+  const [editingPartialReceived, setEditingPartialReceived] = useState(false);
 
   const [shippingBody, setShippingBody] = useState(DEFAULT_SHIPPING_BODY);
   const [savingShipping, setSavingShipping] = useState(false);
@@ -104,6 +120,10 @@ export default function WhatsAppSettingsPage() {
   useEffect(() => {
     if (receivedTpl) setReceivedBody(receivedTpl.body);
   }, [receivedTpl?.id]);
+
+  useEffect(() => {
+    if (partialReceivedTpl) setPartialReceivedBody(partialReceivedTpl.body);
+  }, [partialReceivedTpl?.id]);
 
   useEffect(() => {
     if (shippingTpl) setShippingBody(shippingTpl.body);
@@ -154,6 +174,30 @@ export default function WhatsAppSettingsPage() {
       toast({ title: "خطأ", description: "فشل حفظ القالب", variant: "destructive" });
     } finally {
       setSavingReceived(false);
+    }
+  };
+
+  const handleSavePartialReceivedTemplate = async () => {
+    setSavingPartialReceived(true);
+    try {
+      if (partialReceivedTpl) {
+        await apiFetch(`/whatsapp/templates/${partialReceivedTpl.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: PARTIAL_RECEIVED_TEMPLATE_NAME, body: partialReceivedBody }),
+        });
+      } else {
+        await apiFetch("/whatsapp/templates", {
+          method: "POST",
+          body: JSON.stringify({ name: PARTIAL_RECEIVED_TEMPLATE_NAME, body: partialReceivedBody }),
+        });
+      }
+      refresh();
+      setEditingPartialReceived(false);
+      toast({ title: "تم حفظ قالب تأكيد الاستلام الجزئي ✅" });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حفظ القالب", variant: "destructive" });
+    } finally {
+      setSavingPartialReceived(false);
     }
   };
 
@@ -568,6 +612,97 @@ export default function WhatsAppSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* ─── قالب تأكيد الاستلام الجزئي (partial_received) ───────────────── */}
+      <Card className="border-purple-500/30 bg-purple-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-purple-500" />
+            قالب تأكيد الاستلام الجزئي
+            {partialReceivedTpl && (
+              <Badge className="text-[10px] bg-purple-600/20 text-purple-400 border-purple-600/30 font-bold mr-auto">
+                محفوظ ✓
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            هذه الرسالة تُستخدم تلقائياً عند الضغط على زر واتساب لطلب بحالة <strong>«استلم جزئي»</strong>.
+            تُرسل للعميل توضيحاً بأن جزءاً من طلبه وصل والباقي في الطريق.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {TEMPLATE_VARIABLES.map(v => (
+              <button
+                key={v.var}
+                onClick={() => copyVar(v.var)}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 border border-purple-500/30 hover:border-purple-500 text-xs transition-all"
+                title="انقر للنسخ"
+              >
+                <code className="text-purple-400 font-mono text-[10px]">{v.var}</code>
+                {copiedVar === v.var
+                  ? <Check className="w-2.5 h-2.5 text-green-500" />
+                  : <Copy className="w-2.5 h-2.5 text-muted-foreground" />
+                }
+              </button>
+            ))}
+          </div>
+          {editingPartialReceived || !partialReceivedTpl ? (
+            <div className="space-y-3">
+              <Textarea
+                value={partialReceivedBody}
+                onChange={e => setPartialReceivedBody(e.target.value)}
+                className="bg-muted/20 text-sm min-h-[160px] resize-none font-[Cairo] leading-relaxed"
+                dir="rtl"
+                disabled={!isAdmin}
+              />
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSavePartialReceivedTemplate}
+                    disabled={savingPartialReceived}
+                    className="gap-1 h-8 bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {savingPartialReceived ? "جاري الحفظ..." : "حفظ القالب"}
+                  </Button>
+                  {partialReceivedTpl && (
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingPartialReceived(false); setPartialReceivedBody(partialReceivedTpl.body); }} className="h-8 gap-1">
+                      <X className="w-3.5 h-3.5" />إلغاء
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPartialReceivedBody(DEFAULT_PARTIAL_RECEIVED_BODY)}
+                    className="h-8 text-xs text-muted-foreground"
+                  >
+                    استعادة الافتراضي
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-[Cairo] leading-relaxed bg-muted/20 rounded-md p-3 border border-purple-500/20">
+                {partialReceivedTpl.body}
+              </pre>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setEditingPartialReceived(true); setPartialReceivedBody(partialReceivedTpl.body); }}
+                  className="h-8 gap-1 text-xs border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  تعديل القالب
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* ─── قالب متابعة الشحن ─────────────────────────────────────────────── */}
       <Card className="border-blue-500/30 bg-blue-500/5">
         <CardHeader className="pb-3">
@@ -718,7 +853,7 @@ export default function WhatsAppSettingsPage() {
           ) : (
             <div className="space-y-3">
               {templates
-                .filter(tpl => tpl.name !== NOTIFY_TEMPLATE_NAME && tpl.name !== RECEIVED_TEMPLATE_NAME && tpl.name !== SHIPPING_TEMPLATE_NAME)
+                .filter(tpl => tpl.name !== NOTIFY_TEMPLATE_NAME && tpl.name !== RECEIVED_TEMPLATE_NAME && tpl.name !== PARTIAL_RECEIVED_TEMPLATE_NAME && tpl.name !== SHIPPING_TEMPLATE_NAME)
                 .map(tpl => (
                 <div key={tpl.id} className={`border rounded-lg p-4 ${tpl.isDefault ? "border-green-600/40 bg-green-500/5" : "border-border bg-card"}`}>
                   {editingId === tpl.id ? (

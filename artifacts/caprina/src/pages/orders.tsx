@@ -442,19 +442,21 @@ export default function Orders() {
 
     // اختيار القالب بناءً على حالة الأوردر — بالاسم بالظبط أو مطابقة مرنة
     const TEMPLATE_NAMES: Record<string, string> = {
-      pending:         "تأكيد الأوردر",
-      warehouse_ready: "إشعار الشحن",
-      in_shipping:     "متابعة الشحن",
-      delayed:         "متابعة بعد التأجيل",
-      received:        "تأكيد الاستلام",
+      pending:          "تأكيد الأوردر",
+      warehouse_ready:  "إشعار الشحن",
+      in_shipping:      "متابعة الشحن",
+      delayed:          "متابعة بعد التأجيل",
+      received:         "تأكيد الاستلام",
+      partial_received: "تأكيد الاستلام الجزئي",
     };
 
     const TEMPLATE_KEYWORDS: Record<string, string[]> = {
-      pending:         ["تأكيد الأوردر", "تأكيد"],
-      warehouse_ready: ["إشعار الشحن", "اشعار الشحن"],
-      in_shipping:     ["متابعة الشحن"],
-      delayed:         ["تأجيل", "مؤجل", "متابعة بعد"],
-      received:        ["تأكيد الاستلام", "الاستلام", "استلام"],
+      pending:          ["تأكيد الأوردر", "تأكيد"],
+      warehouse_ready:  ["إشعار الشحن", "اشعار الشحن"],
+      in_shipping:      ["متابعة الشحن"],
+      delayed:          ["تأجيل", "مؤجل", "متابعة بعد"],
+      received:         ["تأكيد الاستلام", "الاستلام", "استلام"],
+      partial_received: ["الاستلام الجزئي", "استلام جزئي", "جزئي"],
     };
 
     // أول حاجة: دور بالاسم بالظبط
@@ -514,10 +516,11 @@ export default function Orders() {
       );
     } else {
       const statusMsg: Record<string, string> = {
-        warehouse_ready: "تم إرسال إشعار الشحن",
-        in_shipping:     "تم فتح متابعة الشحن",
-        delayed:         "تم فتح متابعة التأجيل",
-        received:        "تم إرسال تأكيد الاستلام للعميل",
+        warehouse_ready:  "تم إرسال إشعار الشحن",
+        in_shipping:      "تم فتح متابعة الشحن",
+        delayed:          "تم فتح متابعة التأجيل",
+        received:         "تم إرسال تأكيد الاستلام للعميل",
+        partial_received: "تم إرسال تأكيد الاستلام الجزئي للعميل",
       };
       toast({ title: "تم فتح واتساب ✅", description: statusMsg[status] ?? "الرسالة جاهزة للإرسال" });
     }
@@ -844,7 +847,7 @@ export default function Orders() {
             <div className="sm:hidden divide-y divide-border">
               {filtered.map((order) => {
                 const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
-                const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed","received"]);
+                const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed","received","partial_received"]);
                 const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
                 const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                 const retReason = (order as any).returnReason as string | null;
@@ -1003,7 +1006,7 @@ export default function Orders() {
                     const retReason  = (order as any).returnReason as string | null;
                     const retNote    = (order as any).returnNote   as string | null;
                     const isGroup = !!(order as any)._groupCount && (order as any)._groupCount > 1;
-                    const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed","received"]);
+                    const waStatuses = new Set(["pending","warehouse_ready","in_shipping","delayed","received","partial_received"]);
                     const groupStatuses: string[] = (order as any)._groupStatuses ?? [order.status];
                     const canWhatsApp = canWriteOrders && !bulkSelectMode && groupStatuses.some(s => waStatuses.has(s));
                     const isSelected  = isGroupSelected(order);
