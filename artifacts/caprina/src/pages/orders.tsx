@@ -243,10 +243,12 @@ export default function Orders() {
   } as any);
 
   // IDs of orders already in a shipping manifest (to detect "still in warehouse")
+  // staleTime قصير (مش 0) — البيانات دي بتتغير بس لما حد يعمل بيان شحن جديد،
+  // مش محتاجة refetch مع كل mount/rerender للصفحة.
   const { data: inManifestData } = useQuery({
     queryKey: ["orders-in-manifest-ids"],
     queryFn: () => ordersApi.inManifestIds(),
-    staleTime: 0,
+    staleTime: 10_000,
   });
   const inManifestSet = new Set(inManifestData?.ids ?? []);
 

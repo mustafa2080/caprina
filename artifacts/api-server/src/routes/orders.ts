@@ -770,6 +770,24 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (conditions.length === 1) query = query.where(conditions[0]);
   else if (conditions.length > 1) query = query.where(and(...conditions));
 
+  // ─── Perf: لما مفيش أي فلتر مطبق (فتح الصفحة الافتراضي) نحدد أحدث 500 طلب
+  // بدل ما نسحب الجدول كامل من الداتابيز. الطلبات مرتبة أصلاً desc(createdAt)
+  // فده فعلياً أحدث 500 طلب، وهي اللي المستخدم شايفها في الشاشة الافتراضية.
+  // أي فلتر (بحث/حالة/تاريخ/شركة شحن/موظف) بيلغي الـ limit عشان النتائج
+  // المفلترة أصلاً محدودة النطاق ومفيش داعي نحد منها.
+  const hasAnyFilter = Boolean(
+    params.data.status ||
+    params.data.search ||
+    (req.query as any).dateFrom ||
+    (req.query as any).dateTo ||
+    (req.query as any).shippingCompanyId ||
+    (req.query as any).createdByUserId ||
+    isDashboard,
+  );
+  if (!hasAnyFilter) {
+    query = query.limit(500);
+  }
+
   const rows = await query;
 
   // جيب الطلبات المؤجلة (postponed) من البيانات المفتوحة
