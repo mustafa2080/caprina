@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -40,6 +41,13 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// ─── Performance: gzip/deflate compression for all JSON/text responses ──────
+// threshold: 1kb (default) — لا داعي لضغط استجابات صغيرة جداً، الـ overhead
+// بتاع الضغط نفسه بيبقى أكبر من الفايدة. الـ API responses الكبيرة (users,
+// product-performance, employee-profiles...) هتنضغط تلقائياً من غير أي
+// تغيير في الـ payload نفسه أو الـ contract.
+app.use(compression());
 
 // ─── Security: Global rate limiter ──────────────────────────────────────────
 const globalLimiter = rateLimit({

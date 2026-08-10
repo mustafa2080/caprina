@@ -13,8 +13,9 @@ export const RETURN_REASONS: { value: string; label: string }[] = [
   { value: "other",          label: "سبب آخر" },
 ];
 
-export const returnReasonLabel = (reason: string | null | undefined): string => {
+export const returnReasonLabel = (reason: string | null | undefined, note?: string | null): string => {
   if (!reason) return "—";
+  if (reason === "other" && note && note.trim()) return note.trim();
   const found = RETURN_REASONS.find(r => r.value === reason);
   if (found) return found.label;
   // Legacy/alternate values seen historically in the database

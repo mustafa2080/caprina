@@ -264,7 +264,7 @@ function OrderDeliveryRow({
             <>
               <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
               <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason, order.deliveryNote) : "لم يحدد السبب"}
               </p>
             </>
           )}
@@ -272,14 +272,14 @@ function OrderDeliveryRow({
             <>
               <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
               <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+                ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason, order.deliveryNote) : "لم يحدد السبب"}
               </p>
             </>
           )}
           {/* لو returnReceived لسه null (لم يختر بعد) */}
           {order.deliveryStatus === "returned" && (order as any).returnReceived == null && (
             <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason, order.deliveryNote) : "لم يحدد السبب"}
             </p>
           )}
           {/* sub-status للاستلام الجزئي — الباقي */}
@@ -383,7 +383,7 @@ function OrderDeliveryRow({
           <>
             <p className="text-[10px] text-emerald-600 font-semibold">↩ تم الاستلام</p>
             <p className="text-[10px] text-red-400 font-semibold">
-              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason, order.deliveryNote) : "لم يحدد السبب"}
             </p>
           </>
         )}
@@ -391,14 +391,14 @@ function OrderDeliveryRow({
           <>
             <p className="text-[10px] text-orange-500 font-semibold">⏳ عند شركة الشحن</p>
             <p className="text-[10px] text-red-400 font-semibold">
-              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+              ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason, order.deliveryNote) : "لم يحدد السبب"}
             </p>
           </>
         )}
         {/* لو returnReceived لسه null */}
         {order.deliveryStatus === "returned" && (order as any).returnReceived == null && (
           <p className="text-[10px] text-red-400 font-semibold">
-            ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason) : "لم يحدد السبب"}
+            ↳ {(order as any).returnReason ? returnReasonLabel((order as any).returnReason, order.deliveryNote) : "لم يحدد السبب"}
           </p>
         )}
         {/* سبب الإرجاع مباشرة تحت حالة الاستلام */}
@@ -585,14 +585,18 @@ function OrderDeliveryRow({
           )}
           <div>
             <Label className="text-[10px] mb-1 block text-muted-foreground">
-              {needsNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
+              {status === "returned" && returnReason === "other"
+                ? "اكتب السبب الآخر هنا (مطلوب)"
+                : needsNote ? "سبب / ملاحظة (مطلوب)" : "ملاحظة (اختياري)"}
             </Label>
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="h-8 text-xs bg-background"
+              className={`h-8 text-xs bg-background ${status === "returned" && returnReason === "other" ? "border-amber-600/60 focus:ring-amber-600" : ""}`}
               placeholder={
-                status === "postponed"
+                status === "returned" && returnReason === "other"
+                  ? "اكتب تفاصيل السبب هنا..."
+                  : status === "postponed"
                   ? "مثال: العميل طلب التأجيل أسبوعاً..."
                   : status === "delayed"
                   ? "مثال: العميل مش راد، العنوان غلط..."
@@ -1066,7 +1070,7 @@ function InvoiceGroupDeliveryRow({
                   <>
                     <p className="text-[10px] text-emerald-600 mt-0.5 font-semibold">↩ تم الاستلام</p>
                     <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                      ↳ {returnReasonLabel((rep as any).returnReason)}
+                      ↳ {returnReasonLabel((rep as any).returnReason, rep.deliveryNote)}
                     </p>
                   </>
                 )}
@@ -1074,13 +1078,13 @@ function InvoiceGroupDeliveryRow({
                   <>
                     <p className="text-[10px] text-orange-500 mt-0.5 font-semibold">⏳ عند شركة الشحن</p>
                     <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                      ↳ {returnReasonLabel((rep as any).returnReason)}
+                      ↳ {returnReasonLabel((rep as any).returnReason, rep.deliveryNote)}
                     </p>
                   </>
                 )}
                 {displayStatus === "returned" && (rep as any).returnReceived == null && (
                   <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-0.5">
-                    ↳ {returnReasonLabel((rep as any).returnReason)}
+                    ↳ {returnReasonLabel((rep as any).returnReason, rep.deliveryNote)}
                   </p>
                 )}
                 {displayStatus === "partial_received" && currentGroupReturnReceived === true && (
