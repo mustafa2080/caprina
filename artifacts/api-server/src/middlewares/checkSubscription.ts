@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { db, tenantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { getTenantCached } from "../lib/tenantCache.js";
 
 /**
  * checkSubscription — middleware يتحقق من صلاحية اشتراك الـ tenant
@@ -33,11 +32,7 @@ export async function checkSubscription(
   // ── 3. جيب الـ tenant من DB ───────────────────────────────────────────────
   let tenant;
   try {
-    [tenant] = await db
-      .select()
-      .from(tenantsTable)
-      .where(eq(tenantsTable.id, user.tenantId))
-      .limit(1);
+    tenant = await getTenantCached(user.tenantId);
   } catch {
     res.status(500).json({ error: "subscription_check_failed", message: "فشل التحقق من الاشتراك" });
     return;

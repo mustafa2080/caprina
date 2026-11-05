@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, tenantsTable, usersTable, appSettingsTable } from "@workspace/db";
 import { hashPassword } from "../lib/auth.js";
+import { invalidateTenantCache } from "../lib/tenantCache.js";
 import { eq, desc, sql } from "drizzle-orm";
 
 // ── Default plan prices (fallback) ───────────────────────────────────────────
@@ -47,6 +48,12 @@ function requireSuperAdmin(req: any, res: any, next: any) {
   next();
 }
 router.use(requireSuperAdmin);
+
+// أي تعديل (PATCH/POST/DELETE) على الـ tenants بيمسح كاش الاشتراك عشان التغيير يظهر فوراً
+router.use((req, res, next) => {
+  if (req.method !== "GET") res.on("finish", () => invalidateTenantCache());
+  next();
+});
 
 // ── GET /api/admin/plan-prices ────────────────────────────────────────────────
 router.get("/admin/plan-prices", async (_req, res): Promise<void> => {

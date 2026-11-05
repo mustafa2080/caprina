@@ -42,8 +42,8 @@ const TOKEN_KEY = "caprina_token";
 const USER_KEY = "caprina_user";
 const EDIT_BRAND_KEY = "edit_brand";
 
-// polling كل 5 ثواني — تغييرات الصلاحيات تنعكس فوراً
-const POLL_INTERVAL_MS = 5_000;
+// polling كل 30 ثانية (وبيتوقف لما التاب مخفي) — كان 5 ثواني وبيحمّل السيرفر بلا داعي
+const POLL_INTERVAL_MS = 30_000;
 
 // عدد المرات المتتالية اللي ممكن يفشل فيها الـ polling قبل الـ logout
 const MAX_POLL_FAILURES = 3;
@@ -290,6 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (pollRef.current) clearInterval(pollRef.current);
     pollFailuresRef.current = 0;
     pollRef.current = setInterval(async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const updated = await fetchMe(tkn);
       if (updated) {
         pollFailuresRef.current = 0; // reset عند النجاح

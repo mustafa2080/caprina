@@ -1516,7 +1516,7 @@ export default function Dashboard() {
     queryFn: analyticsApi.charts,
     staleTime: 0,
     refetchOnWindowFocus: true,
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
   });
   const { data: productPerformance = [], isLoading: isPerfLoading } = useQuery<any[]>({
     queryKey: ["analytics-product-performance"],
