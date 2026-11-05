@@ -1,6 +1,6 @@
 ﻿import { Router, type IRouter } from "express";
 import { db, ordersTable, productsTable, productVariantsTable, shippingCompaniesTable, shippingManifestsTable, shippingManifestOrdersTable, warehouseStockTable } from "@workspace/db";
-import { eq, isNull, and, desc, lte, gte, sql, inArray, count } from "drizzle-orm";
+import { eq, isNull, and, desc, lte, gte, sql, inArray, count, getTableColumns } from "drizzle-orm";
 import { requireAdmin, requirePermission } from "../middlewares/requireRole.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { getTenantId } from "../middlewares/requireTenant.js";
@@ -38,6 +38,26 @@ export function invalidateSmartCache(tenantId: number | null) {
 // ── Shared short-lived memo with in-flight de-duplication ─────────────────────
 // The dashboard fires many analytics requests at once; each used to load every
 // order + run 3 version queries. Now concurrent/near-simultaneous requests share one load.
+// Stampede protection: when a heavy endpoint's cache is cold, N concurrent requests each used to run the full
+// CPU-bound computation on the single event loop (stalling every other request). Now the first request computes
+// and the rest wait for it, then are served from the cache it fills.
+const heavyInflight = new Map<string, Promise<void>>();
+async function dedupeHeavy(key: string, res: import("express").Response): Promise<boolean> {
+  const running = heavyInflight.get(key);
+  if (running) {
+    await running;
+    const c = getCached<any>(key);
+    if (c) { res.json(c); return true; }
+    return false;
+  }
+  let done!: () => void;
+  const p = new Promise<void>((r) => { done = r; });
+  heavyInflight.set(key, p);
+  const release = () => { if (heavyInflight.get(key) === p) heavyInflight.delete(key); done(); };
+  res.once("finish", release);
+  res.once("close", release);
+  return false;
+}
 const memoStore = new Map<string, { value: any; expiresAt: number }>();
 const memoInflight = new Map<string, Promise<any>>();
 async function memo<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
@@ -56,6 +76,9 @@ function clearMemoForTenant(tenantId: number | null) {
   memoStore.delete(`orders:${t}`);
   memoStore.delete(`catver:${t}`);
   memoStore.delete(`mo:${t}`);
+  memoStore.delete(`products:${t}`);
+  memoStore.delete(`products-lean:${t}`);
+  memoStore.delete(`variants:${t}`);
 }
 
 // manifest<->order links scoped to the tenant (was an unfiltered full-table scan of every tenant,
@@ -116,12 +139,27 @@ function getCatalogVersions(tenantId: number | null) {
 const router: IRouter = Router();
 
 // ── Tenant-safe helpers ────────────────────────────────────────────────────────
-async function getProductsForTenant(tenantId: number | null) {
+// المنتجات فيها صورة base64 (mediumtext) — كل endpoint كان بيسحب الجدول كله بصوره ويحبس الـ event loop.
+// دلوقتي التحميل مشترك (memo + de-dup للطلبات المتزامنة)، ونسخة lean من غير الصور للـ endpoints اللي مش محتاجاها.
+function getProductsForTenant(tenantId: number | null) {
+  return memo(`products:${tenantId ?? "global"}`, 60_000, () => loadProductsRaw(tenantId));
+}
+function getProductsLean(tenantId: number | null) {
+  return memo(`products-lean:${tenantId ?? "global"}`, 60_000, () => {
+    const { image: _image, ...cols } = getTableColumns(productsTable);
+    const q = db.select(cols).from(productsTable);
+    return tenantId !== null ? q.where(eq(productsTable.tenantId, tenantId)) : q;
+  });
+}
+async function loadProductsRaw(tenantId: number | null) {
   return tenantId !== null
     ? db.select().from(productsTable).where(eq(productsTable.tenantId, tenantId))
     : db.select().from(productsTable);
 }
-async function getVariantsForTenant(tenantId: number | null) {
+function getVariantsForTenant(tenantId: number | null) {
+  return memo(`variants:${tenantId ?? "global"}`, 60_000, () => loadVariantsRaw(tenantId));
+}
+async function loadVariantsRaw(tenantId: number | null) {
   if (tenantId !== null) {
     // الـ variants مفيهاش tenantId مباشرة — نجيبها عن طريق الـ products التابعة للـ tenant
     const tenantProducts = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.tenantId, tenantId));
@@ -270,6 +308,7 @@ router.get("/analytics/profit", requirePermission("orders.financials"), async (r
   const cacheKey = `analytics-profit:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}`;
   const cached = getCached<any>(cacheKey);
   if (cached) { res.json(cached); return; }
+  if (await dedupeHeavy(cacheKey, res)) return;
 
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfToday);
@@ -453,13 +492,14 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   const fsCacheKey = `analytics-financial:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const fsCached = getCached<any>(fsCacheKey);
   if (fsCached) { res.json(fsCached); return; }
+  if (await dedupeHeavy(fsCacheKey, res)) return;
 
   const fsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) fsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
   const [allOrdersRaw, products, variants, allManifests, allManifestOrders] = await Promise.all([
     loadTenantOrders(tenantId),
-    getProductsForTenant(tenantId),
+    getProductsLean(tenantId),
     getVariantsForTenant(tenantId),
     getManifestsForTenant(tenantId),
     getManifestOrderRows(tenantId),
@@ -657,7 +697,7 @@ router.get("/analytics/damaged-orders", requireAdmin, async (req, res): Promise<
 
   const [allOrders, products, variants] = await Promise.all([
     db.select().from(ordersTable).where(and(...conditions)).orderBy(desc(ordersTable.createdAt)),
-    getProductsForTenant(tenantId),
+    getProductsLean(tenantId),
     getVariantsForTenant(tenantId),
   ]);
 
@@ -706,6 +746,7 @@ router.get("/analytics/product-performance", requirePermission("orders.financial
   const cacheKey = `product-performance:${tenantId ?? "global"}`;
   const cached = getCached<any>(cacheKey);
   if (cached) { res.json(cached); return; }
+  if (await dedupeHeavy(cacheKey, res)) return;
 
   const ppBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) ppBaseConditions.push(eq(ordersTable.tenantId, tenantId));
@@ -871,11 +912,12 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
   const cacheKey = `analytics-alerts:${tenantId ?? "global"}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const cached = getCached<any>(cacheKey);
   if (cached) { res.json(cached); return; }
+  if (await dedupeHeavy(cacheKey, res)) return;
   const alertsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) alertsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
     loadTenantOrders(tenantId),
-    getProductsForTenant(tenantId),
+    getProductsLean(tenantId),
     getVariantsForTenant(tenantId),
   ]);
 
@@ -1255,6 +1297,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const siCacheKey = `smart-insights:${tenantId ?? "global"}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const siCached = getCached<any>(siCacheKey);
   if (siCached) { res.json(siCached); return; }
+  if (await dedupeHeavy(siCacheKey, res)) return;
   const smBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) smBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants, allManifests, allManifestOrders] = await Promise.all([
@@ -1665,6 +1708,7 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
   const chartsCacheKey = `charts:${tenantId ?? "global"}`;
   const chartsCached = getCached<any>(chartsCacheKey);
   if (chartsCached) { res.json(chartsCached); return; }
+  if (await dedupeHeavy(chartsCacheKey, res)) return;
   const chartsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) chartsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
