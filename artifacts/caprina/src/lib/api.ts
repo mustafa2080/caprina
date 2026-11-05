@@ -198,6 +198,8 @@ export interface ImportResult {
 
 export const productsApi = {
   list: () => apiFetch<Product[]>("/products"),
+  // Same list without the base64 image column (for dropdowns/pickers)
+  listLite: () => apiFetch<Product[]>("/products?lite=1"),
   create: (data: Partial<Product> & { name: string }) => apiFetch<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: Partial<Omit<Product, "totalQuantity">>) => apiFetch<Product>(`/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/products/${id}`, { method: "DELETE" }),

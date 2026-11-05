@@ -120,7 +120,10 @@ router.get("/inventory/movements", async (req, res): Promise<void> => {
     : and(pendingFilter, zeroQtyFilter);
   query = query.where(allConditions);
 
-  res.json(await query);
+  // No filters: return only the latest 500 movements (totals are computed separately in SQL by /totals)
+  const FILTER_KEYS = ["type","reason","productId","warehouseId","dateFrom","dateTo"];
+  const hasFilter = FILTER_KEYS.some(k => !!(req.query as Record<string, any>)[k]);
+  res.json(hasFilter ? await query : await query.limit(500));
 });
 
 // ─── Totals ────────────────────────────────────────────────────────────────────
@@ -143,7 +146,7 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
   }
 
   let query = db
-    .select()
+    .select({ type: inventoryMovementsTable.type, total: sum(inventoryMovementsTable.quantity) })
     .from(inventoryMovementsTable)
     .leftJoin(ordersTable, eq(inventoryMovementsTable.orderId, ordersTable.id))
     .$dynamic();
@@ -158,9 +161,10 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
     : and(pendingFilter, zeroQtyFilterT);
   query = query.where(allConditions);
 
-  const rows = await query;
-  const totalIn  = rows.filter(r => r.inventory_movements.type === "IN").reduce((s, r) => s + r.inventory_movements.quantity, 0);
-  const totalOut = rows.filter(r => r.inventory_movements.type === "OUT").reduce((s, r) => s + r.inventory_movements.quantity, 0);
+  // SUM in SQL instead of loading every movement joined with its full order row
+  const rows = await query.groupBy(inventoryMovementsTable.type);
+  const totalIn  = Number(rows.find(r => r.type === "IN")?.total ?? 0);
+  const totalOut = Number(rows.find(r => r.type === "OUT")?.total ?? 0);
 
   // ── الرصيد الحقيقي من المخزون (إذا تم الفلتر على منتج معين) ──────────────
   // الرصيد = الكمية الفعلية في المخازن (مش مجموع الحركات)
@@ -187,13 +191,11 @@ router.get("/inventory/movements/totals", async (req, res): Promise<void> => {
 
       if (variants.length > 0) {
         // مخزون الـ variants
-        for (const v of variants) {
-          const [row] = await db
-            .select({ total: sum(warehouseStockTable.quantity) })
-            .from(warehouseStockTable)
-            .where(eq(warehouseStockTable.variantId, v.id));
-          currentStock += Number(row?.total ?? 0);
-        }
+        const [vrow] = await db
+          .select({ total: sum(warehouseStockTable.quantity) })
+          .from(warehouseStockTable)
+          .where(inArray(warehouseStockTable.variantId, variants.map(v => v.id)));
+        currentStock += Number(vrow?.total ?? 0);
       } else {
         // مخزون المنتج مباشرة (بدون variants)
         const [row] = await db

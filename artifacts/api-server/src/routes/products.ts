@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, isNull, getTableColumns } from "drizzle-orm";
 import { db, productsTable, warehousesTable, warehouseStockTable, productVariantsTable } from "@workspace/db";
 import { getTenantId } from "../middlewares/requireTenant.js";
 import { z } from "zod";
@@ -40,7 +40,11 @@ router.get("/products", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req);
   const conditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) conditions.push(eq(productsTable.tenantId, tenantId));
-  const products = await db.select().from(productsTable).where(and(...conditions)).orderBy(desc(productsTable.createdAt));
+  // ?lite=1 omits the base64 image column (dropdowns/pickers don't need it)
+  const { image: _img, ...liteCols } = getTableColumns(productsTable);
+  const products = req.query.lite === "1"
+    ? await db.select(liteCols).from(productsTable).where(and(...conditions)).orderBy(desc(productsTable.createdAt))
+    : await db.select().from(productsTable).where(and(...conditions)).orderBy(desc(productsTable.createdAt));
   res.json(products);
 });
 

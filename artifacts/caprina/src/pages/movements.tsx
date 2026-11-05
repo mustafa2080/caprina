@@ -270,20 +270,21 @@ export default function Movements() {
   const { data: movements = [], isLoading } = useQuery({
     queryKey: ["movements", filters],
     queryFn: () => movementsApi.list(filters),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 
   const { data: totals } = useQuery({
     queryKey: ["movements-totals", filters],
     queryFn: () => movementsApi.totals(filters),
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 
   const { data: products = [] } = useQuery({
-    queryKey: ["products"],
-    queryFn: productsApi.list,
+    queryKey: ["products-lite"],
+    queryFn: productsApi.listLite,
+    staleTime: 60_000,
   });
 
   const { data: warehouses = [] } = useQuery({
