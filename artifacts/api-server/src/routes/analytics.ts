@@ -18,11 +18,13 @@ function setCached(key: string, data: any, ttlMs = 30 * 60 * 1000) {
 }
 // ظٹظڈظ†ط§ط¯ظ‰ ط¹ظ„ظٹظ‡ط§ ظ…ظ† orders route ط¹ظ†ط¯ ط£ظٹ طھط؛ظٹظٹط± ظپظٹ ط­ط§ظ„ط© ط§ظ„ط·ظ„ط¨ط§طھ
 export function invalidateChartsCache(tenantId: number | null) {
+  clearMemoForTenant(tenantId);
   const key = `charts:${tenantId ?? "global"}`;
   analyticsCache.delete(key);
 }
 
 export function invalidateSmartCache(tenantId: number | null) {
+  clearMemoForTenant(tenantId);
   // امسح كل الـ keys اللي فيها smart-insights أو analytics-profit أو analytics-alerts
   for (const key of analyticsCache.keys()) {
     if (key.startsWith(`smart-insights:${tenantId ?? "global"}`) ||
@@ -31,6 +33,84 @@ export function invalidateSmartCache(tenantId: number | null) {
       analyticsCache.delete(key);
     }
   }
+}
+
+// ── Shared short-lived memo with in-flight de-duplication ─────────────────────
+// The dashboard fires many analytics requests at once; each used to load every
+// order + run 3 version queries. Now concurrent/near-simultaneous requests share one load.
+const memoStore = new Map<string, { value: any; expiresAt: number }>();
+const memoInflight = new Map<string, Promise<any>>();
+async function memo<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = memoStore.get(key);
+  if (hit && Date.now() < hit.expiresAt) return hit.value as T;
+  const running = memoInflight.get(key);
+  if (running) return running as Promise<T>;
+  const p = fn()
+    .then((value) => { memoStore.set(key, { value, expiresAt: Date.now() + ttlMs }); return value; })
+    .finally(() => { memoInflight.delete(key); });
+  memoInflight.set(key, p);
+  return p;
+}
+function clearMemoForTenant(tenantId: number | null) {
+  const t = String(tenantId ?? "global");
+  memoStore.delete(`orders:${t}`);
+  memoStore.delete(`catver:${t}`);
+  memoStore.delete(`mo:${t}`);
+}
+
+// manifest<->order links scoped to the tenant (was an unfiltered full-table scan of every tenant,
+// repeated by 4 endpoints). Joined to shipping_manifests: the drizzle schema has no tenant column there.
+function getManifestOrderRows(tenantId: number | null) {
+  return memo(`mo:${tenantId ?? "global"}`, 10_000, () => {
+    const base = db
+      .select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
+      .from(shippingManifestOrdersTable);
+    if (tenantId === null) return base;
+    return base
+      .innerJoin(shippingManifestsTable, eq(shippingManifestOrdersTable.manifestId, shippingManifestsTable.id))
+      .where(sql`shipping_manifests.tenant_id = ${tenantId}`);
+  });
+}
+
+function loadTenantOrders(tenantId: number | null) {
+  return memo(`orders:${tenantId ?? "global"}`, 10_000, () => {
+    const conds: any[] = [isNull(ordersTable.deletedAt)];
+    if (tenantId !== null) conds.push(eq(ordersTable.tenantId, tenantId));
+    return db.select().from(ordersTable).where(and(...conds));
+  });
+}
+
+function getCatalogVersions(tenantId: number | null) {
+  return memo(`catver:${tenantId ?? "global"}`, 10_000, async () => {
+    const conds: any[] = [eq(productsTable.isArchived, false)];
+    if (tenantId !== null) conds.push(eq(productsTable.tenantId, tenantId));
+    const [pRows, vRows, sRows] = await Promise.all([
+      db.select({
+        count: count(),
+        lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
+      }).from(productsTable).where(and(...conds)),
+      db.select({
+        count: count(),
+        lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
+      })
+        .from(productVariantsTable)
+        .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...conds))
+        .where(and(...conds)),
+      db.select({
+        count: count(),
+        qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
+        lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
+      })
+        .from(warehouseStockTable)
+        .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...conds))
+        .where(and(...conds)),
+    ]);
+    return {
+      productVersion: pRows[0] ?? { count: 0, lastUpdated: null as string | null },
+      variantVersion: vRows[0] ?? { count: 0, lastUpdated: null as string | null },
+      stockVersion: sRows[0] ?? { count: 0, qty: 0 as number | null, lastUpdated: null as string | null },
+    };
+  });
 }
 
 const router: IRouter = Router();
@@ -196,24 +276,12 @@ router.get("/analytics/profit", requirePermission("orders.financials"), async (r
   startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const ordersBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
-  if (tenantId !== null) ordersBaseConditions.push(eq(ordersTable.tenantId, tenantId));
-
-  const productsConditions: any[] = [];
-  if (tenantId !== null) productsConditions.push(eq(productsTable.tenantId, tenantId));
-
-  const variantsConditions: any[] = [];
-  if (tenantId !== null) variantsConditions.push(eq(productVariantsTable.tenantId, tenantId));
-
-  const manifestsConditions: any[] = [];
-  if (tenantId !== null) manifestsConditions.push(sql.raw(`shipping_manifests.tenant_id = ${tenantId}`));
-
   const [allOrdersRaw, products, variants, manifests, manifestOrders] = await Promise.all([
-    db.select().from(ordersTable).where(and(...ordersBaseConditions)),
+    loadTenantOrders(tenantId),
     getProductsForTenant(tenantId),
     getVariantsForTenant(tenantId),
     getManifestsForTenant(tenantId),
-    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId }).from(shippingManifestOrdersTable),
+    getManifestOrderRows(tenantId),
   ]);
 
   // بناء map: orderId → تكلفة شحن موزعة (manualShippingCost ÷ عدد الطلبيات في البيان)
@@ -380,33 +448,7 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   const productConditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) productConditions.push(eq(productsTable.tenantId, tenantId));
 
-  const [productVersionRows, variantVersionRows, stockVersionRows] = await Promise.all([
-    db.select({
-      count: count(),
-      lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
-    })
-      .from(productsTable)
-      .where(and(...productConditions)),
-    db.select({
-      count: count(),
-      lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
-    })
-      .from(productVariantsTable)
-      .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...productConditions))
-      .where(and(...productConditions)),
-    db.select({
-      count: count(),
-      qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
-      lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
-    })
-      .from(warehouseStockTable)
-      .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...productConditions))
-      .where(and(...productConditions)),
-  ]);
-
-  const productVersion = productVersionRows[0] ?? { count: 0, lastUpdated: null };
-  const variantVersion = variantVersionRows[0] ?? { count: 0, lastUpdated: null };
-  const stockVersion = stockVersionRows[0] ?? { count: 0, qty: 0, lastUpdated: null };
+  const { productVersion, variantVersion, stockVersion } = await getCatalogVersions(tenantId);
 
   const fsCacheKey = `analytics-financial:${tenantId ?? "global"}:${period ?? ""}:${fromParam ?? ""}:${toParam ?? ""}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const fsCached = getCached<any>(fsCacheKey);
@@ -416,12 +458,11 @@ router.get("/analytics/financial-summary", requirePermission("orders.financials"
   if (tenantId !== null) fsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
 
   const [allOrdersRaw, products, variants, allManifests, allManifestOrders] = await Promise.all([
-    db.select().from(ordersTable).where(and(...fsBaseConditions)),
+    loadTenantOrders(tenantId),
     getProductsForTenant(tenantId),
     getVariantsForTenant(tenantId),
     getManifestsForTenant(tenantId),
-    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
-      .from(shippingManifestOrdersTable),
+    getManifestOrderRows(tenantId),
   ]);
 
   // نقطة صفر للحسابات المالية: أي أوردر قبل التاريخ ده يُستبعد من كل حسابات الأرباح
@@ -826,40 +867,14 @@ router.get("/analytics/alerts", async (req, res): Promise<void> => {
   const alertProductConditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) alertProductConditions.push(eq(productsTable.tenantId, tenantId));
 
-  const [productVersionRows, variantVersionRows, stockVersionRows] = await Promise.all([
-    db.select({
-      count: count(),
-      lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
-    })
-      .from(productsTable)
-      .where(and(...alertProductConditions)),
-    db.select({
-      count: count(),
-      lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
-    })
-      .from(productVariantsTable)
-      .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...alertProductConditions))
-      .where(and(...alertProductConditions)),
-    db.select({
-      count: count(),
-      qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
-      lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
-    })
-      .from(warehouseStockTable)
-      .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...alertProductConditions))
-      .where(and(...alertProductConditions)),
-  ]);
-
-  const productVersion = productVersionRows[0] ?? { count: 0, lastUpdated: null };
-  const variantVersion = variantVersionRows[0] ?? { count: 0, lastUpdated: null };
-  const stockVersion = stockVersionRows[0] ?? { count: 0, qty: 0, lastUpdated: null };
+  const { productVersion, variantVersion, stockVersion } = await getCatalogVersions(tenantId);
   const cacheKey = `analytics-alerts:${tenantId ?? "global"}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const cached = getCached<any>(cacheKey);
   if (cached) { res.json(cached); return; }
   const alertsBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) alertsBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(and(...alertsBaseConditions)),
+    loadTenantOrders(tenantId),
     getProductsForTenant(tenantId),
     getVariantsForTenant(tenantId),
   ]);
@@ -1095,7 +1110,7 @@ router.get("/analytics/stock-intelligence", async (req, res): Promise<void> => {
   const siBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) siBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants] = await Promise.all([
-    db.select().from(ordersTable).where(and(...siBaseConditions)),
+    loadTenantOrders(tenantId),
     getProductsForTenant(tenantId),
     getVariantsForTenant(tenantId),
   ]);
@@ -1235,33 +1250,7 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const smartProductConditions: any[] = [eq(productsTable.isArchived, false)];
   if (tenantId !== null) smartProductConditions.push(eq(productsTable.tenantId, tenantId));
 
-  const [productVersionRows, variantVersionRows, stockVersionRows] = await Promise.all([
-    db.select({
-      count: count(),
-      lastUpdated: sql<string | null>`MAX(${productsTable.updatedAt})`,
-    })
-      .from(productsTable)
-      .where(and(...smartProductConditions)),
-    db.select({
-      count: count(),
-      lastUpdated: sql<string | null>`MAX(${productVariantsTable.updatedAt})`,
-    })
-      .from(productVariantsTable)
-      .innerJoin(productsTable, and(eq(productVariantsTable.productId, productsTable.id), ...smartProductConditions))
-      .where(and(...smartProductConditions)),
-    db.select({
-      count: count(),
-      qty: sql<number | null>`COALESCE(SUM(${warehouseStockTable.quantity}), 0)`,
-      lastUpdated: sql<string | null>`MAX(${warehouseStockTable.updatedAt})`,
-    })
-      .from(warehouseStockTable)
-      .innerJoin(productsTable, and(eq(warehouseStockTable.productId, productsTable.id), ...smartProductConditions))
-      .where(and(...smartProductConditions)),
-  ]);
-
-  const productVersion = productVersionRows[0] ?? { count: 0, lastUpdated: null };
-  const variantVersion = variantVersionRows[0] ?? { count: 0, lastUpdated: null };
-  const stockVersion = stockVersionRows[0] ?? { count: 0, qty: 0, lastUpdated: null };
+  const { productVersion, variantVersion, stockVersion } = await getCatalogVersions(tenantId);
 
   const siCacheKey = `smart-insights:${tenantId ?? "global"}:${productVersion.count}:${productVersion.lastUpdated ?? ""}:${variantVersion.count}:${variantVersion.lastUpdated ?? ""}:${stockVersion.count}:${stockVersion.qty ?? 0}:${stockVersion.lastUpdated ?? ""}`;
   const siCached = getCached<any>(siCacheKey);
@@ -1269,12 +1258,11 @@ router.get("/analytics/smart-insights", async (req, res): Promise<void> => {
   const smBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) smBaseConditions.push(eq(ordersTable.tenantId, tenantId));
   const [allOrders, products, variants, allManifests, allManifestOrders] = await Promise.all([
-    db.select().from(ordersTable).where(and(...smBaseConditions)),
+    loadTenantOrders(tenantId),
     getProductsForTenant(tenantId),
     getVariantsForTenant(tenantId),
     getManifestsForTenant(tenantId),
-    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
-      .from(shippingManifestOrdersTable),
+    getManifestOrderRows(tenantId),
   ]);
 
   const variantMap = new Map<number, number | null>(variants.map(v => [v.id, v.costPrice]));
@@ -1684,12 +1672,11 @@ router.get("/analytics/charts", async (req, res): Promise<void> => {
   if (tenantId !== null) manifestsChartConditions.push(sql.raw(`shipping_manifests.tenant_id = ${tenantId}`));
 
   const [allOrders, chartsManifests, chartsManifestOrders] = await Promise.all([
-    db.select().from(ordersTable).where(and(...chartsBaseConditions)),
+    loadTenantOrders(tenantId),
     db.select({ id: shippingManifestsTable.id, manualShippingCost: shippingManifestsTable.manualShippingCost })
       .from(shippingManifestsTable)
       .where(manifestsChartConditions.length ? and(...manifestsChartConditions) : undefined),
-    db.select({ manifestId: shippingManifestOrdersTable.manifestId, orderId: shippingManifestOrdersTable.orderId })
-      .from(shippingManifestOrdersTable),
+    getManifestOrderRows(tenantId),
   ]);
 
   // بناء chartsManifestOrders و chartsManifests لاستخدامها لاحقاً في حساب الإيرادات
@@ -1910,7 +1897,7 @@ router.get("/analytics/monthly-sales", requireAuth, async (req, res): Promise<vo
   const tenantId = getTenantId(req);
   const msBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
   if (tenantId !== null) msBaseConditions.push(eq(ordersTable.tenantId, tenantId));
-  const allOrders = await db.select().from(ordersTable).where(and(...msBaseConditions));
+  const allOrders = await loadTenantOrders(tenantId);
 
   // group by invoice
   const invoiceMap = new Map<string, { status: string; createdAt: Date; revenue: number }>();

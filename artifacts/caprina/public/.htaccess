@@ -1,5 +1,18 @@
 Options -Indexes
 
+# Caching: hashed build assets never change -> cache for 1 year (no revalidation round trip)
+<IfModule mod_headers.c>
+    <FilesMatch "^(index-.*|vendor-.*)\.(js|css)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    <FilesMatch "\.(jpg|jpeg|png|svg|ico|woff|woff2|mp4|webm)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+    <FilesMatch "^(index\.html|sw\.js|manifest\.json)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+
 # ─── MIME Types ───────────────────────────────────────────────────────────────
 AddType application/manifest+json .json
 AddType application/javascript .js .mjs

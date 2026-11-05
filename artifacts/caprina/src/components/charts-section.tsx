@@ -1129,7 +1129,7 @@ export function ChartsSection() {
     queryKey: ["analytics-charts"],
     queryFn: analyticsApi.charts,
     staleTime: 0,           // دايماً fresh لما يتعمل invalidate
-    refetchInterval: 15000, // كل 15 ثانية كـ fallback
+    refetchInterval: 60000, // كل 60 ثانية كـ fallback (كان 15 وبيضغط على السيرفر)
     refetchOnWindowFocus: true, // لما المستخدم يرجع للتبويبة يحدث فوراً
   });
 

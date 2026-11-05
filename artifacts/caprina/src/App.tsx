@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { BrandLogoMark } from "@/components/brand-logo";
 import Layout from "@/components/layout";
 import { SubscriptionBlocker } from "@/components/subscription-blocker";
+import { SmoothScroll, scrollMainToTop } from "@/components/smooth-scroll";
 
 // ─── Global Error Boundary ───────────────────────────────────────────────────
 interface EBState { hasError: boolean; errorMsg: string }
@@ -155,8 +156,7 @@ function ScrollToTop() {
   useEffect(() => {
     const scrollAll = () => {
       // اعمل scroll على كل العناصر الممكنة
-      const el = document.getElementById("main-scroll-area");
-      if (el) el.scrollTop = 0;
+      scrollMainToTop();
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
@@ -176,6 +176,7 @@ function PermissionRefresher() {
   const [location] = useLocation();
   const prevLocation = useRef<string | null>(null);
   const refreshingRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
 
   useEffect(() => {
     // نعمل refresh لما يتغير الـ route فقط — مش لما يتغير الـ user
@@ -184,7 +185,8 @@ function PermissionRefresher() {
     // مش محتاج refresh على صفحة البروفايل أو الصفحات اللي مش محتاجة permissions
     const skipRefreshPaths = ["/profile", "/login", "/subscription-expired"];
     if (prevLocation.current !== null && prevLocation.current !== location) {
-      if (!skipRefreshPaths.includes(location)) {
+      if (!skipRefreshPaths.includes(location) && Date.now() - lastRefreshAtRef.current > 30_000) {
+        lastRefreshAtRef.current = Date.now();
         refreshingRef.current = true;
         refreshUser().finally(() => {
           refreshingRef.current = false;
@@ -393,6 +395,7 @@ function App() {
                 <AuthGuard>
                   <ErrorBoundary onRetry={() => queryClient.clear()}>
                     <ScrollToTop />
+                    <SmoothScroll />
                     <PermissionRefresher />
                     <Router />
                     <SubscriptionBlocker />

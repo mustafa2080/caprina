@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { signToken, comparePassword, hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { logAudit } from "../lib/audit.js";
+import { getTenantCached } from "../lib/tenantCache.js";
 
 // Helper: parse permissions from MariaDB (returns JSON as string, sometimes nested from JSON_ARRAY_APPEND)
 function parsePermissions(permissions: any): string[] {
@@ -89,7 +90,7 @@ router.get("/me", requireAuth, async (req, res): Promise<void> => {
   // أضف planStatus من الـ tenant
   let planStatus: string | null = null;
   if (user.tenantId) {
-    const [tenant] = await db.select({ planStatus: tenantsTable.planStatus }).from(tenantsTable).where(eq(tenantsTable.id, user.tenantId)).limit(1);
+    const tenant = await getTenantCached(user.tenantId);
     planStatus = tenant?.planStatus ?? null;
   }
   res.json({ ...safeUser, permissions: finalPerms, planStatus });

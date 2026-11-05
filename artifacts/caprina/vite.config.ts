@@ -48,6 +48,10 @@ export default defineConfig({
         manualChunks: {
           "vendor-react":  ["react", "react-dom"],
           "vendor-query":  ["@tanstack/react-query"],
+          // clsx/tailwind-merge/cva are used app-wide (cn()). If they're left unassigned, Rollup
+          // folds clsx into vendor-charts and the entry chunk then loads the 455KB charts chunk
+          // on every page (including login). Keep them in their own tiny chunk.
+          "vendor-utils":  ["clsx", "tailwind-merge", "class-variance-authority"],
           "vendor-charts": ["recharts"],
           "vendor-ui": [
             "@radix-ui/react-dialog",

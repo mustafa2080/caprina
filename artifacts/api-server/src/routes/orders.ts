@@ -25,6 +25,14 @@ router.use(requireAuth);
 
 const LOCKED_STATUSES = ["received", "partial_received"] as const;
 
+// Invoice-level status resolution (lowest priority number wins) – used to filter /orders by status in SQL
+const ORDER_STATUS_PRIORITY: Record<string, number> = {
+  returned: 1, pending: 2, in_shipping: 3, warehouse_ready: 4, delayed: 5, partial_received: 6, received: 7,
+};
+const ORDER_STATUS_PRIORITY_SQL = sql.raw(
+  "CASE o2.status WHEN 'returned' THEN 1 WHEN 'pending' THEN 2 WHEN 'in_shipping' THEN 3 WHEN 'warehouse_ready' THEN 4 WHEN 'delayed' THEN 5 WHEN 'partial_received' THEN 6 WHEN 'received' THEN 7 ELSE 99 END"
+);
+
 // ظ¤ظ¤ظ¤ Helper: generate invoice number ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
 function generateInvoiceNumber(): string {
   const now = new Date();
@@ -638,6 +646,19 @@ router.get("/orders", async (req, res): Promise<void> => {
 
   const isDashboard = (req.query as any).source === "dashboard";
 
+  // One query for open manifest ids per request (was executed up to 3 times)
+  let openManifestIdsPromise: Promise<number[]> | null = null;
+  const getOpenManifestIds = (): Promise<number[]> => {
+    if (!openManifestIdsPromise) {
+      openManifestIdsPromise = db
+        .select({ id: shippingManifestsTable.id })
+        .from(shippingManifestsTable)
+        .where(eq(shippingManifestsTable.status, "open"))
+        .then((r) => r.map((m) => m.id));
+    }
+    return openManifestIdsPromise;
+  };
+
   if (params.data.status) {
     if (isDashboard) {
       conditions.push(eq(ordersTable.status, params.data.status as any));
@@ -645,11 +666,7 @@ router.get("/orders", async (req, res): Promise<void> => {
       // الطلبات المؤجلة: status بتاعها in_shipping لكن deliveryStatus = postponed في بيان مفتوح
       // نجيب الـ IDs من البيانات المفتوحة أولاً (نفس الـ postponedOrderIdsSet اللي هيتبنى بعدين)
       // هنا نبني مؤقتاً عشان نحدد الـ conditions قبل الـ query
-      const openMfForFilter = await db
-        .select({ id: shippingManifestsTable.id })
-        .from(shippingManifestsTable)
-        .where(eq(shippingManifestsTable.status, "open"));
-      const openMfIds = openMfForFilter.map(m => m.id);
+      const openMfIds = await getOpenManifestIds();
       if (openMfIds.length > 0) {
         const postponedLinks = await db
           .select({ orderId: shippingManifestOrdersTable.orderId })
@@ -671,6 +688,22 @@ router.get("/orders", async (req, res): Promise<void> => {
       }
     } else {
       // ╪ذ┘╪ش┘è╪ذ ┘┘é╪╖ ╪د┘┘ invoiceNumbers ╪د┘┘┘è ┘â┘ rows ┘┘è┘ç╪د ┘┘╪│ ╪د┘┘ status ╪د┘┘à╪╖┘┘ê╪ذ
+      const statusPrio = ORDER_STATUS_PRIORITY[params.data.status as string];
+      if (statusPrio !== undefined) {
+        // Resolve invoice-level status inside the DB (no full-table pull, no giant IN list)
+        const tenantSql = tenantId !== null ? sql` AND o2.tenant_id = ${tenantId}` : sql``;
+        conditions.push(or(
+          and(
+            isNotNull(ordersTable.invoiceNumber),
+            sql`${ordersTable.invoiceNumber} <> ''`,
+            sql`${ordersTable.invoiceNumber} IN (SELECT o2.invoice_number FROM orders o2 WHERE o2.deleted_at IS NULL${tenantSql} AND o2.invoice_number IS NOT NULL AND o2.invoice_number <> '' GROUP BY o2.invoice_number HAVING MIN(${ORDER_STATUS_PRIORITY_SQL}) = ${statusPrio})`,
+          ),
+          and(
+            or(isNull(ordersTable.invoiceNumber), sql`${ordersTable.invoiceNumber} = ''`),
+            eq(ordersTable.status, params.data.status as any),
+          ),
+        ));
+      } else {
       const allInvBaseConditions: any[] = [isNull(ordersTable.deletedAt)];
       if (tenantId !== null) allInvBaseConditions.push(eq(ordersTable.tenantId, tenantId));
       const allInvRows = await db
@@ -726,17 +759,14 @@ router.get("/orders", async (req, res): Promise<void> => {
         res.json([]);
         return;
       }
+      } // end legacy status resolution (unknown statuses)
     }
   }
 
   let manifestOrderIdsSet = new Set<number>();
   const skipManifestFilter = (req.query as any).includeInManifest === "true" || (req.query as any).source === "dashboard";
   if (params.data.status === "in_shipping" && !skipManifestFilter) {
-    const openManifests = await db
-      .select({ id: shippingManifestsTable.id })
-      .from(shippingManifestsTable)
-      .where(eq(shippingManifestsTable.status, "open"));
-    const openManifestIds = openManifests.map(m => m.id);
+    const openManifestIds = await getOpenManifestIds();
     if (openManifestIds.length > 0) {
       const inManifest = await db
         .select({ orderId: shippingManifestOrdersTable.orderId })
@@ -788,15 +818,10 @@ router.get("/orders", async (req, res): Promise<void> => {
     query = query.limit(500);
   }
 
-  const rows = await query;
+  const [rows, openManifestIds] = await Promise.all([query, getOpenManifestIds()]);
 
   // جيب الطلبات المؤجلة (postponed) من البيانات المفتوحة
   // الطلب المؤجل في البيان status بتاعه in_shipping لكن deliveryStatus = postponed
-  const openManifestsList = await db
-    .select({ id: shippingManifestsTable.id })
-    .from(shippingManifestsTable)
-    .where(eq(shippingManifestsTable.status, "open"));
-  const openManifestIds = openManifestsList.map(m => m.id);
   const postponedOrderIdsSet = new Set<number>();
   const postponedNoteMapFromManifest = new Map<number, string | null>();
   // الطلبات المرتجعة في بيان مفتوح (لسه عند شركة الشحن → تظهر كـ in_shipping في قسم الطلبات)
