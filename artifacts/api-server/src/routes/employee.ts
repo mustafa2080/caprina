@@ -932,6 +932,7 @@ router.get("/analytics/my-report", async (req, res): Promise<void> => {
       rating: noProfileRating,
       salary: 0,
     });
+    return; // was missing: fell through to row.profile.id (row undefined) -> TypeError + headers already sent
   }
 
   // Has profile â€” run full report logic directly (no redirect)
